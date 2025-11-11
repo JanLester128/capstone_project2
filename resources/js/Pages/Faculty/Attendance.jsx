@@ -1,12 +1,12 @@
 import { Head } from '@inertiajs/react'
 import FacultySidebar from '../Auth/Faculty_sidebar'
 
-export default function FacultyAttendance({ flash = {} }) {
+export default function FacultyAttendance({ user = {}, flash = {} }) {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Head title="Attendance - Faculty" />
       
-      <FacultySidebar />
+      <FacultySidebar user={user} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}

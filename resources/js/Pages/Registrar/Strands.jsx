@@ -6,7 +6,7 @@ import SectionCard from './Components/SectionCard'
 import SectionForm from './Components/SectionForm'
 import ReopenSectionModal from './Components/ReopenSectionModal'
 
-export default function Strands({ strands = [], sections = [], previousSections = [], users = [], activeSchoolYear, flash = {} }) {
+export default function Strands({ strands = [], sections = [], previousSections = [], users = [], activeSchoolYear, activeSemester, flash = {} }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingStrand, setEditingStrand] = useState(null)
@@ -130,23 +130,8 @@ export default function Strands({ strands = [], sections = [], previousSections 
     const strandSections = selectedSections.filter(id => 
       previousSections.find(s => s.id === id && s.strand_id === strandId)
     )
-    
-    if (strandSections.length === 0) {
-      alert('Please select at least one section to reopen.')
-      return
-    }
-
-    if (confirm(`Are you sure you want to reopen ${strandSections.length} sections?`)) {
-      router.post('/registrar/sections/reopen-bulk', {
-        section_ids: strandSections
-      }, {
-        onSuccess: () => {
-          setSelectedSections([])
-          setBulkReopenMode(false)
-        }
-      })
-    }
   }
+
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -169,8 +154,15 @@ export default function Strands({ strands = [], sections = [], previousSections 
                   Manage Senior High School strands and their sections in one place
                 </p>
                 {activeSchoolYear && (
-                  <div className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    Active School Year: {activeSchoolYear.School_year_start}-{activeSchoolYear.School_year_end}
+                  <div className="mt-2 space-y-1">
+                    <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Active School Year: {activeSchoolYear.School_year_start}-{activeSchoolYear.School_year_end}
+                    </div>
+                    {activeSemester && (
+                      <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">
+                        Active Semester: {activeSemester.semester_type}
+                      </div>
+                    )}
                   </div>
                 )}
                 {!activeSchoolYear && (
@@ -254,7 +246,7 @@ export default function Strands({ strands = [], sections = [], previousSections 
               
               return (
                 <div key={strand.id} className={`bg-white rounded-xl shadow-sm border-2 transition-all duration-200 min-h-[200px] w-full max-w-full overflow-hidden ${
-                  strand.is_active_for_year ? 'border-green-200' : 'border-gray-200'
+                  (activeSemester ? strand.is_active_for_semester : strand.is_active_for_year) ? 'border-green-200' : 'border-gray-200'
                 } ${isExpanded ? 'shadow-lg' : 'hover:shadow-md'}`}>
                   
                   {/* Strand Header - HCI Principle 8: Aesthetic and minimalist design */}
@@ -272,11 +264,16 @@ export default function Strands({ strands = [], sections = [], previousSections 
                             <h3 className="text-xl font-bold text-gray-900">{strand.Strand_code}</h3>
                           </button>
                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                            strand.is_active_for_year 
+                            (activeSemester ? strand.is_active_for_semester : strand.is_active_for_year)
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-red-100 text-red-800'
                           }`}>
-                            {strand.is_active_for_year ? 'Active' : 'Inactive'}
+                            {(activeSemester ? strand.is_active_for_semester : strand.is_active_for_year) ? 'Active' : 'Inactive'}
+                            {activeSemester && (
+                              <span className="ml-1 text-xs opacity-75">
+                                (Semester)
+                              </span>
+                            )}
                           </span>
                         </div>
                         <p className="text-gray-600 mb-3">{strand.Strand_name}</p>
@@ -313,7 +310,7 @@ export default function Strands({ strands = [], sections = [], previousSections 
                       
                       {/* Strand Actions */}
                       <div className="flex items-center gap-2">
-                        {strand.is_active_for_year && (
+                        {(activeSemester ? strand.is_active_for_semester : strand.is_active_for_year) && (
                           <button
                             onClick={() => handleAddSection(strand)}
                             className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
@@ -334,14 +331,19 @@ export default function Strands({ strands = [], sections = [], previousSections 
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDisable(strand)}
+                          onClick={() => router.put(`/registrar/strands/${strand.id}/toggle`, {}, {
+                            onSuccess: () => {
+                              // Force page refresh to update strand status
+                              window.location.reload()
+                            }
+                          })}
                           className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
-                            strand.is_active_for_year 
+                            (activeSemester ? strand.is_active_for_semester : strand.is_active_for_year)
                               ? 'text-orange-600 bg-orange-50 hover:bg-orange-100 focus:ring-orange-500' 
                               : 'text-green-600 bg-green-50 hover:bg-green-100 focus:ring-green-500'
                           }`}
                         >
-                          {strand.is_active_for_year ? (
+                          {(activeSemester ? strand.is_active_for_semester : strand.is_active_for_year) ? (
                             <>
                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
@@ -662,6 +664,7 @@ export default function Strands({ strands = [], sections = [], previousSections 
           onClose={() => setReopeningSection(null)}
         />
       )}
+
     </div>
   )
 }

@@ -10,6 +10,9 @@ export default function RegistrarSidebar() {
   const nav = registrarNav
 
   function isActive(href) {
+    // Safety check: ensure url is defined
+    if (!url) return false
+    
     // Exact match for dashboard to prevent it being active on sub-routes
     if (href === '/registrar') {
       return url === '/registrar'

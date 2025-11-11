@@ -82,6 +82,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the student personal information.
+     */
+    public function studentPersonalInfo()
+    {
+        return $this->hasOne(StudentPersonalInfo::class);
+    }
+
+    /**
      * Get the full name of the user.
      */
     public function getFullNameAttribute(): string

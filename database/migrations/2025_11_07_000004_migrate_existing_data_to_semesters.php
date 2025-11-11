@@ -40,6 +40,15 @@ return new class extends Migration
                 'is_active' => false // Only first semester active by default
             ]);
             
+            $summerSemester = Semester::firstOrCreate([
+                'school_year_id' => $schoolYear->id,
+                'semester_type' => 'Summer'
+            ], [
+                'start_date' => null,
+                'end_date' => null,
+                'is_active' => false // Summer semester inactive by default
+            ]);
+            
             // Migrate existing subjects
             $subjects = Subject::where('school_year_id', $schoolYear->id)
                               ->whereNull('semester_id')

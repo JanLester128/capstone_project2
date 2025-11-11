@@ -9,7 +9,10 @@ use App\Models\Strand;
 use App\Models\SchoolYear;
 use App\Models\Semester;
 use App\Models\ClassModel;
+use App\Models\StudentPersonalInfo;
+use App\Models\Enrollment;
 use App\Mail\FacultyAccountCreated;
+use App\Mail\StudentApprovalNotification;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Hash;
@@ -208,36 +211,84 @@ class RegistrarController extends Controller
         // Get previous sections from other semesters/school years for reopening
         $previousSections = collect();
         if ($activeSchoolYear && $activeSemester) {
-            $previousSections = Section::with(['strand', 'schoolYear', 'semester'])
+            // SIMPLIFIED APPROACH: Find sections that can be reopened for the current semester
+            // 1. Get all sections from the same school year but different semesters
+            // 2. Get all sections from different school years
+            // 3. Filter by strand activation and duplicate check
+            
+            // Simplified approach: Get all sections that are NOT from the current semester
+            $candidateSections = Section::with(['strand', 'schoolYear', 'semester'])
                 ->where(function ($query) use ($activeSchoolYear, $activeSemester) {
-                    // From different school years OR different semesters in same school year
-                    $query->where('school_year_id', '!=', $activeSchoolYear->id)
+                    $query->where('school_year_id', '!=', $activeSchoolYear->id) // Different school years
                           ->orWhere(function ($subQuery) use ($activeSchoolYear, $activeSemester) {
+                              // Same school year but not current semester
                               $subQuery->where('school_year_id', $activeSchoolYear->id)
                                        ->where('semester_id', '!=', $activeSemester->id);
+                          })
+                          ->orWhere(function ($subQuery) use ($activeSchoolYear) {
+                              // Same school year with NULL semester_id
+                              $subQuery->where('school_year_id', $activeSchoolYear->id)
+                                       ->whereNull('semester_id');
                           });
                 })
-                ->orderBy('school_year_id', 'desc')
-                ->orderBy('semester_id', 'desc')
-                ->get()
+                ->get();
+            
+            $previousSections = $candidateSections
                 ->filter(function ($section) use ($activeSchoolYear, $activeSemester) {
-                    // Only show sections that don't already exist for the active school year and semester
-                    return !Section::where('section_name', $section->section_name)
+                    // Check if strand is active for current semester
+                    if ($section->strand_id) {
+                        $strandActive = DB::table('strand_semester')
+                            ->where('strand_id', $section->strand_id)
+                            ->where('semester_id', $activeSemester->id)
+                            ->where('is_active', true)
+                            ->exists();
+                        
+                        if (!$strandActive) {
+                            return false;
+                        }
+                    }
+                    
+                    // Check if section doesn't already exist in current semester
+                    $alreadyExists = Section::where('section_name', $section->section_name)
                         ->where('school_year_id', $activeSchoolYear->id)
                         ->where('semester_id', $activeSemester->id)
                         ->exists();
+                    
+                    return !$alreadyExists;
                 })
                 ->groupBy('section_name')
                 ->map(function ($sectionsWithSameName) {
-                    // For sections with the same name, only return the most recent one
+                    // Return the most recent section with this name
                     return $sectionsWithSameName->sortByDesc(function ($section) {
-                        return $section->school_year_id . '-' . $section->semester_id;
+                        return ($section->school_year_id * 1000) + ($section->semester_id ?? 0);
                     })->first();
                 })
-                ->values(); // Reset array keys
+                ->values();
         }
         
-        $strands = Strand::where('Is_active', true)->get();
+        // Get strands that are active - prioritize semester, then school year, then general
+        $strands = collect();
+        
+        if ($activeSemester) {
+            $strands = Strand::whereHas('semesters', function ($query) use ($activeSemester) {
+                $query->where('strand_semester.semester_id', $activeSemester->id)
+                      ->where('strand_semester.is_active', true);
+            })->get();
+        }
+        
+        // If no strands found via semester relationship, fall back to school year relationship
+        if ($strands->isEmpty() && $activeSchoolYear) {
+            $strands = Strand::whereHas('schoolYears', function ($query) use ($activeSchoolYear) {
+                $query->where('strand_school_year.school_year_id', $activeSchoolYear->id)
+                      ->where('strand_school_year.is_active', true);
+            })->get();
+        }
+        
+        // If still no strands found, fall back to Is_active (for backward compatibility)
+        if ($strands->isEmpty()) {
+            $strands = Strand::where('Is_active', true)->get();
+        }
+        
         $schoolYears = SchoolYear::orderBy('School_year_start', 'desc')->get();
         $users = User::where('Role', 'Faculty')->get(['id', 'FirstName', 'MiddleName', 'LastName']);
 
@@ -270,8 +321,8 @@ class RegistrarController extends Controller
                 'string',
                 'max:255',
                 function ($attribute, $value, $fail) use ($request, $activeSchoolYear, $activeSemester) {
-                    $schoolYearId = $request->input('school_year_id') ?? ($activeSchoolYear?->id);
-                    $semesterId = $request->input('semester_id') ?? ($activeSemester?->id);
+                    $schoolYearId = $request->input('school_year_id') ?? ($activeSchoolYear ? $activeSchoolYear->id : null);
+                    $semesterId = $request->input('semester_id') ?? ($activeSemester ? $activeSemester->id : null);
                     if ($schoolYearId && $semesterId && Section::where('section_name', $value)
                         ->where('school_year_id', $schoolYearId)
                         ->where('semester_id', $semesterId)
@@ -287,9 +338,16 @@ class RegistrarController extends Controller
             'adviser_id' => 'nullable|exists:users,id',
         ]);
 
+        Log::info('Active school year and semester found', [
+            'school_year' => $activeSchoolYear->School_year_start . '-' . $activeSchoolYear->School_year_end,
+            'semester' => $activeSemester->semester_type
+        ]);
+
+        Log::info('Starting validation');
+
         // Use active school year and semester if not provided
-        $schoolYearId = $validated['school_year_id'] ?? ($activeSchoolYear?->id);
-        $semesterId = $activeSemester?->id;
+        $schoolYearId = $validated['school_year_id'] ?? ($activeSchoolYear ? $activeSchoolYear->id : null);
+        $semesterId = $activeSemester ? $activeSemester->id : null;
         
         if (!$schoolYearId) {
             return redirect()->route('registrar.strands')
@@ -426,19 +484,40 @@ class RegistrarController extends Controller
             ])->with('error', 'No active school year. Please activate a school year first.');
         }
         
-        // Note: We allow operation without active semester for backward compatibility
-        // In production, you may want to enforce semester requirement
+        if (!$activeSemester) {
+            return Inertia::render('Registrar/Subjects', [
+                'subjects' => collect(),
+                'strands' => collect(),
+                'semesters' => [],
+                'activeSchoolYear' => $activeSchoolYear,
+                'activeSemester' => null,
+            ])->with('error', 'No active semester. Please activate a semester first before managing subjects.');
+        }
         
         // Only return subjects for the active school year and semester
-        $subjects = Subject::with(['strand', 'schoolYear', 'semester'])
-            ->where('school_year_id', $activeSchoolYear->id)
-            ->when($activeSemester, function ($query) use ($activeSemester) {
-                return $query->where('semester_id', $activeSemester->id);
-            })
-            ->orderBy('year_level')
-            ->orderBy('Semester')
-            ->orderBy('Subject_name')
-            ->get();
+        try {
+            $subjects = Subject::with(['strand', 'schoolYear', 'semester'])
+                ->where('school_year_id', $activeSchoolYear->id)
+                ->when($activeSemester, function ($query) use ($activeSemester) {
+                    return $query->where('semester_id', $activeSemester->id);
+                })
+                ->orderBy('year_level')
+                ->orderBy('Semester')
+                ->orderBy('Subject_name')
+                ->get();
+        } catch (\Exception $e) {
+            // Fallback if semester_id column doesn't exist yet
+            if (str_contains($e->getMessage(), 'Unknown column') || str_contains($e->getMessage(), 'Column not found')) {
+                $subjects = Subject::with(['strand', 'schoolYear'])
+                    ->where('school_year_id', $activeSchoolYear->id)
+                    ->orderBy('year_level')
+                    ->orderBy('Semester')
+                    ->orderBy('Subject_name')
+                    ->get();
+            } else {
+                throw $e;
+            }
+        }
         
         // Get strands that are active - prioritize semester, then school year, then general
         $strands = collect();
@@ -489,42 +568,43 @@ class RegistrarController extends Controller
                 ->with('error', 'No active school year. Please activate a school year first.');
         }
         
-        // Note: We allow operation without active semester for backward compatibility
-        // If no active semester, we'll skip semester-specific validation
+        if (!$activeSemester) {
+            return redirect()->route('registrar.subjects')
+                ->with('error', 'No active semester. Please activate a semester first before adding subjects.');
+        }
 
         $validated = $request->validate([
             'Subject_name' => 'required|string|max:255',
             'Subject_code' => 'required|string|max:20',
-            'Semester' => 'required|string|in:1,2',
+            // Removed manual semester selection - will use active semester automatically
             'year_level' => 'required|integer|in:11,12',
             'strand_id' => 'required|integer|exists:strands,id',
             'PREREQUISITES' => 'nullable|string|max:500',
             'CO-REQUISITES' => 'nullable|string|max:500',
         ]);
 
-        // Check uniqueness per school year and semester (if semester exists)
-        $existsQuery = Subject::where('Subject_code', $validated['Subject_code'])
-            ->where('school_year_id', $activeSchoolYear->id);
-            
-        if ($activeSemester) {
-            $existsQuery->where('semester_id', $activeSemester->id);
-        }
-        
-        $exists = $existsQuery->exists();
+        // Check uniqueness per school year and semester
+        $exists = Subject::where('Subject_code', $validated['Subject_code'])
+            ->where('school_year_id', $activeSchoolYear->id)
+            ->where('semester_id', $activeSemester->id)
+            ->exists();
 
         if ($exists) {
             return redirect()->route('registrar.subjects')
-                ->with('error', 'Subject code already exists for this school year and semester.');
+                ->with('error', "Subject code already exists for {$activeSemester->semester_type} of {$activeSchoolYear->School_year_start}-{$activeSchoolYear->School_year_end}.");
         }
 
+        // Automatically assign active school year and semester
         $validated['school_year_id'] = $activeSchoolYear->id;
-        if ($activeSemester) {
-            $validated['semester_id'] = $activeSemester->id;
-        }
+        $validated['semester_id'] = $activeSemester->id;
+        
+        // Set semester value based on active semester type for backward compatibility
+        $validated['Semester'] = $activeSemester->semester_type === '1st Semester' ? '1' : '2';
+        
         Subject::create($validated);
 
         return redirect()->route('registrar.subjects')
-            ->with('success', 'Subject created successfully.');
+            ->with('success', "Subject created successfully for {$activeSemester->semester_type} of {$activeSchoolYear->School_year_start}-{$activeSchoolYear->School_year_end}.");
     }
 
     /**
@@ -532,26 +612,6 @@ class RegistrarController extends Controller
      */
     public function bulkImportSubjects(Request $request)
     {
-        $validated = $request->validate([
-            'strand_id' => 'required|integer|exists:strands,id',
-            'year_level' => 'required|integer|in:11,12',
-            'semester' => 'required|string|in:1,2',
-        ]);
-
-        $strand = Strand::find($validated['strand_id']);
-        $strandCode = $strand->Strand_code;
-        
-        // Get predefined subjects from SubjectForm component logic
-        $subjectsByStrandAndYear = $this->getPredefinedSubjects();
-        
-        if (!isset($subjectsByStrandAndYear[$strandCode][$validated['year_level']][$validated['semester']])) {
-            return redirect()->route('registrar.subjects')
-                ->with('error', 'No subjects found for this strand, year level, and semester combination.');
-        }
-
-        $subjectsToImport = $subjectsByStrandAndYear[$strandCode][$validated['year_level']][$validated['semester']];
-        $importedCount = 0;
-
         $activeSchoolYear = SchoolYear::where('is_active', true)->first();
         $activeSemester = $activeSchoolYear ? 
             Semester::where('school_year_id', $activeSchoolYear->id)
@@ -565,8 +625,31 @@ class RegistrarController extends Controller
         
         if (!$activeSemester) {
             return redirect()->route('registrar.subjects')
-                ->with('error', 'No active semester. Please activate a semester first.');
+                ->with('error', 'No active semester. Please activate a semester first before bulk importing subjects.');
         }
+
+        $validated = $request->validate([
+            'strand_id' => 'required|integer|exists:strands,id',
+            'year_level' => 'required|integer|in:11,12',
+            // Removed manual semester selection - will use active semester automatically
+        ]);
+
+        $strand = Strand::find($validated['strand_id']);
+        $strandCode = $strand->Strand_code;
+        
+        // Get semester number from active semester for predefined subjects lookup
+        $activeSemesterNumber = $activeSemester->semester_type === '1st Semester' ? 1 : 2;
+        
+        // Get predefined subjects from SubjectForm component logic
+        $subjectsByStrandAndYear = $this->getPredefinedSubjects();
+        
+        if (!isset($subjectsByStrandAndYear[$strandCode][$validated['year_level']][$activeSemesterNumber])) {
+            return redirect()->route('registrar.subjects')
+                ->with('error', "No subjects found for {$strandCode} Grade {$validated['year_level']} in {$activeSemester->semester_type}.");
+        }
+
+        $subjectsToImport = $subjectsByStrandAndYear[$strandCode][$validated['year_level']][$activeSemesterNumber];
+        $importedCount = 0;
 
         foreach ($subjectsToImport as $subjectData) {
             // Check if subject already exists for this school year and semester
@@ -580,7 +663,7 @@ class RegistrarController extends Controller
                     Subject::create([
                         'Subject_name' => $subjectData['name'],
                         'Subject_code' => $subjectData['code'],
-                        'Semester' => $validated['semester'],
+                        'Semester' => (string)$activeSemesterNumber, // Use active semester number
                         'year_level' => $validated['year_level'],
                         'strand_id' => $validated['strand_id'],
                         'school_year_id' => $activeSchoolYear->id,
@@ -597,7 +680,7 @@ class RegistrarController extends Controller
         }
 
         return redirect()->route('registrar.subjects')
-            ->with('success', "Successfully imported {$importedCount} subjects.");
+            ->with('success', "Successfully imported {$importedCount} subjects for {$activeSemester->semester_type} of {$activeSchoolYear->School_year_start}-{$activeSchoolYear->School_year_end}.");
     }
 
     /**
@@ -918,21 +1001,74 @@ class RegistrarController extends Controller
             }
         }
         
-        // Get previous sections from other school years for reopening
-        $previousSections = Section::with(['strand', 'schoolYear'])
-            ->where('school_year_id', '!=', $activeSchoolYear->id)
+        // Get previous sections from other school years AND different semesters for reopening
+        // NOTE: We don't filter by is_active here because we want to show all sections available for reopening
+        $previousSectionsQuery = Section::with(['strand', 'schoolYear', 'semester']);
+        
+        if ($activeSemester) {
+            // When there's an active semester, include sections from:
+            // 1. Different school years
+            // 2. Same school year but different semesters
+            $previousSectionsQuery->where(function ($query) use ($activeSchoolYear, $activeSemester) {
+                $query->where('school_year_id', '!=', $activeSchoolYear->id) // Different school years
+                      ->orWhere(function ($subQuery) use ($activeSchoolYear, $activeSemester) {
+                          // Same school year but different semester
+                          $subQuery->where('school_year_id', $activeSchoolYear->id)
+                                   ->where('semester_id', '!=', $activeSemester->id);
+                      })
+                      ->orWhere(function ($subQuery) use ($activeSchoolYear) {
+                          // Same school year with NULL semester_id
+                          $subQuery->where('school_year_id', $activeSchoolYear->id)
+                                   ->whereNull('semester_id');
+                      });
+            });
+        } else {
+            // When no active semester, only show sections from different school years
+            $previousSectionsQuery->where('school_year_id', '!=', $activeSchoolYear->id);
+        }
+        
+        $previousSections = $previousSectionsQuery
             ->orderBy('school_year_id', 'desc')
+            ->orderBy('semester_id', 'desc')
             ->get()
-            ->filter(function ($section) use ($activeSchoolYear) {
-                // Only show sections that don't already exist for the active school year
-                return !Section::where('section_name', $section->section_name)
-                    ->where('school_year_id', $activeSchoolYear->id)
-                    ->exists();
+            ->filter(function ($section) use ($activeSchoolYear, $activeSemester) {
+                // Only show sections from strands that are currently active for the semester
+                if ($activeSemester && $section->strand_id) {
+                    $strandActive = DB::table('strand_semester')
+                        ->where('strand_id', $section->strand_id)
+                        ->where('semester_id', $activeSemester->id)
+                        ->where('is_active', true)
+                        ->exists();
+                    
+                    if (!$strandActive) {
+                        return false;
+                    }
+                }
+                
+                // Only show sections that don't already have an ACTIVE section with the same name in the current semester
+                $existsQuery = Section::where('section_name', $section->section_name)
+                    ->where('school_year_id', $activeSchoolYear->id);
+                
+                if ($activeSemester) {
+                    $existsQuery->where('semester_id', $activeSemester->id);
+                }
+                
+                // Only filter out if there's an ACTIVE section with the same name
+                // This allows reopening sections even if a disabled section with the same name exists
+                try {
+                    $existsQuery->where('is_active', true);
+                } catch (\Exception $e) {
+                    // Fallback if is_active column doesn't exist - use the old logic
+                }
+                
+                return !$existsQuery->exists();
             })
             ->groupBy('section_name')
             ->map(function ($sectionsWithSameName) {
                 // For sections with the same name, only return the most recent one
-                return $sectionsWithSameName->sortByDesc('school_year_id')->first();
+                return $sectionsWithSameName->sortByDesc(function ($section) {
+                    return ($section->school_year_id * 1000) + ($section->semester_id ?? 0);
+                })->first();
             })
             ->values(); // Reset array keys
 
@@ -1020,9 +1156,42 @@ class RegistrarController extends Controller
             ]);
         }
 
+        // Also activate/deactivate this strand for any active semesters in this school year
+        $activeSemesters = Semester::where('school_year_id', $activeSchoolYear->id)
+            ->where('is_active', true)
+            ->get();
+            
+        $semesterCount = 0;
+        foreach ($activeSemesters as $activeSemester) {
+            $semesterPivot = DB::table('strand_semester')
+                ->where('strand_id', $strand->id)
+                ->where('semester_id', $activeSemester->id)
+                ->first();
+                
+            if ($semesterPivot) {
+                // Update existing semester relationship
+                DB::table('strand_semester')
+                    ->where('strand_id', $strand->id)
+                    ->where('semester_id', $activeSemester->id)
+                    ->update(['is_active' => $newStatus, 'updated_at' => now()]);
+            } else {
+                // Create new semester relationship
+                DB::table('strand_semester')->insert([
+                    'strand_id' => $strand->id,
+                    'semester_id' => $activeSemester->id,
+                    'is_active' => $newStatus,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+            $semesterCount++;
+        }
+
         $action = $newStatus ? 'activated' : 'deactivated';
+        $semesterMessage = $semesterCount > 0 ? " and for {$semesterCount} active semester(s)" : "";
+        
         return redirect()->route('registrar.strands')
-            ->with('success', "Strand {$action} successfully for this school year.");
+            ->with('success', "Strand {$action} successfully for this school year{$semesterMessage}.");
     }
 
     /**
@@ -1075,10 +1244,13 @@ class RegistrarController extends Controller
             SchoolYear::where('is_active', true)->update(['is_active' => false]);
         }
 
-        SchoolYear::create($validated);
+        $schoolYear = SchoolYear::create($validated);
+
+        // Automatically create semesters for the new school year
+        $this->createAutomaticSemesters($schoolYear);
 
         return redirect()->route('registrar.school-years')
-            ->with('success', 'School year created successfully.');
+            ->with('success', 'School year created successfully with automatic semesters.');
     }
 
     /**
@@ -1124,8 +1296,17 @@ class RegistrarController extends Controller
         try {
             DB::beginTransaction();
 
+            // Get the previously active school year before deactivating
+            $previousSchoolYear = SchoolYear::where('is_active', true)->first();
+            
             // Deactivate all other school years
             SchoolYear::where('is_active', true)->update(['is_active' => false]);
+            
+            // Deactivate all semesters from the previous school year
+            if ($previousSchoolYear && $previousSchoolYear->id !== $schoolYear->id) {
+                Semester::where('school_year_id', $previousSchoolYear->id)
+                    ->update(['is_active' => false]);
+            }
             
             // Activate the selected school year
             $schoolYear->update(['is_active' => true]);
@@ -1142,18 +1323,30 @@ class RegistrarController extends Controller
 
                 DB::commit();
 
-                return redirect()->route('registrar.school-years')
-                    ->with('success', 'New school year activated successfully! Please:
+                $message = 'New school year activated successfully!';
+                if ($previousSchoolYear && $previousSchoolYear->id !== $schoolYear->id) {
+                    $message .= ' All semesters from the previous school year have been deactivated.';
+                }
+                $message .= ' Please:
                     1. Activate required strands for this school year
                     2. Add subjects for this school year
-                    3. Create sections or reopen from previous year');
+                    3. Create sections or reopen from previous year';
+                
+                return redirect()->route('registrar.school-years')
+                    ->with('success', $message);
             } else {
                 // This is a PREVIOUS school year being reactivated
                 // All existing data (sections, subjects, strands) for this year will be visible
                 DB::commit();
 
+                $message = 'School year reactivated successfully!';
+                if ($previousSchoolYear && $previousSchoolYear->id !== $schoolYear->id) {
+                    $message .= ' All semesters from the previous school year have been deactivated.';
+                }
+                $message .= ' All existing data (sections, subjects, and strands) for this year is now visible.';
+                
                 return redirect()->route('registrar.school-years')
-                    ->with('success', 'School year reactivated successfully! All existing data (sections, subjects, and strands) for this year is now visible.');
+                    ->with('success', $message);
             }
 
         } catch (\Exception $e) {
@@ -1466,19 +1659,150 @@ class RegistrarController extends Controller
                 ->with('error', 'This semester type already exists for this school year.');
         }
 
-        // Auto-calculate semester dates if not provided (5 months per semester)
-        if (empty($validated['start_date']) || empty($validated['end_date'])) {
-            $schoolYear = SchoolYear::find($validated['school_year_id']);
+        // Auto-calculate semester dates based on what's provided
+        $schoolYear = SchoolYear::find($validated['school_year_id']);
+        
+        if (empty($validated['start_date']) && empty($validated['end_date'])) {
+            // Both empty: Use default school year-based calculation
             $calculatedDates = $this->calculateSemesterDates($schoolYear, $validated['semester_type']);
-            
-            $validated['start_date'] = $validated['start_date'] ?: $calculatedDates['start_date'];
-            $validated['end_date'] = $validated['end_date'] ?: $calculatedDates['end_date'];
+            $validated['start_date'] = $calculatedDates['start_date'];
+            $validated['end_date'] = $calculatedDates['end_date'];
+        } elseif (!empty($validated['start_date']) && empty($validated['end_date'])) {
+            // Start date provided, calculate end date (5 months later for regular semesters, 2 months for summer)
+            $startDate = Carbon::parse($validated['start_date']);
+            $monthsToAdd = $validated['semester_type'] === 'Summer' ? 2 : 5;
+            $validated['end_date'] = $startDate->copy()->addMonths($monthsToAdd)->subDay()->format('Y-m-d');
+        } elseif (empty($validated['start_date']) && !empty($validated['end_date'])) {
+            // End date provided, calculate start date (5 months earlier for regular semesters, 2 months for summer)
+            $endDate = Carbon::parse($validated['end_date']);
+            $monthsToSubtract = $validated['semester_type'] === 'Summer' ? 2 : 5;
+            $validated['start_date'] = $endDate->copy()->subMonths($monthsToSubtract)->addDay()->format('Y-m-d');
         }
+        // If both dates are provided, use them as-is (no calculation needed)
 
         Semester::create($validated);
 
         return redirect()->route('registrar.school-years')
             ->with('success', 'Semester created successfully.');
+    }
+
+    /**
+     * Automatically create semesters for a new school year with intelligent date calculation.
+     */
+    private function createAutomaticSemesters(SchoolYear $schoolYear)
+    {
+        // Get the most recent previous school year
+        $previousSchoolYear = SchoolYear::where('School_year_start', '<', $schoolYear->School_year_start)
+            ->orderBy('School_year_start', 'desc')
+            ->first();
+
+        if ($previousSchoolYear) {
+            // Get the 2nd semester from the previous school year
+            $previousSecondSemester = Semester::where('school_year_id', $previousSchoolYear->id)
+                ->where('semester_type', '2nd Semester')
+                ->first();
+
+            if ($previousSecondSemester && $previousSecondSemester->end_date) {
+                // Calculate dates based on previous school year's 2nd semester end date
+                $this->createSemestersFromPreviousYear($schoolYear, $previousSecondSemester->end_date);
+            } else {
+                // Fallback to current date if no previous 2nd semester found
+                $this->createSemestersFromCurrentDate($schoolYear);
+            }
+        } else {
+            // This is the first school year, start from current date
+            $this->createSemestersFromCurrentDate($schoolYear);
+        }
+    }
+
+    /**
+     * Create semesters based on previous school year's 2nd semester end date.
+     */
+    private function createSemestersFromPreviousYear(SchoolYear $schoolYear, $previousSecondSemesterEndDate)
+    {
+        $previousEndDate = Carbon::parse($previousSecondSemesterEndDate);
+        
+        // 1st semester starts 2 months after the previous 2nd semester ends (summer break)
+        $firstSemesterStartDate = $previousEndDate->copy()->addMonths(2);
+        $firstSemesterEndDate = $firstSemesterStartDate->copy()->addMonths(5)->subDay(); // 5 months for regular semester
+        
+        // 2nd semester starts 2 weeks after 1st semester ends
+        $secondSemesterStartDate = $firstSemesterEndDate->copy()->addWeeks(2);
+        $secondSemesterEndDate = $secondSemesterStartDate->copy()->addMonths(5)->subDay(); // 5 months for regular semester
+        
+        // Summer starts 1 week after 2nd semester ends (within the same school year)
+        $summerStartDate = $secondSemesterEndDate->copy()->addWeek();
+        $summerEndDate = $summerStartDate->copy()->addMonths(2)->subDay(); // 2 months for summer
+
+        // Create the semesters in chronological order
+        Semester::create([
+            'school_year_id' => $schoolYear->id,
+            'semester_type' => '1st Semester',
+            'start_date' => $firstSemesterStartDate->format('Y-m-d'),
+            'end_date' => $firstSemesterEndDate->format('Y-m-d'),
+            'is_active' => true, // Set 1st semester as active by default
+        ]);
+
+        Semester::create([
+            'school_year_id' => $schoolYear->id,
+            'semester_type' => '2nd Semester',
+            'start_date' => $secondSemesterStartDate->format('Y-m-d'),
+            'end_date' => $secondSemesterEndDate->format('Y-m-d'),
+            'is_active' => false,
+        ]);
+
+        Semester::create([
+            'school_year_id' => $schoolYear->id,
+            'semester_type' => 'Summer',
+            'start_date' => $summerStartDate->format('Y-m-d'),
+            'end_date' => $summerEndDate->format('Y-m-d'),
+            'is_active' => false,
+        ]);
+    }
+
+    /**
+     * Create semesters starting from current date (for first school year or fallback).
+     */
+    private function createSemestersFromCurrentDate(SchoolYear $schoolYear)
+    {
+        $currentDate = Carbon::now();
+        
+        // 1st semester starts from current date
+        $firstSemesterStartDate = $currentDate->copy();
+        $firstSemesterEndDate = $firstSemesterStartDate->copy()->addMonths(5)->subDay();
+        
+        // 2nd semester starts 2 weeks after 1st semester ends
+        $secondSemesterStartDate = $firstSemesterEndDate->copy()->addWeeks(2);
+        $secondSemesterEndDate = $secondSemesterStartDate->copy()->addMonths(5)->subDay();
+        
+        // Summer starts 1 week after 2nd semester ends (within the same school year)
+        $summerStartDate = $secondSemesterEndDate->copy()->addWeek();
+        $summerEndDate = $summerStartDate->copy()->addMonths(2)->subDay(); // 2 months for summer
+
+        // Create the semesters in chronological order
+        Semester::create([
+            'school_year_id' => $schoolYear->id,
+            'semester_type' => '1st Semester',
+            'start_date' => $firstSemesterStartDate->format('Y-m-d'),
+            'end_date' => $firstSemesterEndDate->format('Y-m-d'),
+            'is_active' => true, // Set 1st semester as active by default
+        ]);
+
+        Semester::create([
+            'school_year_id' => $schoolYear->id,
+            'semester_type' => '2nd Semester',
+            'start_date' => $secondSemesterStartDate->format('Y-m-d'),
+            'end_date' => $secondSemesterEndDate->format('Y-m-d'),
+            'is_active' => false,
+        ]);
+
+        Semester::create([
+            'school_year_id' => $schoolYear->id,
+            'semester_type' => 'Summer',
+            'start_date' => $summerStartDate->format('Y-m-d'),
+            'end_date' => $summerEndDate->format('Y-m-d'),
+            'is_active' => false,
+        ]);
     }
 
     /**
@@ -1557,13 +1881,37 @@ class RegistrarController extends Controller
     public function toggleSemester(Semester $semester)
     {
         $newStatus = !$semester->is_active;
-        $semester->update([
-            'is_active' => $newStatus
-        ]);
-
-        $action = $newStatus ? 'activated' : 'deactivated';
-        return redirect()->route('registrar.school-years')
-            ->with('success', "Semester {$action} successfully.");
+        
+        try {
+            DB::beginTransaction();
+            
+            if ($newStatus) {
+                // If activating this semester, deactivate all other semesters in the same school year
+                Semester::where('school_year_id', $semester->school_year_id)
+                    ->where('id', '!=', $semester->id)
+                    ->update(['is_active' => false]);
+            }
+            
+            // Update this semester's status
+            $semester->update(['is_active' => $newStatus]);
+            
+            DB::commit();
+            
+            $action = $newStatus ? 'activated' : 'deactivated';
+            $message = "Semester {$action} successfully.";
+            
+            if ($newStatus) {
+                $message .= " Other semesters in this school year have been deactivated.";
+            }
+            
+            return redirect()->route('registrar.school-years')
+                ->with('success', $message);
+                
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->route('registrar.school-years')
+                ->with('error', 'Failed to toggle semester: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -1614,16 +1962,74 @@ class RegistrarController extends Controller
             // Activate the selected semester
             $semester->update(['is_active' => true]);
             
-            // Deactivate all strand-semester relationships for this semester
-            // (Strands need to be manually reactivated for each semester)
-            DB::table('strand_semester')
-                ->where('semester_id', $semester->id)
-                ->update(['is_active' => false]);
+            // Auto-activate strands that were active in the previous semester
+            $schoolYear = SchoolYear::find($semester->school_year_id);
+            if ($schoolYear) {
+                // Find the previous active semester BEFORE we deactivated it
+                $previousSemester = Semester::where('school_year_id', $semester->school_year_id)
+                    ->where('id', '!=', $semester->id)
+                    ->orderBy('id', 'desc') // Get the most recent other semester
+                    ->first();
+                
+                if ($previousSemester) {
+                    // Get strands that were active in the previous semester
+                    $activeStrandIds = DB::table('strand_semester')
+                        ->where('semester_id', $previousSemester->id)
+                        ->where('is_active', true)
+                        ->pluck('strand_id');
+                    
+                    // Activate these strands for the new semester
+                    foreach ($activeStrandIds as $strandId) {
+                        DB::table('strand_semester')->updateOrInsert(
+                            [
+                                'strand_id' => $strandId,
+                                'semester_id' => $semester->id,
+                            ],
+                            [
+                                'is_active' => true,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]
+                        );
+                    }
+                } else {
+                    // If no previous semester, activate all strands that are active for the school year
+                    $activeStrandIds = DB::table('strand_school_year')
+                        ->where('school_year_id', $semester->school_year_id)
+                        ->where('is_active', true)
+                        ->pluck('strand_id');
+                    
+                    // If no strand_school_year relationships exist, use all active strands
+                    if ($activeStrandIds->isEmpty()) {
+                        $activeStrandIds = Strand::where('Is_active', true)->pluck('id');
+                    }
+                    
+                    foreach ($activeStrandIds as $strandId) {
+                        DB::table('strand_semester')->updateOrInsert(
+                            [
+                                'strand_id' => $strandId,
+                                'semester_id' => $semester->id,
+                            ],
+                            [
+                                'is_active' => true,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]
+                        );
+                    }
+                }
+            }
             
             DB::commit();
             
+            // Count how many strands were activated
+            $activatedStrandCount = DB::table('strand_semester')
+                ->where('semester_id', $semester->id)
+                ->where('is_active', true)
+                ->count();
+            
             return redirect()->route('registrar.school-years')
-                ->with('success', "Semester '{$semester->semester_type}' activated successfully. All strands have been deactivated and need to be reactivated for this semester.");
+                ->with('success', "Semester '{$semester->semester_type}' activated successfully. {$activatedStrandCount} strands have been automatically activated for this semester.");
                 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1633,55 +2039,6 @@ class RegistrarController extends Controller
         }
     }
 
-    /**
-     * Activate strands for the active semester.
-     */
-    public function activateStrandsForNewSemester(Request $request)
-    {
-        $activeSchoolYear = SchoolYear::where('is_active', true)->first();
-        $activeSemester = $activeSchoolYear ? 
-            Semester::where('school_year_id', $activeSchoolYear->id)
-                   ->where('is_active', true)
-                   ->first() : null;
-        
-        if (!$activeSemester) {
-            return redirect()->route('registrar.strands')
-                ->with('error', 'No active semester. Please activate a semester first.');
-        }
-
-        $validated = $request->validate([
-            'strand_ids' => 'required|array',
-            'strand_ids.*' => 'exists:strands,id',
-        ]);
-
-        foreach ($validated['strand_ids'] as $strandId) {
-            // Check if relationship exists
-            $pivot = DB::table('strand_semester')
-                ->where('strand_id', $strandId)
-                ->where('semester_id', $activeSemester->id)
-                ->first();
-
-            if ($pivot) {
-                // Update existing relationship
-                DB::table('strand_semester')
-                    ->where('strand_id', $strandId)
-                    ->where('semester_id', $activeSemester->id)
-                    ->update(['is_active' => true, 'updated_at' => now()]);
-            } else {
-                // Create new relationship
-                DB::table('strand_semester')->insert([
-                    'strand_id' => $strandId,
-                    'semester_id' => $activeSemester->id,
-                    'is_active' => true,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-        }
-
-        return redirect()->route('registrar.strands')
-            ->with('success', 'Selected strands have been activated for the active semester.');
-    }
 
     /**
      * Reopen classes from previous semester to active semester.
@@ -1727,7 +2084,6 @@ class RegistrarController extends Controller
                         ->where('Semester_id', $activeSemester->id)
                         ->where('day_of_week', $originalClass->day_of_week)
                         ->where('start_time', $originalClass->start_time)
-                        ->lockForUpdate()
                         ->exists();
 
                     if (!$exists) {
@@ -1828,7 +2184,7 @@ class RegistrarController extends Controller
                             'max_capacity' => $originalSection->max_capacity,
                             'school_year_id' => $activeSchoolYear->id,
                             'semester_id' => $activeSemester->id,
-                            'adviser_id' => $originalSection->adviser_id, // Keep same adviser
+                            'adviser_id' => null, // Reset adviser for new semester (consistent with new year)
                         ]);
                         $reopenedCount++;
                     } else {
@@ -1878,41 +2234,68 @@ class RegistrarController extends Controller
      */
     public function reopenSection(Request $request, Section $section)
     {
+        
         $activeSchoolYear = SchoolYear::where('is_active', true)->first();
+        $activeSemester = $activeSchoolYear ? 
+            Semester::where('school_year_id', $activeSchoolYear->id)
+                   ->where('is_active', true)
+                   ->first() : null;
         
         if (!$activeSchoolYear) {
             return redirect()->route('registrar.strands')
                 ->with('error', 'No active school year. Please activate a school year first.');
         }
+        
+        if (!$activeSemester) {
+            return redirect()->route('registrar.strands')
+                ->with('error', 'No active semester. Please activate a semester first.');
+        }
 
         $validated = $request->validate([
             'max_capacity' => 'required|integer|min:1|max:50',
-            'adviser_id' => 'nullable|exists:users,id',
+            'adviser_id' => 'nullable|integer',
         ]);
 
         try {
             DB::beginTransaction();
             
-            // Double-check if section already exists for active school year (prevent race conditions)
-            $exists = Section::where('section_name', $section->section_name)
+            // Double-check if an ACTIVE section already exists for active school year and semester (prevent race conditions)
+            $existsQuery = Section::where('section_name', $section->section_name)
                 ->where('school_year_id', $activeSchoolYear->id)
-                ->lockForUpdate() // Lock to prevent race conditions
-                ->exists();
+                ->where('semester_id', $activeSemester->id)
+                ->lockForUpdate(); // Lock to prevent race conditions
+            
+            // Only check for active sections - allow reopening if only disabled sections exist
+            try {
+                $existsQuery->where('is_active', true);
+            } catch (\Exception $e) {
+                // Fallback if is_active column doesn't exist
+            }
+            
+            $exists = $existsQuery->exists();
 
             if ($exists) {
                 DB::rollBack();
+                Log::warning('Section already exists', [
+                    'section_name' => $section->section_name,
+                    'school_year_id' => $activeSchoolYear->id,
+                    'semester_id' => $activeSemester->id,
+                    'semester_type' => $activeSemester->semester_type
+                ]);
                 return redirect()->route('registrar.strands')
-                    ->with('error', "Section '{$section->section_name}' already exists for the active school year.");
+                    ->with('error', "Section '{$section->section_name}' already exists for {$activeSemester->semester_type} of {$activeSchoolYear->School_year_start}-{$activeSchoolYear->School_year_end}.");
             }
 
-            // Create new section with same details but for active school year
+            // Create new section with same details but for active school year and semester
             Section::create([
                 'section_name' => $section->section_name,
                 'year_level' => $section->year_level,
                 'strand_id' => $section->strand_id,
                 'max_capacity' => $validated['max_capacity'],
                 'school_year_id' => $activeSchoolYear->id,
+                'semester_id' => $activeSemester->id, // Add semester assignment
                 'adviser_id' => $validated['adviser_id'] ?? null,
+                'is_active' => true, // Ensure the reopened section is active
             ]);
             
             DB::commit();
@@ -1935,6 +2318,13 @@ class RegistrarController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             
+            Log::error('Section reopening failed with exception', [
+                'section_id' => $section->id,
+                'section_name' => $section->section_name,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return redirect()->route('registrar.strands')
                 ->with('error', 'An error occurred while reopening the section. Please try again.');
         }
@@ -1947,10 +2337,19 @@ class RegistrarController extends Controller
     public function reopenSections(Request $request)
     {
         $activeSchoolYear = SchoolYear::where('is_active', true)->first();
+        $activeSemester = $activeSchoolYear ? 
+            Semester::where('school_year_id', $activeSchoolYear->id)
+                   ->where('is_active', true)
+                   ->first() : null;
         
         if (!$activeSchoolYear) {
             return redirect()->route('registrar.strands')
                 ->with('error', 'No active school year. Please activate a school year first.');
+        }
+        
+        if (!$activeSemester) {
+            return redirect()->route('registrar.strands')
+                ->with('error', 'No active semester. Please activate a semester first.');
         }
 
         $validated = $request->validate([
@@ -1973,9 +2372,10 @@ class RegistrarController extends Controller
                 }
                 
                 try {
-                    // Check if section already exists for active school year with lock
+                    // Check if section already exists for active school year and semester with lock
                     $exists = Section::where('section_name', $originalSection->section_name)
                         ->where('school_year_id', $activeSchoolYear->id)
+                        ->where('semester_id', $activeSemester->id)
                         ->lockForUpdate()
                         ->exists();
 
@@ -1986,6 +2386,7 @@ class RegistrarController extends Controller
                             'strand_id' => $originalSection->strand_id,
                             'max_capacity' => $originalSection->max_capacity,
                             'school_year_id' => $activeSchoolYear->id,
+                            'semester_id' => $activeSemester->id, // Add semester assignment
                             'adviser_id' => null, // Reset adviser for new year
                         ]);
                         $reopenedCount++;
@@ -2069,6 +2470,25 @@ class RegistrarController extends Controller
                     'updated_at' => now(),
                 ]);
             }
+            
+            // Also automatically activate this strand for any active semesters in this school year
+            $activeSemesters = Semester::where('school_year_id', $activeSchoolYear->id)
+                ->where('is_active', true)
+                ->get();
+                
+            foreach ($activeSemesters as $activeSemester) {
+                DB::table('strand_semester')->updateOrInsert(
+                    [
+                        'strand_id' => $strandId,
+                        'semester_id' => $activeSemester->id,
+                    ],
+                    [
+                        'is_active' => true,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
+            }
         }
 
         return redirect()->route('registrar.strands')
@@ -2076,6 +2496,7 @@ class RegistrarController extends Controller
     }
 
     // Note: copySubjectsFromPreviousYear method removed - subjects are now static and not tied to school years
+
 
     /**
      * Log the current user out and redirect to login.
@@ -2094,13 +2515,19 @@ class RegistrarController extends Controller
     public function faculty()
     {
         $faculty = User::where('Role', 'Faculty')
-            ->select('id', 'FirstName', 'MiddleName', 'LastName', 'email', 'Role', 'created_at', 'updated_at')
+            ->with('assignedStrand')
+            ->select('id', 'FirstName', 'MiddleName', 'LastName', 'email', 'Role', 'assigned_strand_id', 'is_coordinator', 'created_at', 'updated_at')
             ->orderBy('LastName')
             ->orderBy('FirstName')
             ->get();
 
+        $strands = Strand::where('Is_active', true)
+            ->orderBy('Strand_code')
+            ->get();
+
         return Inertia::render('Registrar/Faculty', [
             'faculty' => $faculty,
+            'strands' => $strands,
         ]);
     }
 
@@ -2114,6 +2541,7 @@ class RegistrarController extends Controller
             'MiddleName' => 'nullable|string|max:255',
             'LastName' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
+            'assigned_strand_id' => 'nullable|exists:strands,id',
         ]);
 
         // Generate a random password
@@ -2127,6 +2555,7 @@ class RegistrarController extends Controller
             'email' => $validated['email'],
             'password' => Hash::make($generatedPassword),
             'Role' => 'Faculty',
+            'assigned_strand_id' => $validated['assigned_strand_id'],
             'must_change_password' => true, // Flag to force password change on first login
         ];
 
@@ -2184,10 +2613,7 @@ class RegistrarController extends Controller
             'MiddleName' => 'nullable|string|max:255',
             'LastName' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $faculty->id,
-            'Department' => 'nullable|string|max:255',
-            'Position' => 'nullable|string|max:255',
-            'ContactNumber' => 'nullable|string|max:20',
-            'Address' => 'nullable|string|max:500',
+            'assigned_strand_id' => 'nullable|exists:strands,id',
         ]);
 
         $faculty->update($validated);
@@ -2220,6 +2646,188 @@ class RegistrarController extends Controller
 
         return redirect()->route('registrar.faculty')
             ->with('success', "Faculty member '{$name}' deleted successfully.");
+    }
+
+    /**
+     * Toggle coordinator status for a faculty member.
+     */
+    public function toggleFacultyCoordinator(Request $request, User $faculty)
+    {
+        // Ensure the user is a faculty member
+        if ($faculty->Role !== 'Faculty') {
+            return redirect()->back()
+                ->with('error', 'Only faculty members can be assigned coordinator privileges.');
+        }
+
+        $validated = $request->validate([
+            'is_coordinator' => 'required|boolean',
+        ]);
+
+        $faculty->update([
+            'is_coordinator' => $validated['is_coordinator']
+        ]);
+
+        $message = $validated['is_coordinator'] 
+            ? "Coordinator privileges granted to {$faculty->FirstName} {$faculty->LastName}." 
+            : "Coordinator privileges removed from {$faculty->FirstName} {$faculty->LastName}.";
+
+        return redirect()->back()->with('success', $message);
+    }
+
+    /**
+     * Display student verification page.
+     */
+    public function studentVerification()
+    {
+        $unverifiedStudents = StudentPersonalInfo::with(['user'])
+            ->where('is_verified', false)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $verifiedStudents = StudentPersonalInfo::with(['user', 'verifiedBy'])
+            ->where('is_verified', true)
+            ->orderBy('verified_at', 'desc')
+            ->paginate(20);
+
+        return Inertia::render('Registrar/StudentVerification', [
+            'unverifiedStudents' => $unverifiedStudents,
+            'verifiedStudents' => $verifiedStudents,
+        ]);
+    }
+
+    /**
+     * Verify a student account.
+     */
+    public function verifyStudent(Request $request, StudentPersonalInfo $student)
+    {
+        $validated = $request->validate([
+            'action' => 'required|in:approve,reject',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        if ($validated['action'] === 'approve') {
+            $student->update([
+                'is_verified' => true,
+                'verified_at' => now(),
+                'verified_by' => Auth::id(),
+            ]);
+
+            // Enable the user account
+            $student->user->update([
+                'is_disabled' => false,
+            ]);
+
+            // Send approval email notification
+            try {
+                Mail::to($student->user->email)->send(new StudentApprovalNotification($student->user));
+            } catch (\Exception $e) {
+                Log::error('Failed to send student approval email: ' . $e->getMessage());
+            }
+
+            return redirect()->route('registrar.student-verification')
+                ->with('success', "Student '{$student->full_name}' has been verified and approved. An email notification has been sent.");
+        } else {
+            // Reject - delete the student record and user account
+            $name = $student->full_name;
+            $student->user->delete(); // This will cascade delete the student info
+            
+            return redirect()->route('registrar.student-verification')
+                ->with('success', "Student '{$name}' registration has been rejected and removed.");
+        }
+    }
+
+    /**
+     * Show student details for verification.
+     */
+    public function showStudentDetails(StudentPersonalInfo $student)
+    {
+        $student->load(['user']);
+        
+        return Inertia::render('Registrar/StudentDetails', [
+            'student' => $student,
+        ]);
+    }
+
+    /**
+     * Update enrollment control settings for a school year.
+     */
+    public function updateEnrollmentControl(Request $request, SchoolYear $schoolYear)
+    {
+        $validated = $request->validate([
+            'enrollment_open' => 'required|boolean',
+            'enrollment_start_date' => 'nullable|date|after_or_equal:today',
+            'enrollment_end_date' => 'nullable|date|after:enrollment_start_date',
+        ]);
+
+        $schoolYear->update($validated);
+
+        return redirect()->route('registrar.school-years')
+            ->with('success', 'Enrollment control settings updated successfully.');
+    }
+
+    /**
+     * Toggle enrollment status for a school year.
+     */
+    public function toggleEnrollment(SchoolYear $schoolYear)
+    {
+        $schoolYear->update([
+            'enrollment_open' => !$schoolYear->enrollment_open
+        ]);
+
+        $status = $schoolYear->enrollment_open ? 'opened' : 'closed';
+        
+        return redirect()->route('registrar.school-years')
+            ->with('success', "Enrollment has been {$status} for {$schoolYear->formatted}.");
+    }
+
+    /**
+     * Display all student enrollments for registrar.
+     */
+    public function enrollments()
+    {
+        // Get all enrollments with related data
+        $enrollments = Enrollment::with([
+            'studentPersonalInfo.user',
+            'schoolYear',
+            'semester',
+            'enrolledBy'
+        ])
+        ->orderBy('submitted_at', 'desc')
+        ->get();
+
+        return Inertia::render('Registrar/Enrollments', [
+            'enrollments' => $enrollments,
+        ]);
+    }
+
+    /**
+     * Update enrollment status from registrar side.
+     */
+    public function updateEnrollmentStatus(Request $request, $enrollmentId)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'status' => 'required|in:approved,rejected,enrolled',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $enrollment = Enrollment::findOrFail($enrollmentId);
+        
+        $enrollment->update([
+            'status' => $validated['status'],
+            'processed_at' => now(),
+            'enrolled_by' => $user->id,
+        ]);
+
+        $message = match($validated['status']) {
+            'approved' => 'Enrollment approved successfully.',
+            'rejected' => 'Enrollment rejected successfully.',
+            'enrolled' => 'Student enrolled successfully.',
+            default => 'Enrollment status updated successfully.'
+        };
+
+        return redirect()->back()->with('success', $message);
     }
 }
 

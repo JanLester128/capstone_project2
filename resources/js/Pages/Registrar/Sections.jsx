@@ -6,7 +6,7 @@ import SectionList from './Components/SectionList'
 import ReopenSectionModal from './Components/ReopenSectionModal'
 import Breadcrumb from './Components/Breadcrumb'
 
-export default function Sections({ sections = [], previousSections = [], strands = [], schoolYears = [], activeSchoolYear = null, users = [], flash = {} }) {
+export default function Sections({ sections = [], previousSections = [], strands = [], schoolYears = [], activeSchoolYear = null, activeSemester = null, users = [], flash = {} }) {
   const [showForm, setShowForm] = useState(false)
   const [editingSection, setEditingSection] = useState(null)
   const [reopeningSection, setReopeningSection] = useState(null)
@@ -35,14 +35,17 @@ export default function Sections({ sections = [], previousSections = [], strands
     setEditingSection(null)
   }
 
-  const handleBulkReopen = () => {
+  const handleBulkReopen = (reopenType = 'school-year') => {
     if (selectedSections.length === 0) {
       alert('Please select at least one section to reopen.')
       return
     }
 
-    if (confirm(`Are you sure you want to reopen ${selectedSections.length} sections? They will use their original capacity and no adviser will be assigned.`)) {
-      router.post('/registrar/sections/reopen-bulk', {
+    const actionText = reopenType === 'semester' ? 'for the active semester' : 'for the active school year'
+    const endpoint = reopenType === 'semester' ? '/registrar/sections/reopen-for-semester' : '/registrar/sections/reopen-bulk'
+
+    if (confirm(`Are you sure you want to reopen ${selectedSections.length} sections ${actionText}? They will use their original capacity and no adviser will be assigned.`)) {
+      router.post(endpoint, {
         section_ids: selectedSections
       }, {
         onSuccess: () => {
@@ -177,9 +180,16 @@ export default function Sections({ sections = [], previousSections = [], strands
           {activeSchoolYear && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Sections for {activeSchoolYear.School_year_start}-{activeSchoolYear.School_year_end}
-                </h2>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Sections for {activeSchoolYear.School_year_start}-{activeSchoolYear.School_year_end}
+                  </h2>
+                  {activeSemester && (
+                    <p className="text-sm text-blue-600 mt-1">
+                      Current Semester: {activeSemester.semester_type}
+                    </p>
+                  )}
+                </div>
                 <span className="text-sm text-gray-500">{sections.length} {sections.length === 1 ? 'section' : 'sections'}</span>
               </div>
               <SectionList
@@ -199,45 +209,73 @@ export default function Sections({ sections = [], previousSections = [], strands
                 </svg>
               </div>
               <h3 className="mt-2 text-sm font-semibold text-gray-900">
-                {!activeSchoolYear ? 'No active school year' : 'No sections'}
+                {!activeSchoolYear ? 'No active school year' : 'No sections for current semester'}
               </h3>
               <p className="mt-1 text-sm text-gray-500">
                 {!activeSchoolYear 
                   ? 'Please activate a school year first to manage sections.' 
-                  : `Get started by creating a new section for ${activeSchoolYear.School_year_start}-${activeSchoolYear.School_year_end}.`}
+                  : previousSections && previousSections.length > 0
+                    ? `No sections exist for the current semester yet. You can reopen ${previousSections.length} sections from previous semesters below, or create new ones.`
+                    : `Get started by creating a new section for ${activeSchoolYear.School_year_start}-${activeSchoolYear.School_year_end}.`}
               </p>
-              <div className="mt-6">
+              <div className="mt-6 flex flex-col sm:flex-row gap-3 items-center justify-center">
                 <button
                   onClick={() => setShowForm(true)}
                   className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
                 >
-                  Add Section
+                  Add New Section
                 </button>
+                {previousSections && previousSections.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const el = document.getElementById('previous-sections');
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                    className="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Reopen {previousSections.length} Previous Sections
+                  </button>
+                )}
               </div>
             </div>
           )}
 
           {/* Previous Sections - Available for Reopening */}
           {previousSections && previousSections.length > 0 && (
-            <div id="previous-sections" className="mt-10 mb-8">
+            <div id="previous-sections" className={`mb-8 ${sections.length === 0 ? 'mt-6' : 'mt-10'}`}>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Previous Sections - Available to Reopen</h2>
+                <h2 className={`text-lg font-semibold text-gray-900 ${sections.length === 0 ? 'text-xl' : ''}`}>
+                  {sections.length === 0 ? 'Sections Available to Reopen' : 'Previous Sections - Available to Reopen'}
+                </h2>
                 <div className="flex items-center gap-4">
                   {bulkReopenMode && selectedSections.length > 0 && (
-                    <button
-                      onClick={handleBulkReopen}
-                      className="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500"
-                    >
-                      Reopen {selectedSections.length} Sections
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleBulkReopen('school-year')}
+                        className="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500"
+                      >
+                        Reopen for School Year ({selectedSections.length})
+                      </button>
+                      <button
+                        onClick={() => handleBulkReopen('semester')}
+                        className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+                      >
+                        Reopen for Semester ({selectedSections.length})
+                      </button>
+                    </div>
                   )}
                   <span className="text-sm text-gray-500">{previousSections.length} sections available</span>
                 </div>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-blue-800">
-                  These sections from previous school years can be reopened for {activeSchoolYear ? `${activeSchoolYear.School_year_start}-${activeSchoolYear.School_year_end}` : 'the active school year'}. 
-                  {bulkReopenMode ? 'Select sections to reopen in bulk.' : 'Click "Reopen" to set capacity and adviser.'}
+              <div className={`border rounded-lg p-4 mb-4 ${sections.length === 0 ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+                <p className={`text-sm ${sections.length === 0 ? 'text-green-800' : 'text-blue-800'}`}>
+                  {sections.length === 0 
+                    ? `These sections from previous semesters can be reopened for the current semester. ${bulkReopenMode ? 'Select sections and choose "Reopen for Semester" (blue button) to create them for the active semester only.' : 'Use "Bulk Reopen" to select multiple sections.'}`
+                    : `These sections from previous school years and semesters can be reopened for ${activeSchoolYear ? `${activeSchoolYear.School_year_start}-${activeSchoolYear.School_year_end}` : 'the active school year'}. ${bulkReopenMode ? 'Select sections to reopen in bulk for either the school year or current semester.' : 'Click "Reopen" to set capacity and adviser.'}`
+                  }
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

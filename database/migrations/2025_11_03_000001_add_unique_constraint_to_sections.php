@@ -12,8 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('sections', function (Blueprint $table) {
-            // Add unique constraint for section_name per school_year_id
-            $table->unique(['section_name', 'school_year_id'], 'sections_name_school_year_unique');
+            // Check if semester_id column exists before creating the constraint
+            if (Schema::hasColumn('sections', 'semester_id')) {
+                // Add unique constraint for section_name per school_year_id and semester_id
+                // This allows same section names in different semesters of the same school year
+                $table->unique(['section_name', 'school_year_id', 'semester_id'], 'sections_name_school_year_semester_unique');
+            } else {
+                // Fallback: Add unique constraint for section_name per school_year_id only
+                // This will be updated later when semester_id is added
+                $table->unique(['section_name', 'school_year_id'], 'sections_name_school_year_unique');
+            }
         });
     }
 
@@ -23,7 +31,17 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('sections', function (Blueprint $table) {
-            $table->dropUnique('sections_name_school_year_unique');
+            // Try to drop the semester-aware constraint first
+            try {
+                $table->dropUnique('sections_name_school_year_semester_unique');
+            } catch (\Exception $e) {
+                // If that fails, try to drop the old constraint
+                try {
+                    $table->dropUnique('sections_name_school_year_unique');
+                } catch (\Exception $e2) {
+                    // If both fail, ignore (constraint might not exist)
+                }
+            }
         });
     }
 };

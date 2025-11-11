@@ -1,15 +1,19 @@
 import { useState } from 'react'
 import { Link, router, usePage } from '@inertiajs/react'
-import { facultyNav } from '../Faculty/navConfig'
+import { facultyNav, coordinatorNav } from '../Faculty/navConfig'
 import sessionManager from '../../utils/sessionManager'
 
-export default function FacultySidebar() {
+export default function FacultySidebar({ user }) {
   const [open, setOpen] = useState(false)
   const { url } = usePage()
 
-  const nav = facultyNav
+  // Combine regular faculty nav with coordinator nav if user is coordinator
+  const nav = user?.is_coordinator ? [...facultyNav, ...coordinatorNav] : facultyNav
 
   function isActive(href) {
+    // Safety check: ensure url is defined
+    if (!url) return false
+    
     // Exact match for dashboard to prevent it being active on sub-routes
     if (href === '/faculty') {
       return url === '/faculty'
@@ -68,9 +72,17 @@ export default function FacultySidebar() {
               <p className="text-xs text-gray-500">Management System</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-green-50 px-3 py-1 rounded-full w-fit">
-            <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-            <span className="text-xs font-medium text-green-700">Faculty</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 bg-green-50 px-3 py-1 rounded-full w-fit">
+              <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+              <span className="text-xs font-medium text-green-700">Faculty</span>
+            </div>
+            {user?.is_coordinator && (
+              <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full">
+                <div className="h-1.5 w-1.5 bg-blue-500 rounded-full"></div>
+                <span className="text-xs font-medium text-blue-700">Coordinator</span>
+              </div>
+            )}
           </div>
         </div>
         <ul className="space-y-1" role="list">

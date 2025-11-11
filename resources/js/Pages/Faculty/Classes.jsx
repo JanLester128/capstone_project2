@@ -11,12 +11,12 @@ const formatTimeTo12Hour = (time24) => {
   return `${hour12}:${minutes} ${ampm}`
 }
 
-export default function FacultyClasses({ classes = [], activeSchoolYear, activeSemester, flash = {} }) {
+export default function FacultyClasses({ classes = [], activeSchoolYear, activeSemester, user = {}, flash = {} }) {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Head title="My Classes - Faculty" />
       
-      <FacultySidebar />
+      <FacultySidebar user={user} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}

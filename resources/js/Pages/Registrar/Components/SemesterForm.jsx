@@ -12,16 +12,25 @@ export default function SemesterForm({ semester = null, schoolYear, onClose }) {
   })
   const [errors, setErrors] = useState({})
   const [processing, setProcessing] = useState(false)
-  const [calculatedDates, setCalculatedDates] = useState(null)
-  const [loadingDates, setLoadingDates] = useState(false)
 
   useEffect(() => {
     if (semester) {
+      // Ensure dates are properly formatted for HTML date inputs
+      const formatDate = (date) => {
+        if (!date) return ''
+        // If date is already in YYYY-MM-DD format, return as is
+        if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          return date
+        }
+        // Otherwise, convert to proper format
+        return new Date(date).toISOString().split('T')[0]
+      }
+
       setFormData({
         school_year_id: semester.school_year_id || schoolYear?.id || '',
         semester_type: semester.semester_type || '',
-        start_date: semester.start_date || '',
-        end_date: semester.end_date || '',
+        start_date: formatDate(semester.start_date),
+        end_date: formatDate(semester.end_date),
         is_active: semester.is_active || false
       })
     }
@@ -52,46 +61,42 @@ export default function SemesterForm({ semester = null, schoolYear, onClose }) {
     })
   }
 
-  // Function to fetch calculated dates when semester type changes
-  const fetchCalculatedDates = async (semesterType) => {
-    if (!semesterType || !schoolYear?.id) return
-
-    setLoadingDates(true)
-    try {
-      const response = await axios.get('/registrar/semesters/calculate-dates', {
-        params: {
-          school_year_id: schoolYear.id,
-          semester_type: semesterType
-        }
-      })
-      setCalculatedDates(response.data)
-      
-      // Auto-fill dates if they're empty
-      if (!formData.start_date && !formData.end_date) {
-        setFormData(prev => ({
-          ...prev,
-          start_date: response.data.start_date,
-          end_date: response.data.end_date
-        }))
-      }
-    } catch (error) {
-      console.error('Error fetching calculated dates:', error)
-    } finally {
-      setLoadingDates(false)
-    }
-  }
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }))
-    
-    // Fetch calculated dates when semester type changes
-    if (name === 'semester_type' && value) {
-      fetchCalculatedDates(value)
-    }
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }
+      
+      // Auto-calculate end_date when start_date changes
+      if (name === 'start_date' && value && newData.semester_type) {
+        const startDate = new Date(value + 'T00:00:00') // Ensure proper date parsing
+        const monthsToAdd = newData.semester_type === 'Summer' ? 2 : 5
+        
+        // Calculate end date by adding months and subtracting 1 day
+        const endDate = new Date(startDate)
+        endDate.setMonth(startDate.getMonth() + monthsToAdd)
+        endDate.setDate(endDate.getDate() - 1)
+        
+        // Always auto-calculate end_date when start_date changes
+        newData.end_date = endDate.toISOString().split('T')[0]
+      }
+      
+      // Auto-calculate start_date when end_date changes (if start_date is empty)
+      if (name === 'end_date' && value && newData.semester_type && !newData.start_date) {
+        const endDate = new Date(value)
+        const monthsToSubtract = newData.semester_type === 'Summer' ? 2 : 5
+        const startDate = new Date(endDate)
+        startDate.setMonth(startDate.getMonth() - monthsToSubtract)
+        startDate.setDate(startDate.getDate() + 1) // Add 1 day to get the first day of the period
+        
+        newData.start_date = startDate.toISOString().split('T')[0]
+      }
+      
+      return newData
+    })
     
     // Clear error when user starts typing
     if (errors[name]) {
@@ -102,12 +107,20 @@ export default function SemesterForm({ semester = null, schoolYear, onClose }) {
     }
   }
 
-  const useCalculatedDates = () => {
-    if (calculatedDates) {
+
+  const recalculateEndDate = () => {
+    if (formData.start_date && formData.semester_type) {
+      const startDate = new Date(formData.start_date + 'T00:00:00') // Ensure proper date parsing
+      const monthsToAdd = formData.semester_type === 'Summer' ? 2 : 5
+      
+      // Calculate end date by adding months and subtracting 1 day
+      const endDate = new Date(startDate)
+      endDate.setMonth(startDate.getMonth() + monthsToAdd)
+      endDate.setDate(endDate.getDate() - 1)
+      
       setFormData(prev => ({
         ...prev,
-        start_date: calculatedDates.start_date,
-        end_date: calculatedDates.end_date
+        end_date: endDate.toISOString().split('T')[0]
       }))
     }
   }
@@ -165,30 +178,6 @@ export default function SemesterForm({ semester = null, schoolYear, onClose }) {
                   )}
                 </div>
 
-                {/* Calculated Dates Display */}
-                {calculatedDates && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm font-medium text-blue-900">
-                        📅 Auto-calculated Dates (5 months)
-                      </h4>
-                      {loadingDates && (
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
-                      )}
-                    </div>
-                    <div className="text-sm text-blue-700 space-y-1">
-                      <p><strong>Start:</strong> {new Date(calculatedDates.start_date).toLocaleDateString()}</p>
-                      <p><strong>End:</strong> {new Date(calculatedDates.end_date).toLocaleDateString()}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={useCalculatedDates}
-                      className="mt-2 text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
-                    >
-                      Use These Dates
-                    </button>
-                  </div>
-                )}
 
                 {/* Start Date */}
                 <div>
@@ -229,6 +218,20 @@ export default function SemesterForm({ semester = null, schoolYear, onClose }) {
                   />
                   {errors.end_date && (
                     <p className="mt-1 text-sm text-red-600">{errors.end_date}</p>
+                  )}
+                  
+                  {/* Recalculate button */}
+                  {formData.start_date && formData.semester_type && (
+                    <button
+                      type="button"
+                      onClick={recalculateEndDate}
+                      className="mt-2 text-xs text-indigo-600 hover:text-indigo-500 flex items-center"
+                    >
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Recalculate end date based on start date
+                    </button>
                   )}
                 </div>
 

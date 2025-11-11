@@ -28,6 +28,9 @@ class SchoolYear extends Model
         'School_year_end',
         'is_active',
         'enabled',
+        'enrollment_open',
+        'enrollment_start_date',
+        'enrollment_end_date',
     ];
 
     /**
@@ -40,6 +43,9 @@ class SchoolYear extends Model
         return [
             'is_active' => 'boolean',
             'enabled' => 'boolean',
+            'enrollment_open' => 'boolean',
+            'enrollment_start_date' => 'date',
+            'enrollment_end_date' => 'date',
         ];
     }
 
@@ -91,6 +97,74 @@ class SchoolYear extends Model
     public function getFormattedAttribute(): string
     {
         return $this->School_year_start . '-' . $this->School_year_end;
+    }
+
+    /**
+     * Check if enrollment is currently open.
+     */
+    public function isEnrollmentOpen(): bool
+    {
+        if (!$this->enrollment_open) {
+            return false;
+        }
+
+        $now = now()->toDateString();
+        
+        // If no dates are set, enrollment is open
+        if (!$this->enrollment_start_date && !$this->enrollment_end_date) {
+            return true;
+        }
+
+        // Check if current date is within enrollment period
+        if ($this->enrollment_start_date && $now < $this->enrollment_start_date->toDateString()) {
+            return false;
+        }
+
+        if ($this->enrollment_end_date && $now > $this->enrollment_end_date->toDateString()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Get enrollment status message.
+     */
+    public function getEnrollmentStatusAttribute(): string
+    {
+        if (!$this->enrollment_open) {
+            return 'Enrollment is closed';
+        }
+
+        if (!$this->isEnrollmentOpen()) {
+            $now = now()->toDateString();
+            
+            if ($this->enrollment_start_date && $now < $this->enrollment_start_date->toDateString()) {
+                return 'Enrollment opens on ' . $this->enrollment_start_date->format('M d, Y');
+            }
+            
+            if ($this->enrollment_end_date && $now > $this->enrollment_end_date->toDateString()) {
+                return 'Enrollment closed on ' . $this->enrollment_end_date->format('M d, Y');
+            }
+        }
+
+        return 'Enrollment is open';
+    }
+
+    /**
+     * Get the enrollments for this school year.
+     */
+    public function enrollments()
+    {
+        return $this->hasMany(Enrollment::class);
+    }
+
+    /**
+     * Get pending enrollments for this school year.
+     */
+    public function pendingEnrollments()
+    {
+        return $this->hasMany(Enrollment::class)->where('status', 'pending');
     }
 }
 

@@ -5,6 +5,7 @@ import sessionManager from '../../utils/sessionManager'
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [showNotification, setShowNotification] = useState(false)
   const { auth, flash } = usePage().props
 
   const { data, setData, post, processing, errors, reset } = useForm({
@@ -19,6 +20,18 @@ export default function Login() {
     return () => reset('password');
   }, [])
 
+  useEffect(() => {
+    // Show notification if there's a success message
+    if (flash?.success) {
+      setShowNotification(true)
+      // Auto-hide after 5 seconds
+      const timer = setTimeout(() => {
+        setShowNotification(false)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [flash])
+
   function handleSubmit(e) {
     e.preventDefault()
     setIsLoading(true)
@@ -29,52 +42,48 @@ export default function Login() {
 
   return (
     <>
-      <Head title="Sign in" />
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
-        body {
-          font-family: 'Poppins', sans-serif;
-        }
-      `}</style>
+      <Head title="Sign in">
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+      </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 flex items-center justify-center px-4 py-6" style={{fontFamily: 'Poppins, sans-serif'}}>
-        <div className="w-full max-w-5xl bg-white/95 backdrop-blur-sm shadow-2xl rounded-3xl overflow-hidden border border-white/20">
-          <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[480px]">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 flex items-center justify-center px-4 py-4" style={{fontFamily: 'Poppins, sans-serif'}}>
+        <div className="w-full max-w-4xl bg-white/95 backdrop-blur-sm shadow-xl rounded-2xl overflow-hidden border border-white/20">
+          <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[400px]">
             {/* Left panel: Logo + School name */}
-            <div className="relative bg-gradient-to-br from-white via-blue-50/30 to-blue-100/50 p-8 flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-transparent to-blue-800/10 rounded-l-3xl"></div>
-              <div className="relative max-w-sm text-center z-10">
+            <div className="relative bg-gradient-to-br from-white via-blue-50/30 to-blue-100/50 p-6 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-transparent to-blue-800/10 rounded-l-2xl"></div>
+              <div className="relative max-w-xs text-center z-10">
                 <div className="relative mb-6">
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-blue-600/20 rounded-full blur-3xl scale-150"></div>
                   <img
                     src="/onsts.png"
                     alt="OPOL NATIONAL SECONDARY TECHNICAL SCHOOL logo"
-                    className="relative mx-auto h-28 w-28 object-contain drop-shadow-2xl transform hover:scale-105 transition-transform duration-300"
+                    className="relative mx-auto h-20 w-20 object-contain drop-shadow-xl transform hover:scale-105 transition-transform duration-300"
                   />
                 </div>
                 
-                <h1 className="text-2xl font-bold tracking-wide leading-tight text-transparent bg-gradient-to-r from-blue-700 via-blue-800 to-blue-900 bg-clip-text mb-3">
+                <h1 className="text-lg font-bold tracking-wide leading-tight text-transparent bg-gradient-to-r from-blue-700 via-blue-800 to-blue-900 bg-clip-text mb-2">
                   OPOL NATIONAL SECONDARY TECHNICAL SCHOOL
                 </h1>
                 
-                <div className="h-1 w-20 bg-gradient-to-r from-blue-500 to-blue-700 mx-auto rounded-full mb-4"></div>
+                <div className="h-0.5 w-16 bg-gradient-to-r from-blue-500 to-blue-700 mx-auto rounded-full mb-3"></div>
                 
-                <p className="text-blue-700 text-base font-semibold mb-2">
+                <p className="text-blue-700 text-sm font-semibold mb-1">
                   Welcome to our Management System
                 </p>
-                <p className="text-blue-600 text-sm font-medium mb-6">
+                <p className="text-blue-600 text-xs font-medium mb-4">
                   Please sign in with your account to continue.
                 </p>
                 
-                <div className="flex items-center justify-center gap-6 text-sm text-blue-500">
-                  <div className="flex items-center gap-2 bg-blue-50/50 px-3 py-2 rounded-full">
-                    <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex items-center justify-center gap-4 text-xs text-blue-500">
+                  <div className="flex items-center gap-1 bg-blue-50/50 px-2 py-1 rounded-full">
+                    <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span className="font-medium">Secure</span>
                   </div>
-                  <div className="flex items-center gap-2 bg-blue-50/50 px-3 py-2 rounded-full">
-                    <svg className="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex items-center gap-1 bg-blue-50/50 px-2 py-1 rounded-full">
+                    <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                     <span className="font-medium">Private</span>
@@ -84,34 +93,59 @@ export default function Login() {
             </div>
 
             {/* Right panel: Login form with gradient background */}
-            <div className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-white p-8 flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 via-blue-500/70 to-white/95 rounded-r-3xl"></div>
-              <div className="relative w-full max-w-md z-10">
-                <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border border-white/30">
-                  <div className="text-center mb-6">
-                    <h2 className="text-xl font-bold text-blue-800 mb-2">Sign in to your account</h2>
-                    <p className="text-sm text-blue-600 font-medium">Use the credentials provided by the registrar.</p>
+            <div className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-white p-6 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 via-blue-500/70 to-white/95 rounded-r-2xl"></div>
+              <div className="relative w-full max-w-sm z-10">
+                <div className="bg-white/95 backdrop-blur-sm rounded-xl p-5 shadow-xl border border-white/30">
+                  <div className="text-center mb-4">
+                    <h2 className="text-lg font-bold text-blue-800 mb-1">Sign in to your account</h2>
+                    <p className="text-xs text-blue-600 font-medium">Use the credentials provided by the registrar.</p>
                   </div>
 
-                  <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+                  {/* Success Notification */}
+                  {showNotification && flash?.success && (
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-start">
+                        <svg className="w-4 h-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="flex-1">
+                          <p className="text-xs text-green-800 leading-tight">
+                            {flash.success}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowNotification(false)}
+                          className="ml-2 text-green-500 hover:text-green-700 focus:outline-none"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSubmit} className="space-y-3" noValidate>
                     <div>
-                      <label htmlFor="email" className="block text-sm font-semibold text-blue-700 mb-2">
-                        Email address
+                      <label htmlFor="email" className="block text-xs font-semibold text-blue-700 mb-1">
+                        Email or LRN
                       </label>
                       <div className="relative">
                         <input
                           id="email"
-                          type="email"
-                          autoComplete="email"
+                          type="text"
+                          autoComplete="username"
                           required
                           value={data.email}
                           onChange={(e) => setData('email', e.target.value)}
-                          className={`w-full px-4 py-2.5 rounded-xl border-2 transition-all duration-200 font-medium placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+                          className={`w-full px-3 py-2 rounded-lg border-2 transition-all duration-200 font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
                             errors.email 
                               ? 'border-red-300 bg-red-50 focus:border-red-500' 
                               : 'border-gray-200 bg-white/80 focus:border-blue-500 hover:border-gray-300'
                           }`}
-                          placeholder="Email"
+                          placeholder="Enter your email or LRN"
                           aria-invalid={!!errors.email}
                           aria-describedby={errors.email ? 'email-error' : 'email-help'}
                         />
@@ -135,7 +169,7 @@ export default function Login() {
                     </div>
 
                     <div>
-                      <label htmlFor="password" className="block text-sm font-semibold text-blue-700 mb-2">
+                      <label htmlFor="password" className="block text-xs font-semibold text-blue-700 mb-1">
                         Password
                       </label>
                       <div className="relative">
@@ -146,7 +180,7 @@ export default function Login() {
                           required
                           value={data.password}
                           onChange={(e) => setData('password', e.target.value)}
-                          className={`w-full px-4 py-2.5 pr-12 rounded-xl border-2 transition-all duration-200 font-medium placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+                          className={`w-full px-3 py-2 pr-10 rounded-lg border-2 transition-all duration-200 font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
                             errors.password 
                               ? 'border-red-300 bg-red-50 focus:border-red-500' 
                               : 'border-gray-200 bg-white/80 focus:border-blue-500 hover:border-gray-300'
@@ -158,7 +192,7 @@ export default function Login() {
                         <button
                           type="button"
                           onClick={() => setShowPassword((s) => !s)}
-                          className="absolute inset-y-0 right-0 px-4 flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 focus:outline-none focus:text-blue-600 transition-colors duration-200 rounded-r-xl"
+                          className="absolute inset-y-0 right-0 px-3 flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 focus:outline-none focus:text-blue-600 transition-colors duration-200 rounded-r-lg"
                           aria-label={showPassword ? 'Hide password' : 'Show password'}
                         >
                           {showPassword ? (
@@ -187,18 +221,18 @@ export default function Login() {
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <label className="flex items-center gap-3 text-sm font-medium text-blue-700 cursor-pointer hover:text-blue-800 transition-colors">
+                      <label className="flex items-center gap-2 text-xs font-medium text-blue-700 cursor-pointer hover:text-blue-800 transition-colors">
                         <input
                           type="checkbox"
                           checked={data.remember}
                           onChange={(e) => setData('remember', e.target.checked)}
-                          className="h-4 w-4 rounded-lg border-2 border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2 transition-all"
+                          className="h-3 w-3 rounded border-2 border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-1 transition-all"
                         />
                         Remember me
                       </label>
                       <a 
                         href="#" 
-                        className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors duration-200 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md px-1"
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors duration-200 hover:underline focus:outline-none focus:ring-1 focus:ring-blue-500 focus:ring-offset-1 rounded px-1"
                       >
                         Forgot password?
                       </a>
@@ -207,11 +241,11 @@ export default function Login() {
                     <button
                       type="submit"
                       disabled={processing || isLoading}
-                      className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-2.5 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-500/50 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+                      className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
                       aria-busy={processing || isLoading}
                     >
                       {(processing || isLoading) && (
-                        <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" aria-hidden="true">
+                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" aria-hidden="true">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                         </svg>
@@ -219,7 +253,23 @@ export default function Login() {
                       {(processing || isLoading) ? 'Signing in...' : 'Sign in'}
                     </button>
 
-                    <div className="text-center">
+                    {/* Student Registration Link */}
+                    <div className="text-center border-t border-gray-200 pt-3">
+                      <p className="text-xs text-gray-600 mb-2">
+                        New student? Create your account
+                      </p>
+                      <a
+                        href="/student/register"
+                        className="inline-flex items-center justify-center w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                        </svg>
+                        Create Student Account
+                      </a>
+                    </div>
+
+                    <div className="text-center mt-2">
                       <p className="text-xs text-blue-500 leading-relaxed">
                         By signing in, you agree to our{' '}
                         <a href="#" className="text-blue-600 hover:text-blue-800 font-medium hover:underline">acceptable use</a>

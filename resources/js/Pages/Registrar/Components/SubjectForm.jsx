@@ -184,20 +184,23 @@ const subjectsByStrandAndYear = {
   }
 }
 
-export default function SubjectForm({ subject = null, strands = [], semesters = [], onClose }) {
+export default function SubjectForm({ subject = null, strands = [], semesters = [], activeSemester = null, onClose }) {
   const [selectedStrand, setSelectedStrand] = useState('')
   const [selectedYear, setSelectedYear] = useState('')
-  const [selectedSemester, setSelectedSemester] = useState('')
+  // Removed selectedSemester - will use activeSemester automatically
   const [availableSubjects, setAvailableSubjects] = useState([])
   const [selectedSubject, setSelectedSubject] = useState(null)
   const [errors, setErrors] = useState({})
   const [processing, setProcessing] = useState(false)
+  
+  // Get semester number from active semester
+  const activeSemesterNumber = activeSemester?.semester_type === '1st Semester' ? '1' : '2'
 
-  // Update available subjects when strand, year, or semester changes
+  // Update available subjects when strand, year, or active semester changes
   useEffect(() => {
-    if (selectedStrand && selectedYear && selectedSemester) {
+    if (selectedStrand && selectedYear && activeSemesterNumber) {
       const strandCode = strands.find(s => s.id.toString() === selectedStrand)?.Strand_code
-      const semesterNum = selectedSemester === '1' ? 1 : 2
+      const semesterNum = parseInt(activeSemesterNumber)
       
       if (strandCode && subjectsByStrandAndYear[strandCode] && 
           subjectsByStrandAndYear[strandCode][parseInt(selectedYear)] &&
@@ -210,7 +213,7 @@ export default function SubjectForm({ subject = null, strands = [], semesters = 
       setAvailableSubjects([])
     }
     setSelectedSubject(null)
-  }, [selectedStrand, selectedYear, selectedSemester, strands])
+  }, [selectedStrand, selectedYear, activeSemesterNumber, strands])
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -226,11 +229,11 @@ export default function SubjectForm({ subject = null, strands = [], semesters = 
     const formData = {
       Subject_name: selectedSubject.name,
       Subject_code: selectedSubject.code,
-      Semester: selectedSemester,
+      // Removed Semester from form data - backend will use active semester automatically
       year_level: parseInt(selectedYear),
       strand_id: parseInt(selectedStrand),
       PREREQUISITES: selectedSubject.prerequisites || null,
-      'CO-REQUISITES': selectedSubject.corequisites || null
+      'CO-REQUISITES': selectedSubject.corequisites || null,
     }
 
     router.post('/registrar/subjects', formData, {
@@ -282,10 +285,17 @@ export default function SubjectForm({ subject = null, strands = [], semesters = 
               </h3>
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Step 1: Select Strand, Year, and Semester */}
+                {/* Step 1: Select Strand and Year (Semester is automatically set to active semester) */}
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="text-sm font-medium text-gray-900 mb-3">Step 1: Select Curriculum Details</h4>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">
+                    Step 1: Select Curriculum Details 
+                    {activeSemester && (
+                      <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                        {activeSemester.semester_type}
+                      </span>
+                    )}
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {/* Strand */}
                     <div>
                       <label htmlFor="strand" className="block text-sm font-medium leading-6 text-gray-900">
@@ -323,22 +333,6 @@ export default function SubjectForm({ subject = null, strands = [], semesters = 
                       </select>
                     </div>
 
-                    {/* Semester */}
-                    <div>
-                      <label htmlFor="semester" className="block text-sm font-medium leading-6 text-gray-900">
-                        Semester *
-                      </label>
-                      <select
-                        id="semester"
-                        value={selectedSemester}
-                        onChange={(e) => setSelectedSemester(e.target.value)}
-                        className="mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                      >
-                        <option value="">Select semester</option>
-                        <option value="1">1st Semester</option>
-                        <option value="2">2nd Semester</option>
-                      </select>
-                    </div>
                   </div>
                 </div>
 

@@ -4,7 +4,7 @@ import RegistrarSidebar from '../Auth/Registrar_sidebar'
 import SubjectForm from './Components/SubjectForm'
 import Breadcrumb from './Components/Breadcrumb'
 
-export default function Subjects({ subjects = [], strands = [], semesters = [], activeSchoolYear, flash = {} }) {
+export default function Subjects({ subjects = [], strands = [], semesters = [], activeSchoolYear, activeSemester, flash = {} }) {
   const [showForm, setShowForm] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -392,6 +392,7 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
           subject={null}
           strands={strands}
           semesters={semesters}
+          activeSemester={activeSemester}
           onClose={handleFormClose}
         />
       )}
@@ -400,6 +401,7 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
       {showBulkImport && (
         <BulkImportModal
           strands={strands}
+          activeSemester={activeSemester}
           onClose={() => setShowBulkImport(false)}
         />
       )}
@@ -408,15 +410,20 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
 }
 
 // Bulk Import Modal Component
-function BulkImportModal({ strands, onClose }) {
+function BulkImportModal({ strands, activeSemester, onClose }) {
   const [selectedStrand, setSelectedStrand] = useState('')
   const [selectedYear, setSelectedYear] = useState('')
-  const [selectedSemester, setSelectedSemester] = useState('')
+  // Removed selectedSemester - will use activeSemester automatically
   const [importing, setImporting] = useState(false)
 
   const handleImport = () => {
-    if (!selectedStrand || !selectedYear || !selectedSemester) {
-      alert('Please select strand, year level, and semester')
+    if (!selectedStrand || !selectedYear) {
+      alert('Please select strand and year level')
+      return
+    }
+
+    if (!activeSemester) {
+      alert('No active semester. Please activate a semester first.')
       return
     }
 
@@ -425,7 +432,7 @@ function BulkImportModal({ strands, onClose }) {
     router.post('/registrar/subjects/bulk-import', {
       strand_id: selectedStrand,
       year_level: selectedYear,
-      semester: selectedSemester
+      // Removed semester from request - backend will use active semester automatically
     }, {
       onSuccess: (page) => {
         // Check if there's a success message in the response
@@ -475,9 +482,14 @@ function BulkImportModal({ strands, onClose }) {
             <div className="mt-3 text-center sm:ml-0 sm:mt-0 sm:text-left w-full">
               <h3 className="text-base font-semibold leading-6 text-gray-900 mb-4">
                 Bulk Import Subjects
+                {activeSemester && (
+                  <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                    {activeSemester.semester_type}
+                  </span>
+                )}
               </h3>
               <p className="text-sm text-gray-500 mb-6">
-                Import all subjects for a specific strand, year level, and semester from the curriculum database.
+                Import all subjects for a specific strand and year level for the currently active semester.
               </p>
 
               <div className="space-y-4">
@@ -518,22 +530,6 @@ function BulkImportModal({ strands, onClose }) {
                   </select>
                 </div>
 
-                {/* Semester */}
-                <div>
-                  <label htmlFor="semester" className="block text-sm font-medium leading-6 text-gray-900">
-                    Semester *
-                  </label>
-                  <select
-                    id="semester"
-                    value={selectedSemester}
-                    onChange={(e) => setSelectedSemester(e.target.value)}
-                    className="mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                  >
-                    <option value="">Select semester</option>
-                    <option value="1">1st Semester</option>
-                    <option value="2">2nd Semester</option>
-                  </select>
-                </div>
               </div>
 
               {/* Form Actions */}
@@ -548,7 +544,7 @@ function BulkImportModal({ strands, onClose }) {
                 <button
                   type="button"
                   onClick={handleImport}
-                  disabled={importing || !selectedStrand || !selectedYear || !selectedSemester}
+                  disabled={importing || !selectedStrand || !selectedYear || !activeSemester}
                   className="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {importing ? 'Importing...' : 'Import Subjects'}

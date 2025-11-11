@@ -5,3 +5,8 @@ export const facultyNav = [
   { href: '/faculty/grades', label: 'Grades' },
   { href: '/faculty/profile', label: 'Profile' },
 ]
+
+export const coordinatorNav = [
+  { href: '/faculty/enrollments', label: 'Pending Enrollments' },
+  { href: '/faculty/enrollment-reports', label: 'Enrollment Reports' },
+]

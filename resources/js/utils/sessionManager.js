@@ -114,6 +114,11 @@ class SessionManager {
      * Check if current route is protected
      */
     isProtectedRoute(path) {
+        // Exclude registration route from protection
+        if (path === '/student/register') {
+            return false;
+        }
+        
         const protectedPrefixes = ['/registrar', '/faculty', '/student'];
         return protectedPrefixes.some(prefix => path.startsWith(prefix));
     }
@@ -122,7 +127,7 @@ class SessionManager {
      * Check if current route is login
      */
     isLoginRoute(path) {
-        return path === '/' || path === '/login';
+        return path === '/' || path === '/login' || path === '/student/register';
     }
 
     /**

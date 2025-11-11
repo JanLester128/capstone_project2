@@ -6,6 +6,7 @@ export default function FacultyDashboard({
   classes = [], 
   students = [], 
   recentActivities = [], 
+  user = {},
   flash = {} 
 }) {
   // HCI Principle 1: Visibility of system status - Calculate dashboard stats
@@ -20,7 +21,7 @@ export default function FacultyDashboard({
     <div className="min-h-screen bg-gray-50 flex">
       <Head title="Faculty Dashboard" />
       
-      <FacultySidebar />
+      <FacultySidebar user={user} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header - HCI Principle 2: Match between system and real world */}

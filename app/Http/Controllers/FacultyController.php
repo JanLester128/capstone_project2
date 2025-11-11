@@ -8,6 +8,9 @@ use App\Models\ClassModel;
 use App\Models\Subject;
 use App\Models\SchoolYear;
 use App\Models\Semester;
+use App\Models\Enrollment;
+use App\Models\ClassDetail;
+use App\Models\Strand;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -160,6 +163,7 @@ class FacultyController extends Controller
             'activeSchoolYear' => $filters['activeSchoolYear'],
             'activeSemester' => $filters['activeSemester'],
             'allSemesters' => $filters['allSemesters'], // For historical access
+            'user' => $user, // Pass user data for sidebar
         ]);
     }
 
@@ -237,6 +241,7 @@ class FacultyController extends Controller
             'activeSchoolYear' => $filters['activeSchoolYear'],
             'activeSemester' => $filters['activeSemester'],
             'allSemesters' => $filters['allSemesters'], // For historical access
+            'user' => $user, // Pass user data for sidebar
         ]);
     }
 
@@ -305,6 +310,7 @@ class FacultyController extends Controller
             'activeSchoolYear' => $filters['activeSchoolYear'],
             'activeSemester' => $filters['activeSemester'],
             'allSemesters' => $filters['allSemesters'], // For historical access
+            'user' => $user, // Pass user data for sidebar
         ]);
     }
 
@@ -353,6 +359,7 @@ class FacultyController extends Controller
 
         return Inertia::render('Faculty/Profile', [
             'faculty' => $faculty,
+            'user' => $user,
         ]);
     }
 
@@ -375,6 +382,177 @@ class FacultyController extends Controller
 
         return redirect()->route('faculty.profile')
             ->with('success', 'Profile updated successfully.');
+    }
+
+
+    /**
+     * Display pending enrollments for coordinator.
+     */
+    public function enrollments()
+    {
+        $user = Auth::user();
+        
+        // Check if user is coordinator
+        if (!$user->is_coordinator) {
+            abort(403, 'Access denied. Coordinator privileges required.');
+        }
+
+        // Get pending enrollments with strand preferences
+        $enrollments = Enrollment::with([
+            'studentPersonalInfo.user',
+            'studentPersonalInfo.strandPreferences.strand',
+            'schoolYear',
+            'semester'
+        ])
+        ->where('status', 'pending')
+        ->orderBy('submitted_at', 'desc')
+        ->get();
+
+        // Get active strands and sections for assignment
+        $strands = Strand::where('Is_active', true)
+            ->with(['sections' => function($query) {
+                $query->where('is_active', true);
+            }])
+            ->orderBy('Strand_name')
+            ->get();
+
+        return Inertia::render('Faculty/Enrollments', [
+            'enrollments' => $enrollments,
+            'strands' => $strands,
+            'user' => $user, // Pass user data for sidebar
+        ]);
+    }
+
+    /**
+     * Update enrollment status (approve/reject).
+     */
+    public function updateEnrollmentStatus(Request $request, $enrollmentId)
+    {
+        $user = Auth::user();
+        
+        // Check if user is coordinator
+        if (!$user->is_coordinator) {
+            abort(403, 'Access denied. Coordinator privileges required.');
+        }
+
+        $validated = $request->validate([
+            'status' => 'required|in:approved,rejected',
+            'assigned_strand_id' => 'required_if:status,approved|nullable|exists:strands,id',
+            'assigned_section_id' => 'required_if:status,approved|nullable|exists:sections,id',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $enrollment = Enrollment::findOrFail($enrollmentId);
+        
+        // If approving, validate that strand and section are provided
+        if ($validated['status'] === 'approved') {
+            if (!$validated['assigned_strand_id'] || !$validated['assigned_section_id']) {
+                return redirect()->back()->withErrors([
+                    'error' => 'Strand and section assignment are required for approval.'
+                ]);
+            }
+
+            // Validate that the section belongs to the assigned strand
+            $section = Section::find($validated['assigned_section_id']);
+            if ($section && $section->strand_id !== (int)$validated['assigned_strand_id']) {
+                return redirect()->back()->withErrors([
+                    'error' => 'The selected section does not belong to the assigned strand.'
+                ]);
+            }
+        }
+        
+        $enrollment->update([
+            'status' => $validated['status'],
+            'assigned_strand_id' => $validated['status'] === 'approved' ? $validated['assigned_strand_id'] : null,
+            'assigned_section_id' => $validated['status'] === 'approved' ? $validated['assigned_section_id'] : null,
+            'processed_at' => now(),
+            'enrolled_by' => $user->id,
+        ]);
+
+        // If approved, create class details for the student
+        if ($validated['status'] === 'approved') {
+            $this->createClassDetailsForEnrollment($enrollment, $user->id);
+        }
+
+        $message = $validated['status'] === 'approved' 
+            ? 'Enrollment approved and student assigned to classes successfully.' 
+            : 'Enrollment rejected successfully.';
+
+        return redirect()->back()->with('success', $message);
+    }
+
+    /**
+     * Create class details for an approved enrollment.
+     */
+    private function createClassDetailsForEnrollment($enrollment, $enrolledBy)
+    {
+        // Get all active classes for the assigned section
+        $classes = ClassModel::where('section_id', $enrollment->assigned_section_id)
+            ->where('is_active', true)
+            ->where('school_year_id', $enrollment->school_year_id)
+            ->where('Semester_id', $enrollment->semester_id)
+            ->get();
+
+        // Create class details for each class
+        foreach ($classes as $class) {
+            ClassDetail::create([
+                'class_id' => $class->id,
+                'student_id' => $enrollment->studentPersonalInfo->user_id,
+                'enrollment_id' => $enrollment->id,
+                'enrolled_by' => $enrolledBy,
+            ]);
+        }
+    }
+
+    /**
+     * Display enrollment reports for coordinator.
+     */
+    public function enrollmentReports()
+    {
+        $user = Auth::user();
+        
+        // Check if user is coordinator
+        if (!$user->is_coordinator) {
+            abort(403, 'Access denied. Coordinator privileges required.');
+        }
+
+        // Get enrollment statistics
+        $stats = [
+            'total' => Enrollment::count(),
+            'pending' => Enrollment::where('status', 'pending')->count(),
+            'approved' => Enrollment::where('status', 'approved')->count(),
+            'rejected' => Enrollment::where('status', 'rejected')->count(),
+            'enrolled' => Enrollment::where('status', 'enrolled')->count(),
+        ];
+
+        // Get recent enrollments for the reports
+        $recentEnrollments = Enrollment::with([
+            'studentPersonalInfo.user',
+            'schoolYear',
+            'semester',
+            'enrolledBy'
+        ])
+        ->orderBy('created_at', 'desc')
+        ->limit(50)
+        ->get();
+
+        return Inertia::render('Faculty/EnrollmentReports', [
+            'stats' => $stats,
+            'recentEnrollments' => $recentEnrollments,
+            'user' => $user, // Pass user data for sidebar
+        ]);
+    }
+
+    /**
+     * Display grades management page.
+     */
+    public function grades()
+    {
+        $user = Auth::user();
+
+        return Inertia::render('Faculty/Grades', [
+            'user' => $user, // Pass user data for sidebar
+        ]);
     }
 }
 
