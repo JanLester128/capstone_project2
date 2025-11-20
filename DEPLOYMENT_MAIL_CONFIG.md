@@ -4,9 +4,24 @@
 
 The `.env` file is in `.gitignore` (line 3), which means it **will NOT be pushed** to your repository. You must configure environment variables directly in Laravel Cloud.
 
-## Required Environment Variables for Email
+## Required Environment Variables
 
 In your **Laravel Cloud Dashboard**, go to your project's **Environment Variables** section and add/update the following:
+
+### ⚠️ CRITICAL: Application URL
+
+**This must be set first!** Without this, email links will point to localhost instead of your deployed site.
+
+```env
+APP_URL=https://onstsshs-main-h0918r.laravel.cloud
+```
+
+**Important**: 
+- Use `https://` (not `http://`)
+- Do NOT include a trailing slash
+- This URL is used in all email links (login buttons, password reset links, etc.)
+
+## Required Environment Variables for Email
 
 ### Basic SMTP Configuration (Recommended)
 
@@ -86,14 +101,16 @@ After setting the environment variables, test by:
 
 ## Verification Checklist
 
+- [ ] **`APP_URL` is set to `https://onstsshs-main-h0918r.laravel.cloud`** (CRITICAL!)
 - [ ] `MAIL_MAILER` is set (NOT 'log' or 'array')
 - [ ] `MAIL_HOST` is set (if using SMTP)
 - [ ] `MAIL_USERNAME` is set (if using SMTP)
 - [ ] `MAIL_PASSWORD` is set (if using SMTP)
+- [ ] `MAIL_ENCRYPTION` is set (usually 'tls' for port 587)
 - [ ] `MAIL_FROM_ADDRESS` is set
 - [ ] `MAIL_FROM_NAME` is set
 - [ ] Environment variables are saved in Laravel Cloud
-- [ ] Application has been redeployed (if needed)
+- [ ] Application has been redeployed (if required by Laravel Cloud)
 
 ## Common Issues
 
@@ -108,6 +125,13 @@ After setting the environment variables, test by:
 - For Gmail: Use App Password, not regular password
 - Verify username/password are correct
 - Check if 2FA is enabled (required for Gmail App Passwords)
+
+### Issue: Email links point to localhost (127.0.0.1:8000)
+**Solution**: 
+- **Set `APP_URL=https://onstsshs-main-h0918r.laravel.cloud` in Laravel Cloud environment variables**
+- Make sure there's no trailing slash
+- Redeploy the application after setting APP_URL
+- The email templates now use `config('app.url')` which reads from APP_URL
 
 ## Notes
 

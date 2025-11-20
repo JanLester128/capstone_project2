@@ -20,7 +20,7 @@ Next Steps:
 3. Complete your profile if additional information is needed
 4. Explore the faculty dashboard and available features
 
-Login URL: {{ url('/login') }}
+Login URL: {{ config('app.url') }}/login
 
 Need Help?
 ----------

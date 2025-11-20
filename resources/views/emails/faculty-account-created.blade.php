@@ -153,7 +153,7 @@
         </div>
 
         <div style="text-align: center;">
-            <a href="{{ url('/login') }}" class="button">🚀 Login to Your Account</a>
+            <a href="{{ config('app.url') }}/login" class="button">🚀 Login to Your Account</a>
         </div>
 
         <div class="steps-section">
