@@ -48,19 +48,21 @@ export default function Login() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center px-4 py-4" style={{fontFamily: 'Poppins, sans-serif'}}>
         <div className="w-full max-w-4xl bg-white/95 backdrop-blur-sm shadow-xl rounded-2xl overflow-hidden border border-white/20">
           <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[400px]">
-            {/* Left panel: Logo + School name with gradient background */}
-            <div className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 p-6 flex items-center justify-center overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 via-indigo-600/80 to-purple-600/90 rounded-l-2xl"></div>
+            {/* Left panel: Logo + School name with dark background */}
+            <div className="relative p-6 flex items-center justify-center overflow-hidden" style={{ backgroundColor: '#000825' }}>
+              <div className="absolute inset-0 rounded-l-2xl" style={{ backgroundColor: '#000825' }}></div>
               
               {/* Decorative Translucent White Circles */}
-              <div className="absolute top-0 left-0 w-64 h-64 bg-white/15 rounded-full blur-3xl -translate-x-1/4 -translate-y-1/4"></div>
-              <div className="absolute bottom-0 right-0 w-48 h-48 bg-white/15 rounded-full blur-3xl translate-x-1/4 translate-y-1/4"></div>
-              <div className="absolute top-1/2 left-1/4 w-40 h-40 bg-white/10 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2"></div>
-              <div className="absolute bottom-1/4 left-0 w-32 h-32 bg-white/12 rounded-full blur-2xl -translate-x-1/3"></div>
+              <div className="absolute top-0 left-0 w-64 h-64 bg-white/20 rounded-full blur-3xl -translate-x-1/4 -translate-y-1/4"></div>
+              <div className="absolute bottom-0 right-0 w-48 h-48 bg-white/20 rounded-full blur-3xl translate-x-1/4 translate-y-1/4"></div>
+              <div className="absolute top-1/2 left-1/4 w-40 h-40 bg-white/15 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2"></div>
+              <div className="absolute bottom-1/4 left-0 w-32 h-32 bg-white/18 rounded-full blur-2xl -translate-x-1/3"></div>
+              <div className="absolute top-1/4 right-1/4 w-56 h-56 bg-white/12 rounded-full blur-3xl translate-x-1/4 -translate-y-1/4"></div>
+              <div className="absolute bottom-1/2 right-0 w-36 h-36 bg-white/16 rounded-full blur-2xl translate-x-1/3 translate-y-1/2"></div>
               
               <div className="relative max-w-xs text-center z-10">
                 <div className="relative mb-6">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-indigo-600/20 rounded-full blur-3xl scale-150"></div>
+                  <div className="absolute inset-0 bg-white/10 rounded-full blur-3xl scale-150"></div>
                   <div className="relative mx-auto h-20 w-20 bg-white rounded-full p-2 flex items-center justify-center shadow-xl">
                     <img
                       src="/onsts.png"
@@ -74,12 +76,12 @@ export default function Login() {
                   OPOL NATIONAL SECONDARY TECHNICAL SCHOOL
                 </h1>
                 
-                <div className="h-0.5 w-16 bg-white/60 mx-auto rounded-full mb-3"></div>
+                <div className="h-0.5 w-16 bg-white/70 mx-auto rounded-full mb-3"></div>
                 
                 <p className="text-white text-sm font-semibold mb-1">
                   Welcome to our Enrollment System
                 </p>
-                <p className="text-blue-100 text-xs font-medium">
+                <p className="text-white/90 text-xs font-medium">
                   Please sign in with your account to continue.
                 </p>
               </div>
@@ -215,7 +217,10 @@ export default function Login() {
                     <div className="flex items-center justify-end">
                       <a 
                         href={`/password/forgot${data.email ? `?email=${encodeURIComponent(data.email)}` : ''}`}
-                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors duration-200 hover:underline focus:outline-none focus:ring-1 focus:ring-blue-500 focus:ring-offset-1 rounded px-1"
+                        className="text-xs font-semibold transition-colors duration-200 hover:underline focus:outline-none focus:ring-1 focus:ring-offset-1 rounded px-1"
+                        style={{ color: '#000825' }}
+                        onMouseEnter={(e) => e.target.style.color = '#1a1f3a'}
+                        onMouseLeave={(e) => e.target.style.color = '#000825'}
                       >
                         Forgot password?
                       </a>
@@ -224,7 +229,18 @@ export default function Login() {
                     <button
                       type="submit"
                       disabled={processing || isLoading}
-                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+                      className="w-full text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#000825]/50 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+                      style={{ backgroundColor: '#000825' }}
+                      onMouseEnter={(e) => {
+                        if (!e.currentTarget.disabled) {
+                          e.currentTarget.style.backgroundColor = '#1a1f3a'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!e.currentTarget.disabled) {
+                          e.currentTarget.style.backgroundColor = '#000825'
+                        }
+                      }}
                       aria-busy={processing || isLoading}
                     >
                       {(processing || isLoading) && (
@@ -243,9 +259,16 @@ export default function Login() {
                       </p>
                       <a
                         href="/student/register"
-                        className="inline-flex items-center justify-center w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className="inline-flex items-center justify-center text-white text-sm font-medium py-1.5 px-3 rounded-md shadow-sm hover:shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#000825]/50"
+                        style={{ backgroundColor: '#000825' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#1a1f3a'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#000825'
+                        }}
                       >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                         </svg>
                         Create Account
@@ -254,10 +277,7 @@ export default function Login() {
 
                     <div className="text-center mt-2">
                       <p className="text-xs text-gray-500 leading-relaxed">
-                        By signing in, you agree to our{' '}
-                        <a href="#" className="text-blue-600 hover:text-blue-800 font-medium hover:underline">acceptable use</a>
-                        {' '}and{' '}
-                        <a href="#" className="text-blue-600 hover:text-blue-800 font-medium hover:underline">privacy policies</a>.
+                        © Developed By: Jan Lester Camus - {new Date().getFullYear()} WESMG System. All rights reserved.
                       </p>
                     </div>
                   </form>

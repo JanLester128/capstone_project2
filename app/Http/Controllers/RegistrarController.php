@@ -1763,7 +1763,7 @@ class RegistrarController extends Controller
         // Show ALL active sections for the school year (semester_id filter is optional/not restrictive)
         // This ensures sections are always available for class creation
         $sections = Section::with('strand')
-            ->where('is_active', true);
+                           ->where('is_active', true);
         
         if ($activeSchoolYear) {
             // Primary filter: school_year_id
@@ -1997,7 +1997,7 @@ class RegistrarController extends Controller
             ->pluck('Section_id')
             ->unique()
             ->count();
-        
+
         $facultyLoadCount = $uniqueSections;
 
         // Check if the new section is already counted
@@ -2139,7 +2139,7 @@ class RegistrarController extends Controller
             
             // If this is a new section for the faculty, increment the load count
             if (!in_array($sectionId, $facultySections[$facultyId])) {
-                $facultyLoads[$facultyId]++;
+            $facultyLoads[$facultyId]++;
                 $facultySections[$facultyId][] = $sectionId;
             }
             
@@ -5490,7 +5490,7 @@ class RegistrarController extends Controller
                 // Apply rules based on strand
                 if ($isSTEM) {
                     // STEM STUDENT LOGIC
-                    if ($hasFailedPrerequisites) {
+                        if ($hasFailedPrerequisites) {
                         // Failed prerequisite (< 85) → Must transfer strand, NO summer class
                         $canReEnrollToSameStrand = false;
                         $needsSummerClasses = false;
@@ -5862,7 +5862,7 @@ class RegistrarController extends Controller
             // Apply rules based on strand
             if ($isSTEM) {
                 // STEM STUDENT LOGIC
-                if ($hasFailedPrerequisites) {
+                    if ($hasFailedPrerequisites) {
                     // Failed prerequisite (< 85) → Must transfer strand, NO summer class
                     $canReEnrollToSameStrand = false;
                     $needsSummerClasses = false;
