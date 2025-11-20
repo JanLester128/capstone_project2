@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 
 class RegistrarController extends Controller
 {
@@ -3531,21 +3532,125 @@ class RegistrarController extends Controller
      */
     public function faculty()
     {
-        $faculty = User::where('Role', 'Faculty')
-            ->with('assignedStrand')
-            ->select('id', 'FirstName', 'MiddleName', 'LastName', 'email', 'Role', 'assigned_strand_id', 'is_coordinator', 'created_at', 'updated_at')
-            ->orderBy('LastName')
-            ->orderBy('FirstName')
-            ->get();
+        try {
+            // Get faculty with eager loading - use select to avoid loading unnecessary data
+            $facultyQuery = User::where('Role', 'Faculty')
+                ->with(['assignedStrand' => function ($query) {
+                    $query->select('id', 'Strand_code', 'Strand_name', 'Is_active');
+                }])
+                ->select('id', 'FirstName', 'MiddleName', 'LastName', 'email', 'Role', 'assigned_strand_id', 'is_coordinator', 'created_at', 'updated_at')
+                ->orderBy('LastName')
+                ->orderBy('FirstName');
 
-        $strands = Strand::where('Is_active', true)
-            ->orderBy('Strand_code')
-            ->get();
+            $faculty = $facultyQuery->get()->map(function ($user) {
+                try {
+                    $assignedStrand = null;
+                    
+                    // Safely access the relationship
+                    $strand = $user->relationLoaded('assignedStrand') ? $user->assignedStrand : null;
+                    
+                    if ($strand && $strand instanceof Strand) {
+                        $assignedStrand = [
+                            'id' => $strand->id ?? null,
+                            'Strand_code' => $strand->Strand_code ?? null,
+                            'Strand_name' => $strand->Strand_name ?? null,
+                            'Is_active' => $strand->Is_active ?? false,
+                        ];
+                    }
 
-        return Inertia::render('Registrar/Faculty', [
-            'faculty' => $faculty,
-            'strands' => $strands,
-        ]);
+                    return [
+                        'id' => $user->id ?? null,
+                        'FirstName' => $user->FirstName ?? '',
+                        'MiddleName' => $user->MiddleName ?? null,
+                        'LastName' => $user->LastName ?? '',
+                        'email' => $user->email ?? '',
+                        'Role' => $user->Role ?? 'Faculty',
+                        'assigned_strand_id' => $user->assigned_strand_id ?? null,
+                        'is_coordinator' => (bool)($user->is_coordinator ?? false),
+                        'created_at' => $user->created_at ? $user->created_at->toDateTimeString() : null,
+                        'updated_at' => $user->updated_at ? $user->updated_at->toDateTimeString() : null,
+                        'assignedStrand' => $assignedStrand,
+                    ];
+                } catch (\Exception $e) {
+                    Log::warning('Error mapping faculty user', [
+                        'user_id' => $user->id ?? null,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                    
+                    // Return minimal safe data
+                    return [
+                        'id' => $user->id ?? null,
+                        'FirstName' => $user->FirstName ?? '',
+                        'MiddleName' => $user->MiddleName ?? null,
+                        'LastName' => $user->LastName ?? '',
+                        'email' => $user->email ?? '',
+                        'Role' => 'Faculty',
+                        'assigned_strand_id' => null,
+                        'is_coordinator' => false,
+                        'created_at' => null,
+                        'updated_at' => null,
+                        'assignedStrand' => null,
+                    ];
+                }
+            })->filter(function ($user) {
+                // Filter out any null users
+                return $user['id'] !== null;
+            });
+
+            $strands = Strand::where('Is_active', true)
+                ->select('id', 'Strand_code', 'Strand_name', 'Is_active')
+                ->orderBy('Strand_code')
+                ->get()
+                ->map(function ($strand) {
+                    return [
+                        'id' => $strand->id,
+                        'Strand_code' => $strand->Strand_code,
+                        'Strand_name' => $strand->Strand_name,
+                        'Is_active' => $strand->Is_active,
+                    ];
+                });
+
+            return Inertia::render('Registrar/Faculty', [
+                'faculty' => $faculty->values()->all(),
+                'strands' => $strands->values()->all(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error in faculty method', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Try to get at least the strands even if faculty fails
+            $strands = [];
+            try {
+                $strands = Strand::where('Is_active', true)
+                    ->select('id', 'Strand_code', 'Strand_name', 'Is_active')
+                    ->orderBy('Strand_code')
+                    ->get()
+                    ->map(function ($strand) {
+                        return [
+                            'id' => $strand->id,
+                            'Strand_code' => $strand->Strand_code,
+                            'Strand_name' => $strand->Strand_name,
+                            'Is_active' => $strand->Is_active,
+                        ];
+                    });
+            } catch (\Exception $strandError) {
+                Log::error('Error loading strands in faculty error handler', [
+                    'message' => $strandError->getMessage(),
+                    'trace' => $strandError->getTraceAsString(),
+                ]);
+            }
+            
+            return Inertia::render('Registrar/Faculty', [
+                'faculty' => [],
+                'strands' => $strands->values()->all(),
+                'error' => 'Failed to load faculty data. Please try again or contact support.'
+            ]);
+        }
     }
 
     /**
@@ -6677,6 +6782,327 @@ class RegistrarController extends Controller
             'faculty' => array_values($facultyLoadData),
             'summary' => $summary,
         ];
+    }
+
+    /**
+     * Generate PDF for Faculty Loads Report
+     */
+    public function downloadFacultyLoadsPdf(Request $request)
+    {
+        $schoolYearId = $request->input('school_year_id');
+        $semesterId = $request->input('semester_id');
+        
+        $activeSchoolYear = $schoolYearId ? SchoolYear::find($schoolYearId) : SchoolYear::where('is_active', true)->first();
+        $activeSemester = $semesterId ? Semester::find($semesterId) : null;
+        
+        $facultyLoads = $this->calculateFacultyLoads($schoolYearId, $semesterId);
+        
+        $data = [
+            'facultyLoads' => $facultyLoads,
+            'school_year' => $activeSchoolYear?->formatted ?? 'All School Years',
+            'semester' => $activeSemester?->semester_type ?? 'All Semesters',
+            'generated_at' => now()->format('F d, Y g:i A'),
+        ];
+        
+        $pdf = PDF::loadView('pdf.registrar.faculty-loads', $data);
+        $filename = 'faculty-loads-report-' . now()->format('Y-m-d') . '.pdf';
+        return $pdf->download($filename);
+    }
+
+    /**
+     * Generate PDF for Subjects Report
+     */
+    public function downloadSubjectsPdf(Request $request)
+    {
+        $schoolYearId = $request->input('school_year_id');
+        $semesterId = $request->input('semester_id');
+        
+        $activeSchoolYear = $schoolYearId ? SchoolYear::find($schoolYearId) : SchoolYear::where('is_active', true)->first();
+        $activeSemester = $semesterId ? Semester::find($semesterId) : null;
+        
+        $subjectsQuery = Subject::with(['strand', 'semester', 'schoolYear'])
+            ->when($schoolYearId, fn($q) => $q->where('school_year_id', $schoolYearId))
+            ->when($semesterId, fn($q) => $q->where('semester_id', $semesterId))
+            ->orderBy('Subject_name');
+        
+        $subjects = $subjectsQuery->get();
+        
+        $data = [
+            'subjects' => $subjects,
+            'school_year' => $activeSchoolYear?->formatted ?? 'All School Years',
+            'semester' => $activeSemester?->semester_type ?? 'All Semesters',
+            'total_subjects' => $subjects->count(),
+            'generated_at' => now()->format('F d, Y g:i A'),
+        ];
+        
+        $pdf = PDF::loadView('pdf.registrar.subjects', $data)->setPaper('a4', 'landscape');
+        $filename = 'subjects-report-' . now()->format('Y-m-d') . '.pdf';
+        return $pdf->download($filename);
+    }
+
+    /**
+     * Generate PDF for Sections Report
+     */
+    public function downloadSectionsPdf(Request $request)
+    {
+        $schoolYearId = $request->input('school_year_id');
+        $semesterId = $request->input('semester_id');
+        
+        $activeSchoolYear = $schoolYearId ? SchoolYear::find($schoolYearId) : SchoolYear::where('is_active', true)->first();
+        $activeSemester = $semesterId ? Semester::find($semesterId) : null;
+        
+        $sectionsQuery = Section::with(['strand', 'adviser', 'schoolYear', 'semester'])
+            ->when($schoolYearId, fn($q) => $q->where('school_year_id', $schoolYearId))
+            ->when($semesterId, fn($q) => $q->where('semester_id', $semesterId))
+            ->orderBy('section_name');
+        
+        $sections = $sectionsQuery->get()->map(function ($section) {
+            $enrollmentCount = Enrollment::where('assigned_section_id', $section->id)
+                ->where('status', Enrollment::STATUS_ENROLLED)
+                ->count();
+            
+            return [
+                'section_name' => $section->section_name,
+                'strand' => $section->strand?->Strand_name ?? 'N/A',
+                'adviser' => $section->adviser ? trim(($section->adviser->FirstName ?? '') . ' ' . ($section->adviser->LastName ?? '')) : 'N/A',
+                'student_count' => $enrollmentCount,
+                'is_active' => $section->is_active,
+            ];
+        });
+        
+        $data = [
+            'sections' => $sections,
+            'school_year' => $activeSchoolYear?->formatted ?? 'All School Years',
+            'semester' => $activeSemester?->semester_type ?? 'All Semesters',
+            'total_sections' => $sections->count(),
+            'generated_at' => now()->format('F d, Y g:i A'),
+        ];
+        
+        $pdf = PDF::loadView('pdf.registrar.sections', $data);
+        $filename = 'sections-report-' . now()->format('Y-m-d') . '.pdf';
+        return $pdf->download($filename);
+    }
+
+    /**
+     * Generate PDF for Strands Report
+     */
+    public function downloadStrandsPdf(Request $request)
+    {
+        $schoolYearId = $request->input('school_year_id');
+        $semesterId = $request->input('semester_id');
+        
+        $activeSchoolYear = $schoolYearId ? SchoolYear::find($schoolYearId) : SchoolYear::where('is_active', true)->first();
+        $activeSemester = $semesterId ? Semester::find($semesterId) : null;
+        
+        $strands = [];
+        
+        if ($semesterId) {
+            $strandSemester = DB::table('strand_semester')
+                ->where('semester_id', $semesterId)
+                ->where('is_active', true)
+                ->pluck('strand_id');
+            
+            $strands = Strand::whereIn('id', $strandSemester)
+                ->orderBy('Strand_code')
+                ->get();
+        } elseif ($schoolYearId) {
+            $strandSchoolYear = DB::table('strand_school_year')
+                ->where('school_year_id', $schoolYearId)
+                ->where('is_active', true)
+                ->pluck('strand_id');
+            
+            $strands = Strand::whereIn('id', $strandSchoolYear)
+                ->orderBy('Strand_code')
+                ->get();
+        } else {
+            $strands = Strand::where('Is_active', true)
+                ->orderBy('Strand_code')
+                ->get();
+        }
+        
+        $strandsWithStats = $strands->map(function ($strand) use ($schoolYearId, $semesterId) {
+            $enrollmentQuery = Enrollment::where('assigned_strand_id', $strand->id)
+                ->where('status', Enrollment::STATUS_ENROLLED);
+            
+            if ($schoolYearId) {
+                $enrollmentQuery->where('school_year_id', $schoolYearId);
+            }
+            if ($semesterId) {
+                $enrollmentQuery->where('semester_id', $semesterId);
+            }
+            
+            $studentCount = $enrollmentQuery->count();
+            
+            return [
+                'strand_code' => $strand->Strand_code,
+                'strand_name' => $strand->Strand_name,
+                'student_count' => $studentCount,
+                'is_active' => $strand->Is_active,
+            ];
+        });
+        
+        $data = [
+            'strands' => $strandsWithStats,
+            'school_year' => $activeSchoolYear?->formatted ?? 'All School Years',
+            'semester' => $activeSemester?->semester_type ?? 'All Semesters',
+            'total_strands' => $strandsWithStats->count(),
+            'total_students' => $strandsWithStats->sum('student_count'),
+            'generated_at' => now()->format('F d, Y g:i A'),
+        ];
+        
+        $pdf = PDF::loadView('pdf.registrar.strands', $data);
+        $filename = 'strands-report-' . now()->format('Y-m-d') . '.pdf';
+        return $pdf->download($filename);
+    }
+
+    /**
+     * Generate PDF for Student Population Report
+     */
+    public function downloadStudentPopulationPdf(Request $request)
+    {
+        $schoolYearId = $request->input('school_year_id');
+        $semesterId = $request->input('semester_id');
+        
+        $activeSchoolYear = $schoolYearId ? SchoolYear::find($schoolYearId) : SchoolYear::where('is_active', true)->first();
+        $activeSemester = $semesterId ? Semester::find($semesterId) : null;
+        
+        $enrollmentsBase = Enrollment::where('status', Enrollment::STATUS_ENROLLED)
+            ->when($schoolYearId, fn($q) => $q->where('school_year_id', $schoolYearId))
+            ->when($semesterId, fn($q) => $q->where('semester_id', $semesterId));
+        
+        // Overall statistics
+        $totalStudents = (clone $enrollmentsBase)->count();
+        
+        $genderStats = (clone $enrollmentsBase)
+            ->join('student_personal_info', 'enrollments.student_personal_info_id', '=', 'student_personal_info.id')
+            ->select('student_personal_info.sex', DB::raw('count(*) as count'))
+            ->groupBy('student_personal_info.sex')
+            ->get();
+        
+        $maleCount = $genderStats->where('sex', 'Male')->first()->count ?? 0;
+        $femaleCount = $genderStats->where('sex', 'Female')->first()->count ?? 0;
+        
+        // By strand
+        $byStrand = (clone $enrollmentsBase)
+            ->leftJoin('strands', 'enrollments.assigned_strand_id', '=', 'strands.id')
+            ->select('strands.Strand_name', 'strands.Strand_code', DB::raw('count(*) as count'))
+            ->groupBy('strands.id', 'strands.Strand_name', 'strands.Strand_code')
+            ->orderBy('count', 'desc')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'strand' => $item->Strand_name ?? 'Unassigned',
+                    'code' => $item->Strand_code ?? 'N/A',
+                    'count' => $item->count,
+                ];
+            });
+        
+        // By grade level
+        $byGrade = (clone $enrollmentsBase)
+            ->join('student_personal_info', 'enrollments.student_personal_info_id', '=', 'student_personal_info.id')
+            ->select('student_personal_info.grade_level', DB::raw('count(*) as count'))
+            ->groupBy('student_personal_info.grade_level')
+            ->orderBy('student_personal_info.grade_level')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'grade' => $item->grade_level ? "Grade {$item->grade_level}" : 'Not Set',
+                    'count' => $item->count,
+                ];
+            });
+        
+        $data = [
+            'total_students' => $totalStudents,
+            'male_count' => $maleCount,
+            'female_count' => $femaleCount,
+            'by_strand' => $byStrand,
+            'by_grade' => $byGrade,
+            'school_year' => $activeSchoolYear?->formatted ?? 'All School Years',
+            'semester' => $activeSemester?->semester_type ?? 'All Semesters',
+            'generated_at' => now()->format('F d, Y g:i A'),
+        ];
+        
+        $pdf = PDF::loadView('pdf.registrar.student-population', $data);
+        $filename = 'student-population-report-' . now()->format('Y-m-d') . '.pdf';
+        return $pdf->download($filename);
+    }
+
+    /**
+     * Generate PDF for Complete Analytics Report
+     */
+    public function downloadAnalyticsPdf(Request $request)
+    {
+        $schoolYearId = $request->input('school_year_id');
+        $semesterId = $request->input('semester_id');
+        
+        $activeSchoolYear = $schoolYearId ? SchoolYear::find($schoolYearId) : SchoolYear::where('is_active', true)->first();
+        $activeSemester = $semesterId ? Semester::find($semesterId) : null;
+        
+        // Get all analytics data
+        $analytics = $this->getAnalyticsData(
+            $schoolYearId ? SchoolYear::find($schoolYearId) : $activeSchoolYear,
+            $semesterId ? Semester::find($semesterId) : $activeSemester
+        );
+        
+        $enrollmentsBase = Enrollment::query()
+            ->when($schoolYearId, function ($query) use ($schoolYearId) {
+                $query->where('school_year_id', $schoolYearId);
+            })
+            ->when($semesterId, function ($query) use ($semesterId) {
+                $query->where('semester_id', $semesterId);
+            });
+        
+        $enrollmentStats = [
+            'total' => (clone $enrollmentsBase)->count(),
+            'pre_enrolled' => (clone $enrollmentsBase)->where('status', Enrollment::STATUS_PRE_ENROLLED)->count(),
+            'recommended' => (clone $enrollmentsBase)->where('status', Enrollment::STATUS_RECOMMENDED)->count(),
+            'enrolled' => (clone $enrollmentsBase)->where('status', Enrollment::STATUS_ENROLLED)->count(),
+            'rejected' => (clone $enrollmentsBase)->where('status', Enrollment::STATUS_REJECTED)->count(),
+        ];
+        
+        $enrollmentByStrand = (clone $enrollmentsBase)
+            ->where('status', Enrollment::STATUS_ENROLLED)
+            ->leftJoin('strands', 'enrollments.assigned_strand_id', '=', 'strands.id')
+            ->select('strands.Strand_name', 'strands.Strand_code', DB::raw('count(*) as count'))
+            ->groupBy('strands.id', 'strands.Strand_name', 'strands.Strand_code')
+            ->orderBy('count', 'desc')
+            ->get();
+        
+        $academicStats = [
+            'sections' => $schoolYearId && $semesterId
+                ? Section::where('school_year_id', $schoolYearId)
+                         ->where('semester_id', $semesterId)
+                         ->count()
+                : 0,
+            'subjects' => $schoolYearId && $semesterId
+                ? Subject::where('school_year_id', $schoolYearId)
+                         ->where('semester_id', $semesterId)
+                         ->count()
+                : 0,
+            'classes' => $schoolYearId && $semesterId
+                ? ClassModel::where('school_year_id', $schoolYearId)
+                           ->where('Semester_id', $semesterId)
+                           ->count()
+                : 0,
+            'faculty' => User::where('Role', 'Faculty')->count(),
+        ];
+        
+        $facultyLoads = $this->calculateFacultyLoads($schoolYearId, $semesterId);
+        
+        $data = [
+            'analytics' => $analytics,
+            'enrollmentStats' => $enrollmentStats,
+            'enrollmentByStrand' => $enrollmentByStrand,
+            'academicStats' => $academicStats,
+            'facultyLoads' => $facultyLoads,
+            'school_year' => $activeSchoolYear?->formatted ?? 'All School Years',
+            'semester' => $activeSemester?->semester_type ?? 'All Semesters',
+            'generated_at' => now()->format('F d, Y g:i A'),
+        ];
+        
+        $pdf = PDF::loadView('pdf.registrar.analytics', $data);
+        $filename = 'complete-analytics-report-' . now()->format('Y-m-d') . '.pdf';
+        return $pdf->download($filename);
     }
 }
 

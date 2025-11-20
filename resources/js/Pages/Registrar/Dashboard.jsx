@@ -427,20 +427,29 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
           ))}
         </section>
 
-        {/* Analytics Section */}
+        {/* Analytics Snippet Section */}
         <section className="mt-10">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Analytics & Insights</h2>
-              <p className="text-sm text-gray-500 mt-1">Comprehensive overview of your institution's data</p>
+              <h2 className="text-2xl font-bold text-gray-900">Analytics Overview</h2>
+              <p className="text-sm text-gray-500 mt-1">Quick insights - View detailed reports in Reports & Analytics</p>
             </div>
+            <Link
+              href="/registrar/reports"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              View Full Reports
+            </Link>
           </div>
           
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 mb-6">
-            {/* Gender Distribution */}
+          {/* Compact Analytics Cards */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {/* Gender Distribution Snippet */}
             <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-white to-blue-50 p-6 shadow-lg border border-blue-100">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200 rounded-full -mr-16 -mt-16 opacity-10"></div>
+              <div className="absolute top-0 right-0 w-24 h-24 bg-blue-200 rounded-full -mr-12 -mt-12 opacity-10"></div>
               <div className="relative">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-gray-900">Gender Distribution</h3>
@@ -450,7 +459,7 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
                     </svg>
                   </div>
                 </div>
-                <div className="h-64 mb-4">
+                <div className="h-48 mb-4">
                   <Doughnut data={genderChartData} options={doughnutOptions} />
                 </div>
                 <div className="flex items-center justify-center gap-4 pt-4 border-t border-blue-100">
@@ -466,9 +475,9 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
               </div>
             </div>
 
-            {/* Strand Enrollment */}
+            {/* Strand Enrollment Snippet */}
             <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-white to-purple-50 p-6 shadow-lg border border-purple-100">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200 rounded-full -mr-16 -mt-16 opacity-10"></div>
+              <div className="absolute top-0 right-0 w-24 h-24 bg-purple-200 rounded-full -mr-12 -mt-12 opacity-10"></div>
               <div className="relative">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-gray-900">Strand Enrollment</h3>
@@ -478,7 +487,7 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
                     </svg>
                   </div>
                 </div>
-                <div className="h-64 mb-4">
+                <div className="h-48 mb-4">
                   <Doughnut data={strandChartData} options={doughnutOptions} />
                 </div>
                 <div className="text-center pt-4 border-t border-purple-100">
@@ -489,9 +498,9 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
               </div>
             </div>
 
-            {/* Grade Distribution */}
+            {/* Grade Distribution Snippet */}
             <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-white to-indigo-50 p-6 shadow-lg border border-indigo-100">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-200 rounded-full -mr-16 -mt-16 opacity-10"></div>
+              <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-200 rounded-full -mr-12 -mt-12 opacity-10"></div>
               <div className="relative">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-gray-900">Grade Levels</h3>
@@ -501,94 +510,13 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
                     </svg>
                   </div>
                 </div>
-                <div className="h-64 mb-4">
+                <div className="h-48 mb-4">
                   <Bar data={gradeChartData} options={chartOptions} />
                 </div>
                 <div className="text-center pt-4 border-t border-indigo-100">
                   <p className="text-sm font-medium text-gray-600">
                     <span className="text-lg font-bold text-indigo-600">{analytics.grade_distribution?.length || 0}</span> grade levels
                   </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Statistics Cards Row */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {/* Student Statistics Summary */}
-            <div className="relative overflow-hidden rounded-xl bg-white p-6 shadow-lg border border-gray-100">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full -mr-20 -mt-20 opacity-20"></div>
-              <div className="relative">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900">Student Statistics</h3>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700">Total Students</span>
-                    <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                      {(analytics.total_students || 0).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-blue-50 rounded-lg">
-                      <p className="text-xs text-gray-600 mb-1">Male</p>
-                      <p className="text-xl font-bold text-blue-600">{analytics.gender_distribution?.male || 0}</p>
-                    </div>
-                    <div className="p-3 bg-pink-50 rounded-lg">
-                      <p className="text-xs text-gray-600 mb-1">Female</p>
-                      <p className="text-xl font-bold text-pink-600">{analytics.gender_distribution?.female || 0}</p>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-indigo-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700">Gender Ratio</span>
-                    <span className="text-lg font-bold text-indigo-600">
-                      {analytics.gender_distribution?.male || 0}:{analytics.gender_distribution?.female || 0}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Faculty & System Stats */}
-            <div className="relative overflow-hidden rounded-xl bg-white p-6 shadow-lg border border-gray-100">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full -mr-20 -mt-20 opacity-20"></div>
-              <div className="relative">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900">System Overview</h3>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700">Total Faculty</span>
-                    <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                      {(analytics.total_faculty || 0).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-purple-50 rounded-lg">
-                      <p className="text-xs text-gray-600 mb-1">Sections</p>
-                      <p className="text-xl font-bold text-purple-600">{sections}</p>
-                    </div>
-                    <div className="p-3 bg-orange-50 rounded-lg">
-                      <p className="text-xs text-gray-600 mb-1">Subjects</p>
-                      <p className="text-xl font-bold text-orange-600">{subjects}</p>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700">Student-Faculty Ratio</span>
-                    <span className="text-lg font-bold text-emerald-600">
-                      {analytics.total_faculty > 0 ? Math.round((analytics.total_students || 0) / analytics.total_faculty) : 0}:1
-                    </span>
-                  </div>
                 </div>
               </div>
             </div>

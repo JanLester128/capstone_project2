@@ -171,8 +171,8 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
             <div className="flex items-center gap-2">
               {/* Primary Action Button with Dropdown */}
               <div className="relative inline-block">
-                <button
-                  onClick={() => setShowForm(true)}
+            <button
+              onClick={() => setShowForm(true)}
                   disabled={!hasActiveStrands}
                   className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-semibold rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                     hasActiveStrands
@@ -180,18 +180,18 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
                       : 'text-gray-400 bg-gray-200 cursor-not-allowed'
                   }`}
                   title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
-                >
-                  <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Add Subject
-                </button>
+            >
+              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Subject
+            </button>
               </div>
-              
+            
               {/* Secondary Actions - Grouped */}
               <div className="flex items-center gap-2 border-l border-gray-300 pl-3">
-                <button
-                  onClick={() => setShowBulkImport(true)}
+            <button
+              onClick={() => setShowBulkImport(true)}
                   disabled={!hasActiveStrands}
                   className={`inline-flex items-center px-3 py-2 border text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                     hasActiveStrands
@@ -199,13 +199,13 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
                       : 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed'
                   }`}
                   title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
-                >
+            >
                   <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                  </svg>
-                  Bulk Import
-                </button>
-                
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+              </svg>
+              Bulk Import
+            </button>
+
                 <button
                   onClick={() => setShowBulkCreate(true)}
                   disabled={!hasActiveStrands}

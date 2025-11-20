@@ -228,6 +228,14 @@ Route::middleware(['auth', 'role:Registrar'])->prefix('registrar')->name('regist
     
     // Reports
     Route::get('/reports', [RegistrarController::class, 'reports'])->name('reports');
+    
+    // PDF Reports
+    Route::get('/reports/faculty-loads/pdf', [RegistrarController::class, 'downloadFacultyLoadsPdf'])->name('reports.faculty-loads.pdf');
+    Route::get('/reports/subjects/pdf', [RegistrarController::class, 'downloadSubjectsPdf'])->name('reports.subjects.pdf');
+    Route::get('/reports/sections/pdf', [RegistrarController::class, 'downloadSectionsPdf'])->name('reports.sections.pdf');
+    Route::get('/reports/strands/pdf', [RegistrarController::class, 'downloadStrandsPdf'])->name('reports.strands.pdf');
+    Route::get('/reports/student-population/pdf', [RegistrarController::class, 'downloadStudentPopulationPdf'])->name('reports.student-population.pdf');
+    Route::get('/reports/analytics/pdf', [RegistrarController::class, 'downloadAnalyticsPdf'])->name('reports.analytics.pdf');
 });
 
 // Faculty area - protected routes

@@ -64,9 +64,9 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
           onStart: () => {
             // Optionally show loading
           },
-          onSuccess: () => {
+      onSuccess: () => {
             setSelectedStudent(null)
-            reset()
+        reset()
             // Success message will come from backend flash message via useEffect
           },
           onError: (errors) => {
@@ -113,7 +113,7 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
             // Optionally show loading
           },
           onSuccess: () => {
-            setSelectedStudent(null)
+        setSelectedStudent(null)
             reset()
             // Success message will come from backend flash message via useEffect
           },

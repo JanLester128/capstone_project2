@@ -158,7 +158,19 @@ export default function Reports({
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-gray-900">Reports & Analytics</h1>
-                <p className="text-gray-600 mt-1">Comprehensive insights and statistics</p>
+                <p className="text-gray-600 mt-1">Comprehensive insights and statistics with PDF export</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <a
+                  href={`/registrar/reports/analytics/pdf?school_year_id=${selectedSchoolYear || ''}&semester_id=${selectedSemester || ''}`}
+                  target="_blank"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export All Reports (PDF)
+                </a>
               </div>
             </div>
           </div>
@@ -291,7 +303,20 @@ export default function Reports({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Gender Distribution */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Gender Distribution</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Gender Distribution</h3>
+                <a
+                  href={`/registrar/reports/student-population/pdf?school_year_id=${selectedSchoolYear || ''}&semester_id=${selectedSemester || ''}`}
+                  target="_blank"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs font-medium"
+                  title="Export Student Population Report"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  PDF
+                </a>
+              </div>
               <div className="h-64">
                 <Doughnut data={genderChartData} options={chartOptions} />
               </div>
@@ -335,7 +360,20 @@ export default function Reports({
 
             {/* Strand Enrollment */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Enrollment by Strand</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Enrollment by Strand</h3>
+                <a
+                  href={`/registrar/reports/strands/pdf?school_year_id=${selectedSchoolYear || ''}&semester_id=${selectedSemester || ''}`}
+                  target="_blank"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-xs font-medium"
+                  title="Export Strands Report"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  PDF
+                </a>
+              </div>
               <div className="h-64">
                 {enrollmentByStrand.length > 0 ? (
                   <Bar data={strandChartData} options={chartOptions} />
@@ -365,10 +403,24 @@ export default function Reports({
           {/* Faculty Load Analysis */}
           {facultyLoads.faculty && facultyLoads.faculty.length > 0 && (
             <div className="bg-white rounded-lg shadow p-6 mb-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Faculty Load Analysis</h2>
-              <p className="text-sm text-gray-600 mb-4">
-                1 Load = 1 Section | Maximum: 5 Loads | Optimal Weekly Hours: 20-30 hours
-              </p>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Faculty Load Analysis</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    1 Load = 1 Section | Maximum: 5 Loads | Optimal Weekly Hours: 20-30 hours
+                  </p>
+                </div>
+                <a
+                  href={`/registrar/reports/faculty-loads/pdf?school_year_id=${selectedSchoolYear || ''}&semester_id=${selectedSemester || ''}`}
+                  target="_blank"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export PDF
+                </a>
+              </div>
 
               {/* Summary Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -479,7 +531,33 @@ export default function Reports({
           {/* Additional Statistics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Academic Resources</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Academic Resources</h3>
+                <div className="flex gap-2">
+                  <a
+                    href={`/registrar/reports/subjects/pdf?school_year_id=${selectedSchoolYear || ''}&semester_id=${selectedSemester || ''}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-xs font-medium"
+                    title="Export Subjects Report"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Subjects
+                  </a>
+                  <a
+                    href={`/registrar/reports/sections/pdf?school_year_id=${selectedSchoolYear || ''}&semester_id=${selectedSemester || ''}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-xs font-medium"
+                    title="Export Sections Report"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Sections
+                  </a>
+                </div>
+              </div>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Subjects</span>
