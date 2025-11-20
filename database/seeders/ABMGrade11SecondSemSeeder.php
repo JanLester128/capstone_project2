@@ -79,7 +79,8 @@ class ABMGrade11SecondSemSeeder extends Seeder
                 'Subject_code' => 'PRIN_MARKETING',
                 'Semester' => '2',
                 'year_level' => 11,
-                'strand_id' => $abm->id,                'PREREQUISITES' => 'Organization and Management',
+                'strand_id' => $abm->id,
+                'PREREQUISITES' => 'Organization and Management',
                 'CO-REQUISITES' => null,
             ],
             [

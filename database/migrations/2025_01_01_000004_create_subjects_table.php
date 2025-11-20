@@ -14,13 +14,17 @@ return new class extends Migration
         Schema::create('subjects', function (Blueprint $table) {
             $table->id('Id');
             $table->string('Subject_name', 100);
-            $table->string('Subject_code', 100)->unique();
+            $table->string('Subject_code', 100);
             $table->integer('Semester')->default(1); // Changed from foreignId to integer (1 or 2)
             $table->integer('year_level');
             $table->foreignId('strand_id')->constrained('strands')->cascadeOnDelete();
+            $table->foreignId('school_year_id')->nullable()->constrained('school_year')->cascadeOnDelete();
+            $table->foreignId('semester_id')->nullable()->constrained('semester')->cascadeOnDelete();
             $table->text('PREREQUISITES')->nullable();
             $table->text('CO-REQUISITES')->nullable();
             $table->timestamps();
+
+            $table->unique(['Subject_code', 'school_year_id'], 'subjects_code_school_year_unique');
         });
     }
 

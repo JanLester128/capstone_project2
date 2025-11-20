@@ -71,7 +71,8 @@ class ABMGrade12SecondSemSeeder extends Seeder
                 'Subject_code' => 'BUS_ETHICS',
                 'Semester' => '2',
                 'year_level' => 12,
-                'strand_id' => $abm->id,                'PREREQUISITES' => 'Fundamentals of Accountancy, Business and Management 1&2, Org. & Mngt.',
+                'strand_id' => $abm->id,
+                'PREREQUISITES' => 'Fundamentals of Accountancy, Business and Management 1, Fundamentals of Accountancy, Business and Management 2, Organization and Management',
                 'CO-REQUISITES' => null,
             ],
             [

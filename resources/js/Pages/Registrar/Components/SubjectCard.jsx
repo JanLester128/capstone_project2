@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { formatDateMedium } from '../../../utils/dateFormatter'
 
 export default function SubjectCard({ subject, onEdit, onDelete }) {
   const [showMenu, setShowMenu] = useState(false)
@@ -133,9 +134,9 @@ export default function SubjectCard({ subject, onEdit, onDelete }) {
         {/* Additional Info */}
         <div className="pt-2 border-t border-gray-100 text-xs text-gray-500">
           <div className="flex justify-between">
-            <span>Created: {new Date(subject.created_at).toLocaleDateString()}</span>
+            <span>Created: {formatDateMedium(subject.created_at)}</span>
             {subject.updated_at !== subject.created_at && (
-              <span>Updated: {new Date(subject.updated_at).toLocaleDateString()}</span>
+              <span>Updated: {formatDateMedium(subject.updated_at)}</span>
             )}
           </div>
         </div>

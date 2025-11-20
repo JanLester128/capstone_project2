@@ -1,13 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Head, Link, router } from '@inertiajs/react'
 import RegistrarSidebar from '../Auth/Registrar_sidebar'
 import SubjectForm from './Components/SubjectForm'
 import Breadcrumb from './Components/Breadcrumb'
 
-export default function Subjects({ subjects = [], strands = [], semesters = [], activeSchoolYear, activeSemester, flash = {} }) {
+export default function Subjects({ subjects = [], strands = [], semesters = [], activeSchoolYear, activeSemester, hasActiveStrands = true, flash = {} }) {
   const [showForm, setShowForm] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
+  const [showBulkCreate, setShowBulkCreate] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [editingSubject, setEditingSubject] = useState(null)
+  const [archivingSubject, setArchivingSubject] = useState(null)
+  const [openMenuId, setOpenMenuId] = useState(null)
 
   // Only display subjects that have been manually added to the database
   // Subjects are passed from the backend and only include those created by the registrar
@@ -15,7 +19,51 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
 
   const handleFormClose = () => {
     setShowForm(false)
+    setEditingSubject(null)
   }
+
+  const handleEdit = (subject) => {
+    setEditingSubject(subject)
+    setShowForm(true)
+    setOpenMenuId(null)
+  }
+
+  const handleArchive = (subject) => {
+    setOpenMenuId(null)
+    if (window.confirm(`Are you sure you want to archive "${subject.Subject_name}"? This action cannot be undone.`)) {
+      router.delete(`/registrar/subjects/${subject.Id}`, {
+        onSuccess: () => {
+          setArchivingSubject(null)
+        },
+        onError: (errors) => {
+          alert(errors.message || 'Failed to archive subject. It may be assigned to classes.')
+          setArchivingSubject(null)
+        }
+      })
+      setArchivingSubject(subject.Id)
+    }
+  }
+
+  const toggleMenu = (subjectId, e) => {
+    e?.stopPropagation()
+    setOpenMenuId(openMenuId === subjectId ? null : subjectId)
+  }
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openMenuId !== null) {
+        setOpenMenuId(null)
+      }
+    }
+
+    if (openMenuId !== null) {
+      document.addEventListener('click', handleClickOutside)
+      return () => {
+        document.removeEventListener('click', handleClickOutside)
+      }
+    }
+  }, [openMenuId])
 
   // Filter subjects based on search term
   // Only filter subjects that exist in the database (displaySubjects)
@@ -83,7 +131,13 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
                 </Link>
                 <button
                   onClick={() => setShowForm(true)}
-                  className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                  disabled={!hasActiveStrands}
+                  className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${
+                    hasActiveStrands
+                      ? 'bg-indigo-600 text-white hover:bg-indigo-500'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                  title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
                 >
                   Add Subject
                 </button>
@@ -105,11 +159,36 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
             </div>
           )}
 
+          {/* Warning if no active strands */}
+          {!hasActiveStrands && (
+            <div className="mb-6 rounded-md bg-yellow-50 border border-yellow-200 p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-yellow-800">No Active Strands</h3>
+                  <div className="mt-2 text-sm text-yellow-700">
+                    <p>You cannot add subjects until at least one strand is activated for the current semester. Please activate a strand first.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex items-center gap-3 mb-8">
             <button
               onClick={() => setShowForm(true)}
-              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              disabled={!hasActiveStrands}
+              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                hasActiveStrands
+                  ? 'text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
+                  : 'text-gray-400 bg-gray-200 cursor-not-allowed'
+              }`}
+              title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
             >
               <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -119,12 +198,34 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
             
             <button
               onClick={() => setShowBulkImport(true)}
-              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              disabled={!hasActiveStrands}
+              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                hasActiveStrands
+                  ? 'text-white bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                  : 'text-gray-400 bg-gray-200 cursor-not-allowed'
+              }`}
+              title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
             >
               <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
               </svg>
               Bulk Import
+            </button>
+            
+            <button
+              onClick={() => setShowBulkCreate(true)}
+              disabled={!hasActiveStrands}
+              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                hasActiveStrands
+                  ? 'text-white bg-purple-600 hover:bg-purple-700 focus:ring-purple-500'
+                  : 'text-gray-400 bg-gray-200 cursor-not-allowed'
+              }`}
+              title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
+            >
+              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Bulk Create
             </button>
 
             <div className="ml-auto text-sm text-gray-500">
@@ -145,15 +246,39 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
               <div className="mt-6 flex items-center justify-center gap-3">
                 <button
                   onClick={() => setShowForm(true)}
-                  className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                  disabled={!hasActiveStrands}
+                  className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm ${
+                    hasActiveStrands
+                      ? 'bg-indigo-600 text-white hover:bg-indigo-500'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+                  title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
                 >
                   Add Subject
                 </button>
                 <button
                   onClick={() => setShowBulkImport(true)}
-                  className="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                  disabled={!hasActiveStrands}
+                  className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset ${
+                    hasActiveStrands
+                      ? 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50'
+                      : 'bg-gray-100 text-gray-400 ring-gray-200 cursor-not-allowed'
+                  }`}
+                  title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
                 >
                   Bulk Import
+                </button>
+                <button
+                  onClick={() => setShowBulkCreate(true)}
+                  disabled={!hasActiveStrands}
+                  className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset ${
+                    hasActiveStrands
+                      ? 'bg-purple-600 text-white ring-purple-300 hover:bg-purple-700'
+                      : 'bg-gray-100 text-gray-400 ring-gray-200 cursor-not-allowed'
+                  }`}
+                  title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
+                >
+                  Bulk Create
                 </button>
               </div>
             </div>
@@ -234,11 +359,69 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
                                   <div className="space-y-2">
                                     {subjectList.map((subject) => (
                                       <div key={subject.Id} className="bg-gray-50 rounded px-3 py-2 text-sm border border-gray-200 hover:border-gray-300 transition">
-                                        <div className="font-medium text-gray-900 mb-1">
-                                          {subject.Subject_name}
-                                        </div>
-                                        <div className="text-gray-600 font-mono text-xs mb-2">
-                                          {subject.Subject_code}
+                                        <div className="flex items-start justify-between gap-2 mb-1">
+                                          <div className="flex-1">
+                                            <div className="font-medium text-gray-900">
+                                              {subject.Subject_name}
+                                            </div>
+                                            <div className="text-gray-600 font-mono text-xs mt-1">
+                                              {subject.Subject_code}
+                                            </div>
+                                          </div>
+                                          <div className="relative flex items-center flex-shrink-0">
+                                            <button
+                                              onClick={(e) => toggleMenu(subject.Id, e)}
+                                              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                                              title="More options"
+                                            >
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                                              </svg>
+                                            </button>
+                                            
+                                            {/* Dropdown Menu */}
+                                            {openMenuId === subject.Id && (
+                                              <div className="absolute right-0 top-8 z-10 w-40 bg-white rounded-md shadow-lg border border-gray-200 py-1">
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleEdit(subject)
+                                                  }}
+                                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                                >
+                                                  <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                  </svg>
+                                                  Edit
+                                                </button>
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleArchive(subject)
+                                                  }}
+                                                  disabled={archivingSubject === subject.Id}
+                                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                  {archivingSubject === subject.Id ? (
+                                                    <>
+                                                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                                      </svg>
+                                                      Archiving...
+                                                    </>
+                                                  ) : (
+                                                    <>
+                                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                                      </svg>
+                                                      Archive
+                                                    </>
+                                                  )}
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
                                         {/* Prerequisites */}
                                         {subject.PREREQUISITES && (
@@ -323,11 +506,69 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
                                   <div className="space-y-2">
                                     {subjectList.map((subject) => (
                                       <div key={subject.Id} className="bg-gray-50 rounded px-3 py-2 text-sm border border-gray-200 hover:border-gray-300 transition">
-                                        <div className="font-medium text-gray-900 mb-1">
-                                          {subject.Subject_name}
-                                        </div>
-                                        <div className="text-gray-600 font-mono text-xs mb-2">
-                                          {subject.Subject_code}
+                                        <div className="flex items-start justify-between gap-2 mb-1">
+                                          <div className="flex-1">
+                                            <div className="font-medium text-gray-900">
+                                              {subject.Subject_name}
+                                            </div>
+                                            <div className="text-gray-600 font-mono text-xs mt-1">
+                                              {subject.Subject_code}
+                                            </div>
+                                          </div>
+                                          <div className="relative flex items-center flex-shrink-0">
+                                            <button
+                                              onClick={(e) => toggleMenu(subject.Id, e)}
+                                              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                                              title="More options"
+                                            >
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                                              </svg>
+                                            </button>
+                                            
+                                            {/* Dropdown Menu */}
+                                            {openMenuId === subject.Id && (
+                                              <div className="absolute right-0 top-8 z-10 w-40 bg-white rounded-md shadow-lg border border-gray-200 py-1">
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleEdit(subject)
+                                                  }}
+                                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                                >
+                                                  <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                  </svg>
+                                                  Edit
+                                                </button>
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleArchive(subject)
+                                                  }}
+                                                  disabled={archivingSubject === subject.Id}
+                                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                  {archivingSubject === subject.Id ? (
+                                                    <>
+                                                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                                      </svg>
+                                                      Archiving...
+                                                    </>
+                                                  ) : (
+                                                    <>
+                                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                                      </svg>
+                                                      Archive
+                                                    </>
+                                                  )}
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
                                         {/* Prerequisites */}
                                         {subject.PREREQUISITES && (
@@ -389,7 +630,7 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
       {/* Subject Form Modal */}
       {showForm && (
         <SubjectForm
-          subject={null}
+          subject={editingSubject}
           strands={strands}
           semesters={semesters}
           activeSemester={activeSemester}
@@ -405,6 +646,338 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
           onClose={() => setShowBulkImport(false)}
         />
       )}
+
+      {/* Bulk Create Form (on page, not modal) */}
+      {showBulkCreate && (
+        <BulkCreateSubjectsForm
+          strands={strands}
+          activeSemester={activeSemester}
+          hasActiveStrands={hasActiveStrands}
+          onClose={() => setShowBulkCreate(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+// Bulk Create Subjects Form Component (on page, not modal)
+function BulkCreateSubjectsForm({ strands, activeSemester, hasActiveStrands, onClose }) {
+  const [subjects, setSubjects] = useState([
+    { Subject_name: '', Subject_code: '', year_level: '', strand_id: '', PREREQUISITES: '', 'CO-REQUISITES': '' }
+  ])
+  const [errors, setErrors] = useState({})
+  const [processing, setProcessing] = useState(false)
+
+  const addSubjectRow = () => {
+    if (subjects.length < 20) {
+      setSubjects([...subjects, { Subject_name: '', Subject_code: '', year_level: '', strand_id: '', PREREQUISITES: '', 'CO-REQUISITES': '' }])
+    }
+  }
+
+  const removeSubjectRow = (index) => {
+    if (subjects.length > 1) {
+      const newSubjects = subjects.filter((_, i) => i !== index)
+      setSubjects(newSubjects)
+      // Clear errors for removed row
+      const newErrors = { ...errors }
+      Object.keys(newErrors).forEach(key => {
+        if (key.startsWith(`subjects.${index}.`)) {
+          delete newErrors[key]
+        } else if (key.startsWith(`subjects.${index + 1}.`)) {
+          // Renumber errors for rows after removed one
+          const newKey = key.replace(`subjects.${index + 1}.`, `subjects.${index}.`)
+          newErrors[newKey] = newErrors[key]
+          delete newErrors[key]
+        }
+      })
+      setErrors(newErrors)
+    }
+  }
+
+  const updateSubject = (index, field, value) => {
+    const newSubjects = [...subjects]
+    newSubjects[index] = { ...newSubjects[index], [field]: value }
+    setSubjects(newSubjects)
+    // Clear error for this field
+    if (errors[`subjects.${index}.${field}`]) {
+      const newErrors = { ...errors }
+      delete newErrors[`subjects.${index}.${field}`]
+      setErrors(newErrors)
+    }
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    
+    if (!hasActiveStrands) {
+      alert('No active strands. Please activate at least one strand first.')
+      return
+    }
+
+    // Validate all subjects
+    const newErrors = {}
+    const validSubjects = []
+
+    subjects.forEach((subject, index) => {
+      // Skip empty rows
+      if (!subject.Subject_name && !subject.Subject_code && !subject.strand_id) {
+        return
+      }
+
+      // Validate required fields
+      if (!subject.Subject_name) {
+        newErrors[`subjects.${index}.Subject_name`] = 'Subject name is required'
+      }
+      if (!subject.Subject_code) {
+        newErrors[`subjects.${index}.Subject_code`] = 'Subject code is required'
+      }
+      if (!subject.year_level) {
+        newErrors[`subjects.${index}.year_level`] = 'Year level is required'
+      }
+      if (!subject.strand_id) {
+        newErrors[`subjects.${index}.strand_id`] = 'Strand is required'
+      }
+
+      // Check for duplicate codes in the form
+      const duplicateIndex = validSubjects.findIndex(s => s.Subject_code === subject.Subject_code && subject.Subject_code)
+      if (duplicateIndex !== -1) {
+        newErrors[`subjects.${index}.Subject_code`] = 'Duplicate subject code in this form'
+      }
+
+      if (!newErrors[`subjects.${index}.Subject_name`] && 
+          !newErrors[`subjects.${index}.Subject_code`] && 
+          !newErrors[`subjects.${index}.year_level`] && 
+          !newErrors[`subjects.${index}.strand_id`]) {
+        validSubjects.push(subject)
+      }
+    })
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      return
+    }
+
+    if (validSubjects.length === 0) {
+      alert('Please fill in at least one subject.')
+      return
+    }
+
+    setProcessing(true)
+    setErrors({})
+
+    router.post('/registrar/subjects/bulk', {
+      subjects: validSubjects
+    }, {
+      onSuccess: () => {
+        setSubjects([{ Subject_name: '', Subject_code: '', year_level: '', strand_id: '', PREREQUISITES: '', 'CO-REQUISITES': '' }])
+        setErrors({})
+        onClose()
+        window.location.reload()
+      },
+      onError: (errors) => {
+        setErrors(errors)
+        setProcessing(false)
+      },
+      onFinish: () => {
+        setProcessing(false)
+      }
+    })
+  }
+
+  return (
+    <div className="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">Bulk Create Subjects</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Add multiple subjects at once. Fill in at least one subject to create.
+            {activeSemester && (
+              <span className="ml-2 text-blue-600 font-medium">Active: {activeSemester.semester_type}</span>
+            )}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-gray-400 hover:text-gray-600"
+        >
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        <div className="space-y-4">
+          {subjects.map((subject, index) => (
+            <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-sm font-medium text-gray-700">Subject {index + 1}</h4>
+                {subjects.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeSubjectRow(index)}
+                    className="text-red-600 hover:text-red-800 text-sm"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Subject Name */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Subject Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={subject.Subject_name}
+                    onChange={(e) => updateSubject(index, 'Subject_name', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-md text-sm ${
+                      errors[`subjects.${index}.Subject_name`] ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    }`}
+                    placeholder="e.g., Oral Communication"
+                  />
+                  {errors[`subjects.${index}.Subject_name`] && (
+                    <p className="mt-1 text-xs text-red-600">{errors[`subjects.${index}.Subject_name`]}</p>
+                  )}
+                </div>
+
+                {/* Subject Code */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Subject Code *
+                  </label>
+                  <input
+                    type="text"
+                    value={subject.Subject_code}
+                    onChange={(e) => updateSubject(index, 'Subject_code', e.target.value.toUpperCase())}
+                    className={`w-full px-3 py-2 border rounded-md text-sm font-mono ${
+                      errors[`subjects.${index}.Subject_code`] ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    }`}
+                    placeholder="e.g., ORAL_COMM"
+                  />
+                  {errors[`subjects.${index}.Subject_code`] && (
+                    <p className="mt-1 text-xs text-red-600">{errors[`subjects.${index}.Subject_code`]}</p>
+                  )}
+                </div>
+
+                {/* Year Level */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Year Level *
+                  </label>
+                  <select
+                    value={subject.year_level}
+                    onChange={(e) => updateSubject(index, 'year_level', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-md text-sm ${
+                      errors[`subjects.${index}.year_level`] ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    }`}
+                  >
+                    <option value="">Select...</option>
+                    <option value="11">Grade 11</option>
+                    <option value="12">Grade 12</option>
+                  </select>
+                  {errors[`subjects.${index}.year_level`] && (
+                    <p className="mt-1 text-xs text-red-600">{errors[`subjects.${index}.year_level`]}</p>
+                  )}
+                </div>
+
+                {/* Strand */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Strand *
+                  </label>
+                  <select
+                    value={subject.strand_id}
+                    onChange={(e) => updateSubject(index, 'strand_id', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-md text-sm ${
+                      errors[`subjects.${index}.strand_id`] ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    }`}
+                  >
+                    <option value="">Select...</option>
+                    {strands.map(strand => (
+                      <option key={strand.id} value={strand.id}>
+                        {strand.Strand_name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors[`subjects.${index}.strand_id`] && (
+                    <p className="mt-1 text-xs text-red-600">{errors[`subjects.${index}.strand_id`]}</p>
+                  )}
+                </div>
+
+                {/* Prerequisites */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Prerequisites
+                  </label>
+                  <input
+                    type="text"
+                    value={subject.PREREQUISITES}
+                    onChange={(e) => updateSubject(index, 'PREREQUISITES', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    placeholder="e.g., Pre-calculus, Basic Calculus"
+                  />
+                </div>
+
+                {/* Co-requisites */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Co-requisites
+                  </label>
+                  <input
+                    type="text"
+                    value={subject['CO-REQUISITES']}
+                    onChange={(e) => updateSubject(index, 'CO-REQUISITES', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    placeholder="e.g., Subject A, Subject B"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={addSubjectRow}
+            disabled={subjects.length >= 20}
+            className={`inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium ${
+              subjects.length >= 20
+                ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                : 'text-gray-700 bg-white hover:bg-gray-50'
+            }`}
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add Subject Row ({subjects.length}/20)
+          </button>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={processing || !hasActiveStrands}
+              className={`px-4 py-2 rounded-md text-sm font-medium text-white ${
+                processing || !hasActiveStrands
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-purple-600 hover:bg-purple-700'
+              }`}
+            >
+              {processing ? 'Creating...' : `Create ${subjects.filter(s => s.Subject_name || s.Subject_code).length} Subject(s)`}
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
   )
 }

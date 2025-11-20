@@ -17,12 +17,13 @@ return new class extends Migration
             $table->string('MiddleName', 100)->nullable();
             $table->string('LastName', 100);
             $table->string('email', 100)->unique();
+            $table->string('profile_photo', 100)->nullable();
             $table->string('password', 100);
-            $table->boolean('Password_change_required')->default(false);
+            $table->boolean('must_change_password')->default(false);
             $table->boolean('is_coordinator')->default(false);
             $table->boolean('is_disabled')->default(false);
             $table->enum('Role', ['Registrar', 'Faculty', 'Student']);
-            $table->unsignedBigInteger('assigned_strand_id')->nullable();
+            $table->foreignId('assigned_strand_id')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

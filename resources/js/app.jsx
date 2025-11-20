@@ -2,6 +2,7 @@ import React from 'react'
 import { createInertiaApp } from '@inertiajs/react'
 import { createRoot } from 'react-dom/client'
 import sessionManager from './utils/sessionManager'
+import { SidebarProvider } from './contexts/SidebarContext'
 import '../css/app.css';
 
 createInertiaApp({
@@ -20,8 +21,11 @@ createInertiaApp({
       `./Pages/${name.replace(/([A-Z])/g, '/$1').toLowerCase().substring(1)}.jsx`
     ]
     
-    // console.log('Resolving component:', name)
-    // console.log('Available pages:', Object.keys(pages))
+    // Enable logging for component resolution debugging
+    if (name.includes('ReEnroll')) {
+      console.log('Resolving component:', name)
+      console.log('Available pages:', Object.keys(pages).filter(p => p.includes('ReEnroll')))
+    }
     
     let component = null
     let foundPath = null
@@ -65,6 +69,10 @@ createInertiaApp({
     }
     sessionManager.init(props.initialPage.props.auth?.user);
     
-    createRoot(el).render(<App {...props} />)
+    createRoot(el).render(
+      <SidebarProvider>
+        <App {...props} />
+      </SidebarProvider>
+    )
   },
 })

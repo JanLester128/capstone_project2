@@ -1,12 +1,75 @@
+// Organized navigation with categories
 export const facultyNav = [
-  { href: '/faculty', label: 'Dashboard' },
-  { href: '/faculty/classes', label: 'My Classes' },
-  { href: '/faculty/students', label: 'Students' },
-  { href: '/faculty/grades', label: 'Grades' },
-  { href: '/faculty/profile', label: 'Profile' },
+  { 
+    href: '/faculty', 
+    label: 'Dashboard',
+    category: 'main',
+    icon: 'dashboard'
+  },
+  
+  // Teaching & Management Section
+  {
+    category: 'teaching',
+    categoryLabel: 'Teaching & Management',
+    items: [
+      { 
+        href: '/faculty/classes', 
+        label: 'My Classes',
+        icon: 'classes'
+      },
+      { 
+        href: '/faculty/students', 
+        label: 'Students',
+        icon: 'students'
+      },
+      { 
+        href: '/faculty/grades', 
+        label: 'Grades',
+        icon: 'grades'
+      },
+    ]
+  },
+  
+  // Reports Section (at the bottom)
+  {
+    category: 'reports',
+    categoryLabel: 'Reports',
+    items: [
+      { 
+        href: '/faculty/reports', 
+        label: 'Reports',
+        icon: 'reports'
+      },
+    ]
+  }
 ]
 
+// Coordinator Navigation (shown only for coordinators)
 export const coordinatorNav = [
-  { href: '/faculty/enrollments', label: 'Pending Enrollments' },
-  { href: '/faculty/enrollment-reports', label: 'Enrollment Reports' },
+  {
+    category: 'coordinator',
+    categoryLabel: 'Coordinator Functions',
+    items: [
+      { 
+        href: '/faculty/enrollments', 
+        label: 'Manage Enroll',
+        icon: 'enrollment'
+      },
+      { 
+        href: '/faculty/coordinator-students', 
+        label: 'Student Profile',
+        icon: 'students'
+      },
+      { 
+        href: '/faculty/credited-subjects', 
+        label: 'Credited Subjects',
+        icon: 'subjects'
+      },
+      { 
+        href: '/faculty/enrollment-reports', 
+        label: 'Enrollment Reports',
+        icon: 'reports'
+      },
+    ]
+  }
 ]

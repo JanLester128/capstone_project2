@@ -25,6 +25,7 @@ class User extends Authenticatable
         'LastName',
         'email',
         'password',
+        'profile_photo',
         'must_change_password',
         'is_coordinator',
         'is_disabled',
@@ -94,7 +95,16 @@ class User extends Authenticatable
      */
     public function getFullNameAttribute(): string
     {
-        $middleName = $this->MiddleName ? ' ' . $this->MiddleName . ' ' : ' ';
-        return $this->FirstName . $middleName . $this->LastName;
+        $firstName = $this->FirstName ?? '';
+        $lastName = $this->LastName ?? '';
+        $middleName = '';
+        
+        if ($this->MiddleName && trim($this->MiddleName) !== '' && strtoupper(trim($this->MiddleName)) !== 'N/A') {
+            $middleName = ' ' . trim($this->MiddleName) . ' ';
+        } else {
+            $middleName = ' ';
+        }
+        
+        return trim($firstName . $middleName . $lastName);
     }
 }

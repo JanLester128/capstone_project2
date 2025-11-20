@@ -1,4 +1,36 @@
-export default function SectionCard({ section, onEdit, onToggle }) {
+import { useState, useEffect, useRef } from 'react'
+import { router } from '@inertiajs/react'
+
+export default function SectionCard({ section, onEdit, onToggle, faculty = [] }) {
+  const [showAdviserDropdown, setShowAdviserDropdown] = useState(false)
+  const [updatingAdviser, setUpdatingAdviser] = useState(false)
+  const dropdownRef = useRef(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowAdviserDropdown(false)
+      }
+    }
+
+    if (showAdviserDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showAdviserDropdown])
+
+  const handleAdviserUpdate = (adviserId) => {
+    setUpdatingAdviser(true)
+    router.put(`/registrar/sections/${section.id}/adviser`, {
+      adviser_id: adviserId || null
+    }, {
+      onFinish: () => {
+        setUpdatingAdviser(false)
+        setShowAdviserDropdown(false)
+      }
+    })
+  }
 
   const getGradeLevelBadge = (gradeLevel) => {
     const colors = {
@@ -50,24 +82,69 @@ export default function SectionCard({ section, onEdit, onToggle }) {
                   </svg>
                   <span className="truncate">{section.strand?.Strand_name || 'No strand assigned'}</span>
                 </div>
-                {section.adviser && (
-                  <div className="flex items-center">
-                    <svg className="w-3 h-3 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                
+                {/* Adviser with Quick Update Dropdown */}
+                <div ref={dropdownRef} className="relative flex items-center">
+                  <svg className="w-3 h-3 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span className="truncate">
+                    {section.adviser ? (
+                      <>Adviser: {section.adviser.FirstName} {section.adviser.MiddleName ? section.adviser.MiddleName + ' ' : ''}{section.adviser.LastName}</>
+                    ) : (
+                      <span className="text-gray-400 italic">No adviser</span>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => setShowAdviserDropdown(!showAdviserDropdown)}
+                    className="ml-1 p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                    title="Change adviser"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
-                    <span className="truncate">
-                      Adviser: {section.adviser.FirstName} {section.adviser.MiddleName ? section.adviser.MiddleName + ' ' : ''}{section.adviser.LastName}
-                    </span>
-                  </div>
-                )}
-                {!section.adviser && (
-                  <div className="flex items-center">
-                    <svg className="w-3 h-3 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span className="text-gray-400 italic">No adviser assigned</span>
-                  </div>
-                )}
+                  </button>
+                  
+                  {/* Dropdown */}
+                  {showAdviserDropdown && (
+                    <div className="absolute left-0 top-full mt-1 z-10 bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-64">
+                      <div className="px-3 py-2 text-xs font-semibold text-gray-700 border-b border-gray-100">
+                        Change Adviser
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        <button
+                          onClick={() => handleAdviserUpdate(null)}
+                          disabled={updatingAdviser}
+                          className="w-full px-3 py-2 text-xs text-left hover:bg-gray-50 flex items-center space-x-2 disabled:opacity-50"
+                        >
+                          <span className="text-gray-400 italic">None</span>
+                        </button>
+                        {faculty.map((member) => (
+                          <button
+                            key={member.id}
+                            onClick={() => handleAdviserUpdate(member.id)}
+                            disabled={updatingAdviser}
+                            className={`w-full px-3 py-2 text-xs text-left hover:bg-indigo-50 flex items-center space-x-2 disabled:opacity-50 ${
+                              section.adviser_id === member.id ? 'bg-indigo-100 text-indigo-900 font-medium' : 'text-gray-700'
+                            }`}
+                          >
+                            <span>{member.FirstName} {member.MiddleName ? member.MiddleName + ' ' : ''}{member.LastName}</span>
+                            {section.adviser_id === member.id && (
+                              <svg className="w-3 h-3 text-indigo-600 ml-auto" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      {updatingAdviser && (
+                        <div className="px-3 py-2 text-xs text-center text-gray-500 border-t border-gray-100">
+                          Updating...
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

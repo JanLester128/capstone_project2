@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class StudentPersonalInfo extends Model
 {
@@ -18,8 +19,6 @@ class StudentPersonalInfo extends Model
         'school_year',
         'grade_level',
         'is_graded',
-        'is_sned',
-        'psa_birth_certificate_no',
         'last_name',
         'first_name',
         'middle_name',
@@ -29,57 +28,50 @@ class StudentPersonalInfo extends Model
         'sex',
         'place_of_birth',
         'religion',
-        'mother_tongue',
-        'is_4ps_beneficiary',
-        '4ps_household_id',
-        'current_house_no',
         'current_sitio_street',
         'current_barangay',
         'current_municipality_city',
         'current_province',
+        'current_zip_code',
         'current_country',
-        'father_last_name',
-        'father_first_name',
-        'father_middle_name',
-        'father_contact_number',
-        'mother_last_name',
-        'mother_first_name',
-        'mother_middle_name',
-        'mother_contact_number',
-        'guardian_last_name',
-        'guardian_first_name',
-        'guardian_middle_name',
+        'guardian_name',
         'guardian_contact_number',
-        'is_sned_program',
-        'medical_diagnosis',
-        'manifestations',
-        'has_pwd_id',
+        'guardian_address',
+        'guardian_relationship',
         'last_grade_level_completed',
         'last_school_year_completed',
         'last_school_attended',
-        'last_school_id',
+        'school_year_last_attended',
+        'last_school_address',
+        'last_school_type',
+        'grade_level_completed',
         'semester',
-        'learning_modalities',
-        'profile_photo',
         'psa_birth_certificate_photo',
         'report_card_photo',
         'is_verified',
         'verified_at',
         'verified_by',
+        'student_status',
+        'failed_subjects_count',
+        'requires_strand_change',
+        'recommended_strand_id',
+        'academic_standing_notes',
     ];
 
     protected $casts = [
         'birthdate' => 'date',
         'is_graded' => 'boolean',
-        'is_sned' => 'boolean',
-        'is_4ps_beneficiary' => 'boolean',
         'same_as_current_address' => 'boolean',
-        'is_sned_program' => 'boolean',
-        'has_pwd_id' => 'boolean',
         'is_verified' => 'boolean',
         'verified_at' => 'datetime',
+        'requires_strand_change' => 'boolean',
         // Removed array casts for medical_diagnosis, manifestations, learning_modalities
         // These are now VARCHAR fields that store comma-separated values
+    ];
+
+    protected $appends = [
+        'psa_birth_certificate_photo_url',
+        'report_card_photo_url',
     ];
 
     /**
@@ -104,15 +96,45 @@ class StudentPersonalInfo extends Model
      */
     public function getFullNameAttribute(): string
     {
-        $name = $this->first_name;
-        if ($this->middle_name) {
+        $name = $this->first_name ?? '';
+        if ($this->middle_name && trim($this->middle_name) !== '' && strtoupper(trim($this->middle_name)) !== 'N/A') {
             $name .= ' ' . $this->middle_name;
         }
-        $name .= ' ' . $this->last_name;
-        if ($this->extension_name) {
+        $name .= ' ' . ($this->last_name ?? '');
+        if ($this->extension_name && trim($this->extension_name) !== '' && strtoupper(trim($this->extension_name)) !== 'N/A') {
             $name .= ' ' . $this->extension_name;
         }
-        return $name;
+        return trim($name);
+    }
+
+    public function getGradeLevelCompletedAttribute($value): ?string
+    {
+        if ($value !== null) {
+            return $value;
+        }
+
+        return $this->attributes['last_grade_level_completed'] ?? null;
+    }
+
+    public function setGradeLevelCompletedAttribute($value): void
+    {
+        $this->attributes['grade_level_completed'] = $value;
+        $this->attributes['last_grade_level_completed'] = $value;
+    }
+
+    public function getSchoolYearLastAttendedAttribute($value): ?string
+    {
+        if ($value !== null) {
+            return $value;
+        }
+
+        return $this->attributes['last_school_year_completed'] ?? null;
+    }
+
+    public function setSchoolYearLastAttendedAttribute($value): void
+    {
+        $this->attributes['school_year_last_attended'] = $value;
+        $this->attributes['last_school_year_completed'] = $value;
     }
 
     /**
@@ -121,7 +143,6 @@ class StudentPersonalInfo extends Model
     public function getCurrentAddressAttribute(): string
     {
         $address = [];
-        if ($this->current_house_no) $address[] = $this->current_house_no;
         if ($this->current_sitio_street) $address[] = $this->current_sitio_street;
         if ($this->current_barangay) $address[] = $this->current_barangay;
         if ($this->current_municipality_city) $address[] = $this->current_municipality_city;
@@ -181,6 +202,92 @@ class StudentPersonalInfo extends Model
     public function enrollments()
     {
         return $this->hasMany(Enrollment::class);
+    }
+
+    /**
+     * Get the grades for this student.
+     */
+    public function grades()
+    {
+        return $this->hasMany(Grade::class, 'student_personal_info_id');
+    }
+
+    /**
+     * Get semester performances for this student.
+     */
+
+    /**
+     * Get failed prerequisites for this student.
+     */
+
+    /**
+     * Get the recommended strand if student requires strand change.
+     */
+    public function recommendedStrand()
+    {
+        return $this->belongsTo(Strand::class, 'recommended_strand_id');
+    }
+
+    /**
+     * Check if student is on academic probation
+     */
+    public function isOnProbation(): bool
+    {
+        return $this->failed_subjects_count > 2 || $this->requires_strand_change;
+    }
+
+    /**
+     * Check if student needs summer classes
+     */
+    public function needsSummerClasses(): bool
+    {
+        return $this->grades()->where('needs_summer_class', true)->exists();
+    }
+
+    /**
+     * Get current semester performance
+     */
+    public function getCurrentSemesterPerformance(): ?array
+    {
+        // Calculate performance dynamically from grades instead of querying table
+        // This method is kept for backward compatibility but now returns array
+        // Callers should use GradeCalculationService instead
+        return null;
+    }
+
+    /**
+     * Generate a URL for a stored document if it exists.
+     */
+    private function buildDocumentRoute(?string $path, string $type): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+
+        if (!Storage::disk('public')->exists($path)) {
+            return null;
+        }
+
+        return route('documents.student', [
+            'studentPersonalInfo' => $this->id,
+            'type' => $type,
+        ]);
+    }
+
+    /**
+     * Accessor for PSA birth certificate photo URL.
+     */
+    public function getPsaBirthCertificatePhotoUrlAttribute(): ?string
+    {
+        return $this->buildDocumentRoute($this->psa_birth_certificate_photo, 'psa');
+    }
+
+    /**
+     * Accessor for report card photo URL.
+     */
+    public function getReportCardPhotoUrlAttribute(): ?string
+    {
+        return $this->buildDocumentRoute($this->report_card_photo, 'report-card');
     }
 
     /**

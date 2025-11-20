@@ -18,6 +18,10 @@ return new class extends Migration
             $table->boolean('Is_active')->default(true);
             $table->timestamps();
         });
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->foreign('assigned_strand_id')->references('id')->on('strands')->nullOnDelete();
+        });
     }
 
     /**
@@ -25,6 +29,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropForeign(['assigned_strand_id']);
+        });
+
         Schema::dropIfExists('strands');
     }
 };

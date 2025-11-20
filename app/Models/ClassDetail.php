@@ -20,14 +20,27 @@ class ClassDetail extends Model
         'student_id',
         'enrollment_id',
         'enrolled_by',
+        'is_re_enrolled',
     ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_re_enrolled' => 'boolean',
+        ];
+    }
 
     /**
      * Get the class that this detail belongs to.
      */
     public function class(): BelongsTo
     {
-        return $this->belongsTo(ClassModel::class, 'class_id');
+        return $this->belongsTo(ClassModel::class, 'class_id', 'Id');
     }
 
     /**
@@ -52,5 +65,13 @@ class ClassDetail extends Model
     public function enrolledBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'enrolled_by');
+    }
+
+    /**
+     * Get the class record for this class detail.
+     */
+    public function classRecord(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(ClassRecord::class, 'class_detail_id');
     }
 }

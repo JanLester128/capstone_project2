@@ -16,18 +16,23 @@
         }
         .email-container {
             background-color: white;
-            padding: 30px;
+            padding: 0;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .email-content {
+            padding: 30px;
         }
         .header {
             text-align: center;
             margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 3px solid #3b82f6;
+            padding: 30px 20px;
+            background: linear-gradient(135deg, #dc2626 0%, #9333ea 100%);
+            border-radius: 10px 10px 0 0;
         }
         .header h1 {
-            color: #3b82f6;
+            color: #ffffff;
             margin: 0;
             font-size: 28px;
         }
@@ -55,12 +60,17 @@
         .button {
             display: inline-block;
             padding: 12px 30px;
-            background-color: #3b82f6;
-            color: white;
+            background: linear-gradient(135deg, #dc2626 0%, #9333ea 100%);
+            color: #ffffff !important;
             text-decoration: none;
             border-radius: 6px;
             font-weight: bold;
             margin: 20px 0;
+            text-align: center;
+        }
+        .button:hover {
+            background: linear-gradient(135deg, #b91c1c 0%, #7e22ce 100%);
+            color: #ffffff !important;
         }
         .footer {
             text-align: center;
@@ -78,6 +88,7 @@
             <h1>🎉 Account Approved!</h1>
         </div>
         
+        <div class="email-content">
         <div class="content">
             <p>Dear <strong>{{ $studentName }}</strong>,</p>
             
@@ -116,6 +127,7 @@
         
         <div class="footer">
             <p>This is an automated message. Please do not reply to this email.</p>
+        </div>
         </div>
     </div>
 </body>

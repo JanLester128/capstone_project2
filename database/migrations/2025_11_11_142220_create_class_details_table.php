@@ -17,6 +17,7 @@ return new class extends Migration
             $table->foreignId('student_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('enrollment_id')->constrained('enrollments')->cascadeOnDelete();
             $table->foreignId('enrolled_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->boolean('is_re_enrolled')->default(false);
             $table->timestamps();
 
             // Ensure a student can only be enrolled in a class once per enrollment

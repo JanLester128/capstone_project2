@@ -47,7 +47,8 @@ class ABMGrade12FirstSemSeeder extends Seeder
                 'Subject_code' => 'PRAC_RES_2_ABM',
                 'Semester' => '1',
                 'year_level' => 12,
-                'strand_id' => $abm->id,                'PREREQUISITES' => 'Practical Research 1, Statistics and Probability',
+                'strand_id' => $abm->id,
+                'PREREQUISITES' => 'Practical Research 1, Statistics and Probability',
                 'CO-REQUISITES' => null,
             ],
             [
@@ -63,7 +64,8 @@ class ABMGrade12FirstSemSeeder extends Seeder
                 'Subject_code' => 'FABM_2',
                 'Semester' => '1',
                 'year_level' => 12,
-                'strand_id' => $abm->id,                'PREREQUISITES' => 'Fundamentals of Accountancy, Business and Management 1',
+                'strand_id' => $abm->id,
+                'PREREQUISITES' => 'Fundamentals of Accountancy, Business and Management 1',
                 'CO-REQUISITES' => null,
             ],
             [
@@ -71,7 +73,8 @@ class ABMGrade12FirstSemSeeder extends Seeder
                 'Subject_code' => 'BUS_FINANCE',
                 'Semester' => '1',
                 'year_level' => 12,
-                'strand_id' => $abm->id,                'PREREQUISITES' => 'Fundamentals of Accountancy, Business and Management 1',
+                'strand_id' => $abm->id,
+                'PREREQUISITES' => 'Fundamentals of Accountancy, Business and Management 2',
                 'CO-REQUISITES' => null,
             ],
             [

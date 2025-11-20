@@ -185,11 +185,18 @@ const subjectsByStrandAndYear = {
 }
 
 export default function SubjectForm({ subject = null, strands = [], semesters = [], activeSemester = null, onClose }) {
-  const [selectedStrand, setSelectedStrand] = useState('')
-  const [selectedYear, setSelectedYear] = useState('')
+  const isEditing = !!subject
+  const [selectedStrand, setSelectedStrand] = useState(subject?.strand_id?.toString() || '')
+  const [selectedYear, setSelectedYear] = useState(subject?.year_level?.toString() || '')
   // Removed selectedSemester - will use activeSemester automatically
   const [availableSubjects, setAvailableSubjects] = useState([])
   const [selectedSubject, setSelectedSubject] = useState(null)
+  const [formData, setFormData] = useState({
+    Subject_name: subject?.Subject_name || '',
+    Subject_code: subject?.Subject_code || '',
+    PREREQUISITES: subject?.PREREQUISITES || '',
+    'CO-REQUISITES': subject?.['CO-REQUISITES'] || '',
+  })
   const [errors, setErrors] = useState({})
   const [processing, setProcessing] = useState(false)
   
@@ -218,15 +225,38 @@ export default function SubjectForm({ subject = null, strands = [], semesters = 
   const handleSubmit = (e) => {
     e.preventDefault()
     
-    if (!selectedSubject) {
-      setErrors({ subject: 'Please select a subject' })
+    // Check if there are any strands available
+    if (!strands || strands.length === 0) {
+      setErrors({ strand: 'No active strands available. Please activate at least one strand first.' })
       return
+    }
+    
+    if (isEditing) {
+      // Edit mode - use form data directly
+      if (!formData.Subject_name || !formData.Subject_code) {
+        setErrors({ Subject_name: 'Subject name and code are required' })
+        return
+      }
+    } else {
+      // Add mode - require subject selection
+      if (!selectedSubject) {
+        setErrors({ subject: 'Please select a subject' })
+        return
+      }
     }
 
     setProcessing(true)
     setErrors({})
 
-    const formData = {
+    const submitData = isEditing ? {
+      Subject_name: formData.Subject_name,
+      Subject_code: formData.Subject_code,
+      Semester: activeSemesterNumber,
+      year_level: parseInt(selectedYear),
+      strand_id: parseInt(selectedStrand),
+      PREREQUISITES: formData.PREREQUISITES || null,
+      'CO-REQUISITES': formData['CO-REQUISITES'] || null,
+    } : {
       Subject_name: selectedSubject.name,
       Subject_code: selectedSubject.code,
       // Removed Semester from form data - backend will use active semester automatically
@@ -236,18 +266,33 @@ export default function SubjectForm({ subject = null, strands = [], semesters = 
       'CO-REQUISITES': selectedSubject.corequisites || null,
     }
 
-    router.post('/registrar/subjects', formData, {
-      onSuccess: () => {
-        onClose()
-      },
-      onError: (errors) => {
-        setErrors(errors)
-        setProcessing(false)
-      },
-      onFinish: () => {
-        setProcessing(false)
-      }
-    })
+    if (isEditing) {
+      router.put(`/registrar/subjects/${subject.Id}`, submitData, {
+        onSuccess: () => {
+          onClose()
+        },
+        onError: (errors) => {
+          setErrors(errors)
+          setProcessing(false)
+        },
+        onFinish: () => {
+          setProcessing(false)
+        }
+      })
+    } else {
+      router.post('/registrar/subjects', submitData, {
+        onSuccess: () => {
+          onClose()
+        },
+        onError: (errors) => {
+          setErrors(errors)
+          setProcessing(false)
+        },
+        onFinish: () => {
+          setProcessing(false)
+        }
+      })
+    }
   }
 
   const handleSubjectSelect = (e) => {
@@ -281,14 +326,14 @@ export default function SubjectForm({ subject = null, strands = [], semesters = 
           <div className="sm:flex sm:items-start">
             <div className="mt-3 text-center sm:ml-0 sm:mt-0 sm:text-left w-full">
               <h3 className="text-base font-semibold leading-6 text-gray-900 mb-4">
-                Add Subject to Curriculum
+                {isEditing ? 'Edit Subject' : 'Add Subject to Curriculum'}
               </h3>
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Step 1: Select Strand and Year (Semester is automatically set to active semester) */}
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h4 className="text-sm font-medium text-gray-900 mb-3">
-                    Step 1: Select Curriculum Details 
+                    {isEditing ? 'Curriculum Details' : 'Step 1: Select Curriculum Details'}
                     {activeSemester && (
                       <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
                         {activeSemester.semester_type}
@@ -305,7 +350,8 @@ export default function SubjectForm({ subject = null, strands = [], semesters = 
                         id="strand"
                         value={selectedStrand}
                         onChange={(e) => setSelectedStrand(e.target.value)}
-                        className="mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                        disabled={isEditing}
+                        className="mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 disabled:bg-gray-100 disabled:cursor-not-allowed"
                       >
                         <option value="">Select strand</option>
                         {strands.map((strand) => (
@@ -325,7 +371,8 @@ export default function SubjectForm({ subject = null, strands = [], semesters = 
                         id="year"
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(e.target.value)}
-                        className="mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                        disabled={isEditing}
+                        className="mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 disabled:bg-gray-100 disabled:cursor-not-allowed"
                       >
                         <option value="">Select year</option>
                         <option value="11">Grade 11</option>
@@ -336,71 +383,140 @@ export default function SubjectForm({ subject = null, strands = [], semesters = 
                   </div>
                 </div>
 
-                {/* Step 2: Select Subject */}
-                {availableSubjects.length > 0 && (
+                {/* Edit Mode: Direct Form Fields */}
+                {isEditing ? (
                   <div className="bg-blue-50 p-4 rounded-lg">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">Step 2: Select Subject</h4>
-                    <div>
-                      <label htmlFor="subject" className="block text-sm font-medium leading-6 text-gray-900">
-                        Available Subjects *
-                      </label>
-                      <select
-                        id="subject"
-                        onChange={handleSubjectSelect}
-                        className={`mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ${
-                          errors.subject ? 'ring-red-300' : 'ring-gray-300'
-                        } focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6`}
-                      >
-                        <option value="">Select a subject</option>
-                        {availableSubjects.map((subject, index) => (
-                          <option key={index} value={index}>
-                            {subject.name} ({subject.code})
-                          </option>
-                        ))}
-                      </select>
-                      {errors.subject && (
-                        <p className="mt-1 text-sm text-red-600">{errors.subject}</p>
-                      )}
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">Subject Details</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="Subject_name" className="block text-sm font-medium leading-6 text-gray-900">
+                          Subject Name *
+                        </label>
+                        <input
+                          type="text"
+                          id="Subject_name"
+                          value={formData.Subject_name}
+                          onChange={(e) => setFormData({ ...formData, Subject_name: e.target.value })}
+                          className={`mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ${
+                            errors.Subject_name ? 'ring-red-300' : 'ring-gray-300'
+                          } focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6`}
+                        />
+                        {errors.Subject_name && (
+                          <p className="mt-1 text-sm text-red-600">{errors.Subject_name}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label htmlFor="Subject_code" className="block text-sm font-medium leading-6 text-gray-900">
+                          Subject Code *
+                        </label>
+                        <input
+                          type="text"
+                          id="Subject_code"
+                          value={formData.Subject_code}
+                          onChange={(e) => setFormData({ ...formData, Subject_code: e.target.value })}
+                          className={`mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ${
+                            errors.Subject_code ? 'ring-red-300' : 'ring-gray-300'
+                          } focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6`}
+                        />
+                        {errors.Subject_code && (
+                          <p className="mt-1 text-sm text-red-600">{errors.Subject_code}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label htmlFor="PREREQUISITES" className="block text-sm font-medium leading-6 text-gray-900">
+                          Prerequisites
+                        </label>
+                        <textarea
+                          id="PREREQUISITES"
+                          value={formData.PREREQUISITES}
+                          onChange={(e) => setFormData({ ...formData, PREREQUISITES: e.target.value })}
+                          rows={2}
+                          className="mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="CO-REQUISITES" className="block text-sm font-medium leading-6 text-gray-900">
+                          Co-requisites
+                        </label>
+                        <textarea
+                          id="CO-REQUISITES"
+                          value={formData['CO-REQUISITES']}
+                          onChange={(e) => setFormData({ ...formData, 'CO-REQUISITES': e.target.value })}
+                          rows={2}
+                          className="mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                        />
+                      </div>
                     </div>
                   </div>
-                )}
+                ) : (
+                  <>
+                    {/* Step 2: Select Subject */}
+                    {availableSubjects.length > 0 && (
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">Step 2: Select Subject</h4>
+                        <div>
+                          <label htmlFor="subject" className="block text-sm font-medium leading-6 text-gray-900">
+                            Available Subjects *
+                          </label>
+                          <select
+                            id="subject"
+                            onChange={handleSubjectSelect}
+                            className={`mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ${
+                              errors.subject ? 'ring-red-300' : 'ring-gray-300'
+                            } focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6`}
+                          >
+                            <option value="">Select a subject</option>
+                            {availableSubjects.map((subject, index) => (
+                              <option key={index} value={index}>
+                                {subject.name} ({subject.code})
+                              </option>
+                            ))}
+                          </select>
+                          {errors.subject && (
+                            <p className="mt-1 text-sm text-red-600">{errors.subject}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-                {/* Step 3: Subject Details Preview */}
-                {selectedSubject && (
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">Step 3: Subject Details</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <span className="text-sm font-medium text-gray-700">Subject Name:</span>
-                        <span className="ml-2 text-sm text-gray-900">{selectedSubject.name}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-700">Subject Code:</span>
-                        <span className="ml-2 text-sm text-gray-900 font-mono">{selectedSubject.code}</span>
-                      </div>
-                      {selectedSubject.prerequisites && (
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">Prerequisites:</span>
-                          <div className="mt-1 p-2 bg-yellow-100 rounded text-sm text-yellow-800">
-                            {selectedSubject.prerequisites}
+                    {/* Step 3: Subject Details Preview */}
+                    {selectedSubject && (
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">Step 3: Subject Details</h4>
+                        <div className="space-y-3">
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Subject Name:</span>
+                            <span className="ml-2 text-sm text-gray-900">{selectedSubject.name}</span>
                           </div>
-                        </div>
-                      )}
-                      {selectedSubject.corequisites && (
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">Co-requisites:</span>
-                          <div className="mt-1 p-2 bg-blue-100 rounded text-sm text-blue-800">
-                            {selectedSubject.corequisites}
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Subject Code:</span>
+                            <span className="ml-2 text-sm text-gray-900 font-mono">{selectedSubject.code}</span>
                           </div>
+                          {selectedSubject.prerequisites && (
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">Prerequisites:</span>
+                              <div className="mt-1 p-2 bg-yellow-100 rounded text-sm text-yellow-800">
+                                {selectedSubject.prerequisites}
+                              </div>
+                            </div>
+                          )}
+                          {selectedSubject.corequisites && (
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">Co-requisites:</span>
+                              <div className="mt-1 p-2 bg-blue-100 rounded text-sm text-blue-800">
+                                {selectedSubject.corequisites}
+                              </div>
+                            </div>
+                          )}
+                          {!selectedSubject.prerequisites && !selectedSubject.corequisites && (
+                            <div className="text-sm text-gray-500 italic">
+                              No prerequisites or co-requisites required
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {!selectedSubject.prerequisites && !selectedSubject.corequisites && (
-                        <div className="text-sm text-gray-500 italic">
-                          No prerequisites or co-requisites required
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Form Actions */}
@@ -414,10 +530,10 @@ export default function SubjectForm({ subject = null, strands = [], semesters = 
                   </button>
                   <button
                     type="submit"
-                    disabled={processing || !selectedSubject}
+                    disabled={processing || (!isEditing && !selectedSubject) || (isEditing && (!formData.Subject_name || !formData.Subject_code))}
                     className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {processing ? 'Adding Subject...' : 'Add Subject to Curriculum'}
+                    {processing ? (isEditing ? 'Updating Subject...' : 'Adding Subject...') : (isEditing ? 'Update Subject' : 'Add Subject to Curriculum')}
                   </button>
                 </div>
               </form>

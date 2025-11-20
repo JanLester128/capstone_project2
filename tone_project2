@@ -1,0 +1,377 @@
+[1mdiff --git a/app/Http/Controllers/FacultyController.php b/app/Http/Controllers/FacultyController.php[m
+[1mindex 7a45a51..7572966 100644[m
+[1m--- a/app/Http/Controllers/FacultyController.php[m
+[1m+++ b/app/Http/Controllers/FacultyController.php[m
+[36m@@ -11,8 +11,11 @@[m
+ use App\Models\Enrollment;[m
+ use App\Models\ClassDetail;[m
+ use App\Models\Strand;[m
+[32m+[m[32muse App\Models\Grade;[m
+ use Illuminate\Http\Request;[m
+ use Illuminate\Support\Facades\Auth;[m
+[32m+[m[32muse Illuminate\Database\Eloquent\Builder;[m
+[32m+[m[32muse Illuminate\Support\Collection;[m
+ use Inertia\Inertia;[m
+ [m
+ class FacultyController extends Controller[m
+[36m@@ -45,6 +48,85 @@[m [mprivate function getActiveFilters()[m
+         ];[m
+     }[m
+ [m
+[32m+[m[32m    /**[m
+[32m+[m[32m     * Base query for fetching faculty classes with optional semester restriction.[m
+[32m+[m[32m     */[m
+[32m+[m[32m    private function facultyClassesBaseQuery(User $user, array $filters, bool $restrictToActiveSemester = true): Builder[m
+[32m+[m[32m    {[m
+[32m+[m[32m        $query = ClassModel::query()[m
+[32m+[m[32m            ->where('faculty_id', $user->id)[m
+[32m+[m[32m            ->where('is_active', true);[m
+[32m+[m
+[32m+[m[32m        if ($filters['activeSchoolYear']) {[m
+[32m+[m[32m            $query->where('school_year_id', $filters['activeSchoolYear']->id);[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        if ($restrictToActiveSemester && $filters['activeSemester']) {[m
+[32m+[m[32m            $query->where('Semester_id', $filters['activeSemester']->id);[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        return $query;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    /**[m
+[32m+[m[32m     * Filter enrollments so they match the class' school year and semester.[m
+[32m+[m[32m     */[m
+[32m+[m[32m    private function filterEnrollmentsForClass(ClassModel $class): Collection[m
+[32m+[m[32m    {[m
+[32m+[m[32m        $enrollments = $class->section?->enrollments ?? collect();[m
+[32m+[m
+[32m+[m[32m        return $enrollments->filter(function (Enrollment $enrollment) use ($class) {[m
+[32m+[m[32m            if ($class->school_year_id && $enrollment->school_year_id && (int) $enrollment->school_year_id !== (int) $class->school_year_id) {[m
+[32m+[m[32m                return false;[m
+[32m+[m[32m            }[m
+[32m+[m
+[32m+[m[32m            if ($class->Semester_id && $enrollment->semester_id && (int) $enrollment->semester_id !== (int) $class->Semester_id) {[m
+[32m+[m[32m                return false;[m
+[32m+[m[32m            }[m
+[32m+[m
+[32m+[m[32m            return true;[m
+[32m+[m[32m        })->values();[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    /**[m
+[32m+[m[32m     * Base query for adviser sections with optional semester restriction.[m
+[32m+[m[32m     */[m
+[32m+[m[32m    private function facultySectionsBaseQuery(User $user, array $filters, bool $restrictToActiveSemester = true): Builder[m
+[32m+[m[32m    {[m
+[32m+[m[32m        $query = Section::query()[m
+[32m+[m[32m            ->where('adviser_id', $user->id);[m
+[32m+[m
+[32m+[m[32m        if ($filters['activeSchoolYear']) {[m
+[32m+[m[32m            $query->where('school_year_id', $filters['activeSchoolYear']->id);[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        if ($restrictToActiveSemester && $filters['activeSemester']) {[m
+[32m+[m[32m            $query->where('semester_id', $filters['activeSemester']->id);[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        return $query;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    /**[m
+[32m+[m[32m     * Filter section enrollments to the section's term.[m
+[32m+[m[32m     */[m
+[32m+[m[32m    private function filterEnrollmentsForSection(Section $section): Collection[m
+[32m+[m[32m    {[m
+[32m+[m[32m        $enrollments = $section->enrollments ?? collect();[m
+[32m+[m
+[32m+[m[32m        return $enrollments->filter(function (Enrollment $enrollment) use ($section) {[m
+[32m+[m[32m            if ($section->school_year_id && $enrollment->school_year_id && (int) $enrollment->school_year_id !== (int) $section->school_year_id) {[m
+[32m+[m[32m                return false;[m
+[32m+[m[32m            }[m
+[32m+[m
+[32m+[m[32m            if ($section->semester_id && $enrollment->semester_id && (int) $enrollment->semester_id !== (int) $section->semester_id) {[m
+[32m+[m[32m                return false;[m
+[32m+[m[32m            }[m
+[32m+[m
+[32m+[m[32m            return true;[m
+[32m+[m[32m        })->values();[m
+[32m+[m[32m    }[m
+[32m+[m
+     /**[m
+      * Get data for a specific semester (allows access to previous semester data).[m
+      * This demonstrates how previous semester data remains accessible.[m
+[36m@@ -220,26 +302,80 @@[m [mpublic function classes()[m
+         $user = Auth::user();[m
+         $filters = $this->getActiveFilters();[m
+         [m
+[31m-        $classesQuery = ClassModel::with(['section', 'subject', 'semester', 'schoolYear'])[m
+[31m-            ->where('faculty_id', $user->id)[m
+[31m-            ->where('is_active', true);[m
+[31m-            [m
+[31m-        // Filter by active school year[m
+[31m-        if ($filters['activeSchoolYear']) {[m
+[31m-            $classesQuery->where('school_year_id', $filters['activeSchoolYear']->id);[m
+[31m-        }[m
+[31m-        [m
+[31m-        // Filter by active semester[m
+[31m-        if ($filters['activeSemester']) {[m
+[31m-            $classesQuery->where('Semester_id', $filters['activeSemester']->id);[m
+[32m+[m[32m        $relations = [[m
+[32m+[m[32m            'section',[m[41m [m
+[32m+[m[32m            'subject',[m[41m [m
+[32m+[m[32m            'semester',[m[41m [m
+[32m+[m[32m            'schoolYear',[m
+[32m+[m[32m            'section.enrollments' => function ($query) {[m
+[32m+[m[32m                $query->where('status', Enrollment::STATUS_ENROLLED)[m
+[32m+[m[32m                    ->with([[m
+[32m+[m[32m                        'studentPersonalInfo.user',[m
+[32m+[m[32m                        'studentPersonalInfo:id,user_id,lrn,first_name,middle_name,last_name,extension_name',[m
+[32m+[m[32m                    ]);[m
+[32m+[m[32m            }[m
+[32m+[m[32m        ];[m
+[32m+[m
+[32m+[m[32m        $classesCollection = $this->facultyClassesBaseQuery($user, $filters)[m
+[32m+[m[32m            ->with($relations)[m
+[32m+[m[32m            ->get();[m
+[32m+[m
+[32m+[m[32m        $fallbackSemester = null;[m
+[32m+[m[32m        $displaySemester = $filters['activeSemester'];[m
+[32m+[m
+[32m+[m[32m        if ($classesCollection->isEmpty() && $filters['activeSemester']) {[m
+[32m+[m[32m            $classesCollection = $this->facultyClassesBaseQuery($user, $filters, false)[m
+[32m+[m[32m                ->with($relations)[m
+[32m+[m[32m                ->get();[m
+[32m+[m
+[32m+[m[32m            if ($classesCollection->isNotEmpty()) {[m
+[32m+[m[32m                $displaySemester = $classesCollection->first()->semester;[m
+[32m+[m[32m                $fallbackSemester = $filters['activeSemester'];[m
+[32m+[m[32m            }[m
+         }[m
+[31m-        [m
+[31m-        $classes = $classesQuery->get();[m
+[32m+[m
+[32m+[m[32m        $classes = $classesCollection[m
+[32m+[m[32m            ->map(function ($class) {[m
+[32m+[m[32m                $classArray = $class->toArray();[m
+[32m+[m[41m                [m
+[32m+[m[32m                // Ensure id is available (ClassModel uses 'Id' as primary key)[m
+[32m+[m[32m                if (!isset($classArray['id']) && isset($classArray['Id'])) {[m
+[32m+[m[32m                    $classArray['id'] = $classArray['Id'];[m
+[32m+[m[32m                }[m
+[32m+[m[41m                [m
+[32m+[m[32m                // Get students filtered to the class' term[m
+[32m+[m[32m                $students = $this->filterEnrollmentsForClass($class);[m
+[32m+[m[41m                [m
+[32m+[m[32m                $classArray['students'] = $students->map(function ($enrollment) {[m
+[32m+[m[32m                    $studentInfo = $enrollment->studentPersonalInfo;[m
+[32m+[m[32m                    $studentUser = $studentInfo?->user;[m
+[32m+[m[41m                    [m
+[32m+[m[32m                    return [[m
+[32m+[m[32m                        'id' => $enrollment->id,[m
+[32m+[m[32m                        'enrollment_id' => $enrollment->id,[m
+[32m+[m[32m                        'lrn' => $studentInfo?->lrn,[m
+[32m+[m[32m                        'name' => $studentInfo?->full_name,[m
+[32m+[m[32m                        'email' => $studentUser?->email,[m
+[32m+[m[32m                        'grade_level' => $studentInfo?->grade_level,[m
+[32m+[m[32m                    ];[m
+[32m+[m[32m                })->values();[m
+[32m+[m[41m                [m
+[32m+[m[32m                $classArray['student_count'] = $students->count();[m
+[32m+[m[41m                [m
+[32m+[m[32m                return $classArray;[m
+[32m+[m[32m            });[m
+ [m
+         return Inertia::render('Faculty/Classes', [[m
+             'classes' => $classes,[m
+             'activeSchoolYear' => $filters['activeSchoolYear'],[m
+             'activeSemester' => $filters['activeSemester'],[m
+[32m+[m[32m            'displaySemester' => $displaySemester ?? $filters['activeSemester'],[m
+[32m+[m[32m            'semesterFallbackNotice' => $fallbackSemester && $displaySemester[m
+[32m+[m[32m                ? [[m
+[32m+[m[32m                    'requested' => $fallbackSemester->semester_type ?? 'Current Semester',[m
+[32m+[m[32m                    'showing' => $displaySemester->semester_type ?? 'Previous Semester',[m
+[32m+[m[32m                ][m
+[32m+[m[32m                : null,[m
+             'allSemesters' => $filters['allSemesters'], // For historical access[m
+             'user' => $user, // Pass user data for sidebar[m
+         ]);[m
+[36m@@ -290,25 +426,79 @@[m [mpublic function sections()[m
+         $user = Auth::user();[m
+         $filters = $this->getActiveFilters();[m
+         [m
+[31m-        $sectionsQuery = Section::with(['strand', 'schoolYear', 'semester', 'classes.subject'])[m
+[31m-            ->where('adviser_id', $user->id);[m
+[31m-            [m
+[31m-        // Filter by active school year[m
+[31m-        if ($filters['activeSchoolYear']) {[m
+[31m-            $sectionsQuery->where('school_year_id', $filters['activeSchoolYear']->id);[m
+[31m-        }[m
+[31m-        [m
+[31m-        // Filter by active semester - this ensures data resets when semester changes[m
+[31m-        if ($filters['activeSemester']) {[m
+[31m-            $sectionsQuery->where('semester_id', $filters['activeSemester']->id);[m
+[32m+[m[32m        $relations = [[m
+[32m+[m[32m            'strand',[m[41m [m
+[32m+[m[32m            'schoolYear',[m[41m [m
+[32m+[m[32m            'semester',[m[41m [m
+[32m+[m[32m            'classes.subject',[m
+[32m+[m[32m            'classes.faculty',[m
+[32m+[m[32m            'enrollments' => function ($query) {[m
+[32m+[m[32m                $query->where('status', Enrollment::STATUS_ENROLLED)[m
+[32m+[m[32m                    ->with([[m
+[32m+[m[32m                        'studentPersonalInfo.user',[m
+[32m+[m[32m                        'studentPersonalInfo:id,user_id,lrn,first_name,middle_name,last_name,extension_name',[m
+[32m+[m[32m                        'assignedStrand',[m
+[32m+[m[32m                    ]);[m
+[32m+[m[32m            }[m
+[32m+[m[32m        ];[m
+[32m+[m
+[32m+[m[32m        $sectionsCollection = $this->facultySectionsBaseQuery($user, $filters)[m
+[32m+[m[32m            ->with($relations)[m
+[32m+[m[32m            ->get();[m
+[32m+[m
+[32m+[m[32m        $fallbackSemester = null;[m
+[32m+[m[32m        $displaySemester = $filters['activeSemester'];[m
+[32m+[m
+[32m+[m[32m        if ($sectionsCollection->isEmpty() && $filters['activeSemester']) {[m
+[32m+[m[32m            $sectionsCollection = $this->facultySectionsBaseQuery($user, $filters, false)[m
+[32m+[m[32m                ->with($relations)[m
+[32m+[m[32m                ->get();[m
+[32m+[m
+[32m+[m[32m            if ($sectionsCollection->isNotEmpty()) {[m
+[32m+[m[32m                $displaySemester = $sectionsCollection->first()->semester;[m
+[32m+[m[32m                $fallbackSemester = $filters['activeSemester'];[m
+[32m+[m[32m            }[m
+         }[m
+         [m
+[31m-        $sections = $sectionsQuery->get();[m
+[32m+[m[32m        $sections = $sectionsCollection->map(function ($section) {[m
+[32m+[m[32m                $sectionArray = $section->toArray();[m
+[32m+[m[41m                [m
+[32m+[m[32m                $students = $this->filterEnrollmentsForSection($section);[m
+[32m+[m
+[32m+[m[32m                // Transform enrollments to include student data[m
+[32m+[m[32m                $sectionArray['students'] = $students->map(function ($enrollment) {[m
+[32m+[m[32m                    $studentInfo = $enrollment->studentPersonalInfo;[m
+[32m+[m[32m                    $studentUser = $studentInfo?->user;[m
+[32m+[m[41m                    [m
+[32m+[m[32m                    return [[m
+[32m+[m[32m                        'id' => $enrollment->id,[m
+[32m+[m[32m                        'enrollment_id' => $enrollment->id,[m
+[32m+[m[32m                        'lrn' => $studentInfo?->lrn,[m
+[32m+[m[32m                        'name' => $studentInfo?->full_name,[m
+[32m+[m[32m                        'email' => $studentUser?->email,[m
+[32m+[m[32m                        'grade_level' => $studentInfo?->grade_level,[m
+[32m+[m[32m                        'strand' => $enrollment->assignedStrand ? [[m
+[32m+[m[32m                            'code' => $enrollment->assignedStrand->Strand_code,[m
+[32m+[m[32m                            'name' => $enrollment->assignedStrand->Strand_name,[m
+[32m+[m[32m                        ] : null,[m
+[32m+[m[32m                        'status' => $enrollment->status,[m
+[32m+[m[32m                    ];[m
+[32m+[m[32m                })->values();[m
+[32m+[m[41m                [m
+[32m+[m[32m                return $sectionArray;[m
+[32m+[m[32m            });[m
+ [m
+         return Inertia::render('Faculty/Sections', [[m
+             'sections' => $sections,[m
+             'activeSchoolYear' => $filters['activeSchoolYear'],[m
+             'activeSemester' => $filters['activeSemester'],[m
+[32m+[m[32m            'displaySemester' => $displaySemester ?? $filters['activeSemester'],[m
+[32m+[m[32m            'semesterFallbackNotice' => $fallbackSemester && $displaySemester[m
+[32m+[m[32m                ? [[m
+[32m+[m[32m                    'requested' => $fallbackSemester->semester_type ?? 'Current Semester',[m
+[32m+[m[32m                    'showing' => $displaySemester->semester_type ?? 'Previous Semester',[m
+[32m+[m[32m                ][m
+[32m+[m[32m                : null,[m
+             'allSemesters' => $filters['allSemesters'], // For historical access[m
+             'user' => $user, // Pass user data for sidebar[m
+         ]);[m
+[36m@@ -322,28 +512,194 @@[m [mpublic function showSection(Section $section)[m
+     {[m
+         $user = Auth::user();[m
+         $filters = $this->getActiveFilters();[m
+[32m+[m[32m        $displaySemester = $filters['activeSemester'];[m
+[32m+[m[32m        $fallbackNotice = null;[m
+         [m
+         // Check if user is the adviser of this section[m
+         if ($section->adviser_id !== $user->id) {[m
+             abort(403, 'Unauthorized action.');[m
+         }[m
+         [m
+[31m-        // Check if section belongs to active school year[m
+[32m+[m[32m        $matchesActiveTerm = true;[m
+[32m+[m
+         if ($filters['activeSchoolYear'] && $section->school_year_id !== $filters['activeSchoolYear']->id) {[m
+[31m-            abort(404, 'Section not found in active school year.');[m
+[32m+[m[32m            $matchesActiveTerm = false;[m
+         }[m
+[31m-        [m
+[31m-        // Check if section belongs to active semester[m
+[32m+[m
+         if ($filters['activeSemester'] && $section->semester_id !== $filters['activeSemester']->id) {[m
+[31m-            abort(404, 'Section not found in active semester.');[m
+[32m+[m[32m            $matchesActiveTerm = false;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        if (!$matchesActiveTerm) {[m
+[32m+[m[32m            $hasActiveSections = $this->facultySectionsBaseQuery($user, $filters)->exists();[m
+[32m+[m
+[32m+[m[32m            if ($hasActiveSections) {[m
+[32m+[m[32m                abort(404, 'Section not found in active term.');[m
+[32m+[m[32m            }[m
+[32m+[m
+[32m+[m[32m            $displaySemester = $section->semester;[m
+[32m+[m[32m            $fallbackNotice = [[m
+[32m+[m[32m                'requested' => $filters['activeSemester']?->semester_type ?? 'Current Semester',[m
+[32m+[m[32m                'showing' => $displaySemester?->semester_type ?? 'Previous Semester',[m
+[32m+[m[32m            ];[m
+         }[m
+ [m
+[31m-        $section->load(['strand', 'schoolYear', 'semester', 'classes.subject', 'classes.faculty']);[m
+[32m+[m[32m        $section->load([[m
+[32m+[m[32m            'strand',[m[41m [m
+[32m+[m[32m            'schoolYear',[m[41m [m
+[32m+[m[32m            'semester',[m[41m [m
+[32m+[m[32m            'classes.subject',[m[41m [m
+[32m+[m[32m            'classes.faculty',[m
+[32m+[m[32m            'enrollments' => function ($query) {[m
+[32m+[m[32m                $query->where('status', Enrollment::STATUS_ENROLLED)[m
+[32m+[m[32m                    ->with([[m
+[32m+[m[32m                        'studentPersonalInfo.user',[m
+[32m+[m[32m                        'studentPersonalInfo:id,user_id,lrn,first_name,middle_name,last_name,extension_name,grade_level',[m
+[32m+[m[32m                        'assignedStrand',[m
+[32m+[m[32m                    ]);[m
+[32m+[m[32m            }[m
+[32m+[m[32m        ]);[m
+[32m+[m
+[32m+[m[32m        // Transform section data for frontend[m
+[32m+[m[32m        $sectionData = $section->toArray();[m
+[32m+[m[32m        $students = $this->filterEnrollmentsForSection($section);[m
+[32m+[m[32m        $sectionData['students'] = $students->map(function ($enrollment) {[m
+[32m+[m[32m            $studentInfo = $enrollment->studentPersonalInfo;[m
+[32m+[m[32m            $studentUser = $studentInfo?->user;[m
+[32m+[m[41m            [m
+[32m+[m[32m            return [[m
+[32m+[m[32m                'id' => $enrollment->id,[m
+[32m+[m[32m                'enrollment_id' => $enrollment->id,[m
+[32m+[m[32m                'lrn' => $studentInfo?->lrn,[m
+[32m+[m[32m                'name' => $studentInfo?->full_name,[m
+[32m+[m[32m                'email' => $studentUser?->email,[m
+[32m+[m[32m                'grade_level' => $studentInfo?->grade_level,[m
+[32m+[m[32m                'strand' => $enrollment->assignedStrand ? [[m
+[32m+[m[32m                    'id' => $enrollment->assignedStrand->id,[m
+[32m+[m[32m                    'code' => $enrollment->assignedStrand->Strand_code,[m
+[32m+[m[32m                    'name' => $enrollment->assignedStrand->Strand_name,[m
+[32m+[m[32m                ] : null,[m
+[32m+[m[32m                'status' => $enrollment->status,[m
+[32m+[m[32m            ];[m
+[32m+[m[32m        })->values();[m
+ [m
+         return Inertia::render('Faculty/SectionDetail', [[m
+[31m-            'section' => $section,[m
+[32m+[m[32m            'section' => $sectionData,[m
+[32m+[m[32m            'activeSchoolYear' => $filters['activeSchoolYear'],[m
+[32m+[m[32m            'activeSemester' => $filters['activeSemester'],[m
+[32m+[m[32m            'displaySemester' => $displaySemester ?? $filters['activeSemester'],[m
+[32m+[m[32m            'semesterFallbackNotice' => $fallbackNoti

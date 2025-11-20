@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { router } from '@inertiajs/react'
+import Swal from 'sweetalert2'
 
 export default function ClassForm({ 
   isOpen, 
@@ -26,6 +27,7 @@ export default function ClassForm({
   })
   const [errors, setErrors] = useState({})
   const [processing, setProcessing] = useState(false)
+  const [selectedSection, setSelectedSection] = useState(null)
 
   // Days of the week options
   const daysOfWeek = [
@@ -57,6 +59,13 @@ export default function ClassForm({
   useEffect(() => {
     if (classData) {
       // Editing existing class
+      // Normalize time format to H:i (remove seconds if present)
+      const normalizeTime = (time) => {
+        if (!time) return ''
+        // If time has seconds (e.g., "07:00:00"), remove them
+        return time.length > 5 ? time.substring(0, 5) : time
+      }
+      
       setFormData({
         Section_id: classData.Section_id || '',
         faculty_id: classData.faculty_id || '',
@@ -64,10 +73,14 @@ export default function ClassForm({
         Semester_id: classData.Semester_id || '',
         subject_id: classData.subject_id || '',
         day_of_week: classData.day_of_week || '',
-        start_time: classData.start_time || '',
-        endtime: classData.endtime || '',
+        start_time: normalizeTime(classData.start_time),
+        endtime: normalizeTime(classData.endtime),
         is_active: classData.is_active ?? true
       })
+      
+      // Set selected section for editing
+      const section = sections.find(s => s.id === classData.Section_id)
+      setSelectedSection(section || null)
     } else {
       // Creating new class
       setFormData({
@@ -81,9 +94,10 @@ export default function ClassForm({
         endtime: '',
         is_active: true
       })
+      setSelectedSection(null)
     }
     setErrors({})
-  }, [classData, activeSchoolYear, activeSemester, isOpen])
+  }, [classData, activeSchoolYear, activeSemester, isOpen, sections])
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -92,6 +106,19 @@ export default function ClassForm({
       [name]: type === 'checkbox' ? checked : value
     }))
     
+    // Handle section change to update available subjects
+    if (name === 'Section_id') {
+      const section = sections.find(s => s.id === parseInt(value))
+      setSelectedSection(section || null)
+      
+      // Clear subject selection when section changes
+      setFormData(prev => ({
+        ...prev,
+        Section_id: value,
+        subject_id: '' // Reset subject when section changes
+      }))
+    }
+    
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -99,6 +126,25 @@ export default function ClassForm({
         [name]: null
       }))
     }
+  }
+
+  // Filter subjects based on selected section's grade level and strand
+  const getFilteredSubjects = () => {
+    if (!selectedSection || !subjects) {
+      return subjects || []
+    }
+    
+    // Get the strand_id from the selected section
+    const sectionStrandId = selectedSection.strand?.id || selectedSection.strand_id
+    
+    // Filter subjects that match both the selected section's year_level AND strand_id
+    return subjects.filter(subject => {
+      const matchesYearLevel = subject.year_level === selectedSection.year_level
+      const subjectStrandId = subject.strand?.id || subject.strand_id
+      const matchesStrand = !sectionStrandId || !subjectStrandId || subjectStrandId === sectionStrandId
+      
+      return matchesYearLevel && matchesStrand
+    })
   }
 
   const validateForm = () => {
@@ -136,6 +182,23 @@ export default function ClassForm({
       }
     }
 
+    // Validate grade level and strand matching
+    if (formData.Section_id && formData.subject_id && selectedSection) {
+      const selectedSubject = subjects.find(s => s.Id === parseInt(formData.subject_id))
+      if (selectedSubject) {
+        if (selectedSubject.year_level !== selectedSection.year_level) {
+          newErrors.subject_id = `Subject must be for Grade ${selectedSection.year_level} to match the selected section`
+        }
+        
+        // Check strand matching
+        const sectionStrandId = selectedSection.strand?.id || selectedSection.strand_id
+        const subjectStrandId = selectedSubject.strand?.id || selectedSubject.strand_id
+        if (sectionStrandId && subjectStrandId && subjectStrandId !== sectionStrandId) {
+          newErrors.subject_id = `Subject must belong to the same strand as the selected section`
+        }
+      }
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -170,8 +233,95 @@ export default function ClassForm({
           is_active: true
         })
       },
-      onError: (errors) => {
-        setErrors(errors)
+      onError: (serverErrors) => {
+        // Preserve all form data - do NOT reset anything
+        const updatedErrors = { ...serverErrors }
+        let conflictMessage = null
+        let conflictFields = []
+
+        // Handle general/schedule conflicts
+        if (serverErrors.schedule_conflict) {
+          updatedErrors.general = serverErrors.schedule_conflict
+          conflictMessage = serverErrors.schedule_conflict
+          // Schedule conflicts usually involve faculty_id, day_of_week, start_time, or endtime
+          if (!conflictFields.includes('faculty_id')) conflictFields.push('faculty_id')
+          if (!conflictFields.includes('day_of_week')) conflictFields.push('day_of_week')
+          if (!conflictFields.includes('start_time')) conflictFields.push('start_time')
+          if (!conflictFields.includes('endtime')) conflictFields.push('endtime')
+        }
+
+        // Handle subject_id conflicts (duplicate subject, same day, etc.)
+        if (serverErrors.subject_id) {
+          // Keep the field-specific error, but also show as general note
+          if (!updatedErrors.general) {
+            updatedErrors.general = serverErrors.subject_id
+          }
+          if (!conflictMessage) {
+            conflictMessage = serverErrors.subject_id
+          }
+          if (!conflictFields.includes('subject_id')) conflictFields.push('subject_id')
+          // If it's a same-day conflict, also highlight day_of_week
+          if (typeof serverErrors.subject_id === 'string' && serverErrors.subject_id.toLowerCase().includes('same day')) {
+            if (!conflictFields.includes('day_of_week')) conflictFields.push('day_of_week')
+          }
+        }
+
+        // Handle faculty_id conflicts (load limit, etc.)
+        if (serverErrors.faculty_id) {
+          // Keep the field-specific error, but also show as general note
+          if (!updatedErrors.general) {
+            updatedErrors.general = serverErrors.faculty_id
+          }
+          if (!conflictMessage) {
+            conflictMessage = serverErrors.faculty_id
+          }
+          if (!conflictFields.includes('faculty_id')) conflictFields.push('faculty_id')
+        }
+
+        // Handle Section_id conflicts
+        if (serverErrors.Section_id && typeof serverErrors.Section_id === 'string' && serverErrors.Section_id.toLowerCase().includes('conflict')) {
+          if (!conflictMessage) {
+            conflictMessage = serverErrors.Section_id
+          }
+          if (!conflictFields.includes('Section_id')) conflictFields.push('Section_id')
+        }
+
+        setErrors(updatedErrors)
+
+        // Show SweetAlert for conflicts with guidance on what to change
+        if (conflictMessage) {
+          const fieldsToChange = conflictFields.length > 0 
+            ? `<p class="mt-2 text-sm"><strong>Please review and change:</strong> ${conflictFields.map(f => f.replace('_', ' ')).join(', ')}</p>`
+            : ''
+          
+          Swal.fire({
+            icon: 'error',
+            title: 'Conflict Detected',
+            html: `<div class="text-left">
+              <p class="mb-2"><strong>Cannot create/update class due to the following conflict:</strong></p>
+              <p class="text-gray-700">${conflictMessage}</p>
+              ${fieldsToChange}
+              <p class="mt-3 text-xs text-gray-500">Your form data has been preserved. Please adjust the highlighted fields above.</p>
+            </div>`,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#dc2626',
+            width: '550px',
+            customClass: {
+              popup: 'rounded-lg',
+              title: 'text-lg font-semibold',
+              htmlContainer: 'text-sm'
+            }
+          }).then(() => {
+            // Scroll to first error field after closing alert
+            if (conflictFields.length > 0) {
+              const firstErrorField = document.getElementById(conflictFields[0])
+              if (firstErrorField) {
+                firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                firstErrorField.focus()
+              }
+            }
+          })
+        }
       },
       onFinish: () => {
         setProcessing(false)
@@ -203,15 +353,16 @@ export default function ClassForm({
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* General Error Display */}
           {errors.general && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="bg-red-50 border-l-4 border-red-400 rounded-lg p-4 shadow-sm">
               <div className="flex">
                 <div className="flex-shrink-0">
                   <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                   </svg>
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-800">{errors.general}</p>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-sm font-semibold text-red-800 mb-1">Conflict Detected</h3>
+                  <p className="text-sm text-red-700">{errors.general}</p>
                 </div>
               </div>
             </div>
@@ -226,8 +377,8 @@ export default function ClassForm({
               name="Section_id"
               value={formData.Section_id}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                errors.Section_id ? 'border-red-300' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
+                errors.Section_id ? 'border-red-500 bg-red-50 ring-2 ring-red-200' : 'border-gray-300'
               }`}
             >
               <option value="">Select Section</option>
@@ -259,8 +410,8 @@ export default function ClassForm({
               name="faculty_id"
               value={formData.faculty_id}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                errors.faculty_id ? 'border-red-300' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
+                errors.faculty_id ? 'border-red-500 bg-red-50 ring-2 ring-red-200' : 'border-gray-300'
               }`}
             >
               <option value="">Select Faculty</option>
@@ -333,32 +484,51 @@ export default function ClassForm({
             <div>
               <label htmlFor="subject_id" className="block text-sm font-medium text-gray-700 mb-2">
                 Subject *
+                {selectedSection && (
+                  <span className="text-xs text-gray-500 ml-2">
+                    (Grade {selectedSection.year_level} {selectedSection.strand?.Strand_name ? `- ${selectedSection.strand.Strand_name}` : ''} subjects only)
+                  </span>
+                )}
               </label>
               <select
                 id="subject_id"
                 name="subject_id"
                 value={formData.subject_id}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                  errors.subject_id ? 'border-red-300' : 'border-gray-300'
-                }`}
+                disabled={!selectedSection}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
+                  errors.subject_id ? 'border-red-500 bg-red-50 ring-2 ring-red-200' : 'border-gray-300'
+                } ${!selectedSection ? 'bg-gray-100 cursor-not-allowed' : ''}`}
               >
-                <option value="">Select Subject</option>
-                {subjects && subjects.length > 0 ? (
-                  subjects.map((subject, index) => (
+                <option value="">
+                  {!selectedSection ? 'Select a section first' : 'Select Subject'}
+                </option>
+                {selectedSection && getFilteredSubjects().length > 0 ? (
+                  getFilteredSubjects().map((subject, index) => (
                     <option key={subject.Id || `subject-${index}`} value={subject.Id}>
-                      {subject.Subject_name} ({subject.Subject_code})
+                      {subject.Subject_name} ({subject.Subject_code}) - Grade {subject.year_level}
                     </option>
                   ))
-                ) : (
-                  <option value="" disabled>No subjects available</option>
-                )}
+                ) : selectedSection ? (
+                  <option value="" disabled>No Grade {selectedSection.year_level} subjects available</option>
+                ) : null}
               </select>
               {errors.subject_id && (
                 <p className="mt-1 text-sm text-red-600">{errors.subject_id}</p>
               )}
-              {(!subjects || subjects.length === 0) && (
-                <p className="mt-1 text-sm text-amber-600">No subjects available. Please add subjects first.</p>
+              {!selectedSection && (
+                <p className="mt-1 text-sm text-gray-500">Please select a section first to see available subjects.</p>
+              )}
+              {selectedSection && getFilteredSubjects().length === 0 && (
+                <p className="mt-1 text-sm text-amber-600">
+                  No Grade {selectedSection.year_level} {selectedSection.strand?.Strand_name ? `${selectedSection.strand.Strand_name} ` : ''}subjects available for the selected semester. 
+                  Please add subjects for Grade {selectedSection.year_level} {selectedSection.strand?.Strand_name ? `in ${selectedSection.strand.Strand_name} strand ` : ''}first.
+                </p>
+              )}
+              {selectedSection && getFilteredSubjects().length > 0 && (
+                <p className="mt-1 text-sm text-green-600">
+                  Showing {getFilteredSubjects().length} Grade {selectedSection.year_level} {selectedSection.strand?.Strand_name ? `${selectedSection.strand.Strand_name} ` : ''}subject(s)
+                </p>
               )}
             </div>
           </div>
@@ -375,8 +545,8 @@ export default function ClassForm({
                 name="day_of_week"
                 value={formData.day_of_week}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                  errors.day_of_week ? 'border-red-300' : 'border-gray-300'
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
+                  errors.day_of_week ? 'border-red-500 bg-red-50 ring-2 ring-red-200' : 'border-gray-300'
                 }`}
               >
                 <option value="">Select Day</option>
@@ -401,8 +571,8 @@ export default function ClassForm({
                 name="start_time"
                 value={formData.start_time}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                  errors.start_time ? 'border-red-300' : 'border-gray-300'
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
+                  errors.start_time ? 'border-red-500 bg-red-50 ring-2 ring-red-200' : 'border-gray-300'
                 }`}
               >
                 <option value="">Select Time</option>
@@ -427,8 +597,8 @@ export default function ClassForm({
                 name="endtime"
                 value={formData.endtime}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                  errors.endtime ? 'border-red-300' : 'border-gray-300'
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
+                  errors.endtime ? 'border-red-500 bg-red-50 ring-2 ring-red-200' : 'border-gray-300'
                 }`}
               >
                 <option value="">Select Time</option>

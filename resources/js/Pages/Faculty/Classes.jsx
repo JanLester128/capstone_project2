@@ -1,4 +1,5 @@
-import { Head } from '@inertiajs/react'
+import { useMemo } from 'react'
+import { Head, Link } from '@inertiajs/react'
 import FacultySidebar from '../Auth/Faculty_sidebar'
 
 // Function to convert 24-hour time to 12-hour format
@@ -11,7 +12,97 @@ const formatTimeTo12Hour = (time24) => {
   return `${hour12}:${minutes} ${ampm}`
 }
 
+// Helper function to consolidate consecutive days
+const consolidateDays = (days) => {
+  if (!days || days.length === 0) return ''
+  if (days.length === 1) return days[0]
+  
+  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  const sortedDays = [...days].sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b))
+  
+  // Check if days form a consecutive range
+  let consecutive = true
+  for (let i = 1; i < sortedDays.length; i++) {
+    const prevIndex = dayOrder.indexOf(sortedDays[i - 1])
+    const currIndex = dayOrder.indexOf(sortedDays[i])
+    if (currIndex !== prevIndex + 1) {
+      consecutive = false
+      break
+    }
+  }
+  
+  if (consecutive && sortedDays.length > 1) {
+    return `${sortedDays[0]} - ${sortedDays[sortedDays.length - 1]}`
+  }
+  
+  return sortedDays.join(', ')
+}
+
 export default function FacultyClasses({ classes = [], activeSchoolYear, activeSemester, user = {}, flash = {} }) {
+  // Group and consolidate classes by subject, section, start_time, and endtime
+  const consolidatedClasses = useMemo(() => {
+    const grouped = classes.reduce((groups, classItem) => {
+      // Create a unique key for grouping
+      const key = `${classItem.subject?.Id || classItem.subject_id || ''}_${classItem.section?.id || classItem.Section_id || ''}_${classItem.start_time || ''}_${classItem.endtime || ''}`
+      
+      if (!groups[key]) {
+        groups[key] = {
+          ...classItem,
+          days: []
+        }
+      }
+      
+      // Parse and add the day
+      const dayStr = classItem.day_of_week || ''
+      if (dayStr) {
+        // Handle different day formats
+        if (dayStr.includes(' - ')) {
+          // Already in range format like "Monday - Friday"
+          const parts = dayStr.split(' - ')
+          const startDay = parts[0].trim()
+          const endDay = parts[1].trim()
+          const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+          const startIndex = dayOrder.indexOf(startDay)
+          const endIndex = dayOrder.indexOf(endDay)
+          if (startIndex >= 0 && endIndex >= 0 && endIndex >= startIndex) {
+            groups[key].days.push(...dayOrder.slice(startIndex, endIndex + 1))
+          } else {
+            groups[key].days.push(dayStr)
+          }
+        } else if (dayStr.toLowerCase().includes('to')) {
+          // Handle "Monday to Friday" format
+          const parts = dayStr.toLowerCase().split('to')
+          const startDay = parts[0].trim()
+          const endDay = parts[1].trim()
+          const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+          const startIndex = dayOrder.findIndex(d => d.toLowerCase() === startDay)
+          const endIndex = dayOrder.findIndex(d => d.toLowerCase() === endDay)
+          if (startIndex >= 0 && endIndex >= 0 && endIndex >= startIndex) {
+            groups[key].days.push(...dayOrder.slice(startIndex, endIndex + 1))
+          } else {
+            groups[key].days.push(dayStr)
+          }
+        } else if (dayStr.includes(',')) {
+          // Multiple days separated by comma
+          groups[key].days.push(...dayStr.split(',').map(d => d.trim()))
+        } else {
+          // Single day
+          groups[key].days.push(dayStr)
+        }
+      }
+      
+      return groups
+    }, {})
+    
+    // Consolidate days for each group
+    return Object.values(grouped).map(group => {
+      const uniqueDays = [...new Set(group.days)]
+      return {
+        ...group,
+        day_of_week: consolidateDays(uniqueDays)
+      }
+    })
+  }, [classes])
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Head title="My Classes - Faculty" />
@@ -56,9 +147,9 @@ export default function FacultyClasses({ classes = [], activeSchoolYear, activeS
           )}
 
           {/* Classes Grid */}
-          {classes.length > 0 ? (
+          {consolidatedClasses.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {classes.map((classItem, index) => (
+              {consolidatedClasses.map((classItem, index) => (
                 <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
@@ -69,7 +160,7 @@ export default function FacultyClasses({ classes = [], activeSchoolYear, activeS
                         {classItem.section?.section_name || classItem.section?.SectionName || 'Unknown Section'}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {classItem.subject?.Subject_code || 'N/A'} • {classItem.semester?.semester_type || 'Unknown Semester'}
+                        {classItem.subject?.Subject_code || ''} • {classItem.semester?.semester_type || 'Unknown Semester'}
                       </p>
                     </div>
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -101,9 +192,12 @@ export default function FacultyClasses({ classes = [], activeSchoolYear, activeS
                   </div>
 
                   <div className="flex space-x-2">
-                    <button className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200">
+                    <Link
+                      href={`/faculty/classes/${classItem.id || classItem.Id || index}`}
+                      className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 text-center"
+                    >
                       View Details
-                    </button>
+                    </Link>
                     <button className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200">
                       Grades
                     </button>
@@ -117,7 +211,12 @@ export default function FacultyClasses({ classes = [], activeSchoolYear, activeS
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
               <h3 className="text-lg font-medium text-gray-900 mb-2">No Classes Assigned</h3>
-              <p className="text-gray-600">You don't have any classes assigned yet. Contact the registrar's office for assistance.</p>
+              <p className="text-gray-600 mb-2">You don't have any classes assigned yet. Contact the registrar's office for assistance.</p>
+              {(!activeSchoolYear || !activeSemester) && (
+                <p className="text-sm text-amber-600 mt-2">
+                  Note: No active school year or semester is currently set. Please contact the registrar to set up an active school year and semester.
+                </p>
+              )}
             </div>
           )}
         </main>

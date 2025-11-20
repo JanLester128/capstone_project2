@@ -50,7 +50,8 @@ class STEMGrade12FirstSemSeeder extends Seeder
                 'Subject_code' => 'PRAC_RES_2',
                 'Semester' => '1',
                 'year_level' => 12,
-                'strand_id' => $stem->id,                'PREREQUISITES' => 'Practical Research 1, Statistics and Probability',
+                'strand_id' => $stem->id,
+                'PREREQUISITES' => 'Practical Research 1, Statistics and Probability',
                 'CO-REQUISITES' => null,
             ],
             [
@@ -76,7 +77,8 @@ class STEMGrade12FirstSemSeeder extends Seeder
                 'Subject_code' => 'GEN_PHYS_1',
                 'Semester' => '1',
                 'year_level' => 12,
-                'strand_id' => $stem->id,                'PREREQUISITES' => 'Pre-calculus; calculus',
+                'strand_id' => $stem->id,
+                'PREREQUISITES' => 'Pre-calculus, Basic Calculus',
                 'CO-REQUISITES' => null,
             ],
         ];

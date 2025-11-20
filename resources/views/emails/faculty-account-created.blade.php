@@ -16,18 +16,23 @@
         }
         .container {
             background-color: white;
-            padding: 30px;
+            padding: 0;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .container-content {
+            padding: 30px;
         }
         .header {
             text-align: center;
             margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #e9ecef;
+            padding: 30px 20px;
+            background: linear-gradient(135deg, #dc2626 0%, #9333ea 100%);
+            border-radius: 10px 10px 0 0;
         }
         .header h1 {
-            color: #2c3e50;
+            color: #ffffff;
             margin: 0;
             font-size: 24px;
         }
@@ -92,16 +97,18 @@
         }
         .button {
             display: inline-block;
-            background-color: #007bff;
-            color: white;
+            background: linear-gradient(135deg, #dc2626 0%, #9333ea 100%);
+            color: #ffffff !important;
             padding: 12px 24px;
             text-decoration: none;
             border-radius: 6px;
             margin: 15px 0;
             font-weight: bold;
+            text-align: center;
         }
         .button:hover {
-            background-color: #0056b3;
+            background: linear-gradient(135deg, #b91c1c 0%, #7e22ce 100%);
+            color: #ffffff !important;
         }
     </style>
 </head>
@@ -111,6 +118,7 @@
             <h1>🎓 Faculty Account Created</h1>
         </div>
 
+        <div class="container-content">
         <div class="welcome-section">
             <p>Dear <strong>{{ $faculty->FirstName }} {{ $faculty->LastName }}</strong>,</p>
             
@@ -157,6 +165,7 @@
             <p>This email was sent automatically by the Academic Management System.</p>
             <p><strong>Please do not reply to this email.</strong></p>
             <p>Generated on {{ now()->format('F j, Y \a\t g:i A') }}</p>
+        </div>
         </div>
     </div>
 </body>

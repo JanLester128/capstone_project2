@@ -1,39 +1,197 @@
-import { useState } from 'react'
-import { Head, useForm } from '@inertiajs/react'
+import { useState, useEffect } from 'react'
+import { Head, useForm, router, usePage } from '@inertiajs/react'
 import RegistrarSidebar from '../Auth/Registrar_sidebar'
+import { formatDateMedium } from '../../utils/dateFormatter'
+import Swal from 'sweetalert2'
 
 export default function StudentVerification({ unverifiedStudents, verifiedStudents }) {
+  const { flash } = usePage().props
   const [activeTab, setActiveTab] = useState('pending')
   const [selectedStudent, setSelectedStudent] = useState(null)
-  const [showModal, setShowModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedStudents, setSelectedStudents] = useState([])
+  const [isBulkApproving, setIsBulkApproving] = useState(false)
+
+  // Show flash messages
+  useEffect(() => {
+    if (flash?.success) {
+      Swal.fire('Success!', flash.success, 'success')
+    }
+    if (flash?.error) {
+      Swal.fire('Error', flash.error, 'error')
+    }
+  }, [flash])
 
   const { data, setData, post, processing, reset } = useForm({
     action: '',
     reason: '',
   })
 
-  function handleVerification(student, action) {
-    setSelectedStudent(student)
-    setData('action', action)
-    setShowModal(true)
+  // Removed bulkApproveForm - using router.post directly for more reliable submission
+
+  function getLevelLabel(student) {
+    // If transferee (from personal info or latest enrollment) or no explicit grade level yet, render blank
+    const isTransferee =
+      (student?.student_status && String(student.student_status).toLowerCase() === 'transferee') ||
+      (student?.latest_enrollment && student.latest_enrollment.is_transferee);
+    if (isTransferee || !student?.grade_level) {
+      return ''
+    }
+    return `Grade ${student.grade_level}`
   }
 
-  function submitVerification(e) {
-    e.preventDefault()
-    post(`/registrar/students/${selectedStudent.id}/verify`, {
-      onSuccess: () => {
-        setShowModal(false)
-        reset()
-        setSelectedStudent(null)
+  function handleViewStudent(student) {
+    setSelectedStudent(student)
+  }
+
+  function handleApprove(student) {
+    Swal.fire({
+      title: 'Approve Student?',
+      text: `Are you sure you want to approve ${student.full_name}?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Approve',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setData('action', 'approve')
+        post(`/registrar/students/${student.id}/verify`, {
+          onSuccess: () => {
+            setSelectedStudent(null)
+            reset()
+            Swal.fire('Approved!', 'Student has been verified and approved.', 'success')
+          },
+          onError: () => {
+            Swal.fire('Error', 'Failed to approve student. Please try again.', 'error')
+          }
+        })
       }
     })
   }
 
-  function closeModal() {
-    setShowModal(false)
-    reset()
-    setSelectedStudent(null)
+  function handleReject(student) {
+    Swal.fire({
+      title: 'Reject Student?',
+      text: `Are you sure you want to reject ${student.full_name}? This action cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Reject',
+      cancelButtonText: 'Cancel',
+      input: 'textarea',
+      inputPlaceholder: 'Reason for rejection (optional)',
+      inputAttributes: {
+        'aria-label': 'Reason for rejection'
+      },
+      showCancelButton: true
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setData('action', 'reject')
+        setData('reason', result.value || '')
+        post(`/registrar/students/${student.id}/verify`, {
+          onSuccess: () => {
+            setSelectedStudent(null)
+            reset()
+            Swal.fire('Rejected!', 'Student registration has been rejected and removed.', 'success')
+          },
+          onError: () => {
+            Swal.fire('Error', 'Failed to reject student. Please try again.', 'error')
+          }
+        })
+      }
+    })
+  }
+
+  function handleBulkApprove() {
+    // Capture current selected students to avoid closure issues
+    const currentSelected = [...selectedStudents]
+    
+    if (currentSelected.length === 0) {
+      Swal.fire('No Selection', 'Please select at least one student to approve.', 'warning')
+      return
+    }
+
+    Swal.fire({
+      title: 'Bulk Approve?',
+      text: `Are you sure you want to approve ${currentSelected.length} student(s)?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Approve All',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // Ensure student_ids are integers and filter out any invalid values
+        const studentIds = currentSelected
+          .map(id => parseInt(id))
+          .filter(id => !isNaN(id) && id > 0)
+        
+        console.log('Submitting student IDs:', studentIds)
+        
+        if (studentIds.length === 0) {
+          Swal.fire('Error', 'No valid student IDs selected.', 'error')
+          return
+        }
+
+        setIsBulkApproving(true)
+
+        // Submit using router.post directly
+        router.post('/registrar/students/bulk-approve', {
+          student_ids: studentIds
+        }, {
+          onSuccess: () => {
+            setSelectedStudents([])
+            setSelectedStudent(null)
+            setIsBulkApproving(false)
+            // Success message will come from backend flash message via useEffect
+          },
+          onError: (errors) => {
+            console.error('Bulk approve errors:', errors)
+            console.error('Submitted student IDs:', studentIds)
+            setIsBulkApproving(false)
+            // Get error message from validation errors or general error
+            let errorMessage = 'Failed to approve students. Please try again.'
+            if (errors?.general) {
+              errorMessage = errors.general
+            } else if (errors?.student_ids) {
+              if (Array.isArray(errors.student_ids)) {
+                errorMessage = errors.student_ids[0]
+              } else {
+                errorMessage = errors.student_ids
+              }
+            } else if (errors?.student_ids?.[0]) {
+              errorMessage = errors.student_ids[0]
+            }
+            Swal.fire('Error', errorMessage, 'error')
+          },
+          onFinish: () => {
+            setIsBulkApproving(false)
+          }
+        })
+      }
+    })
+  }
+
+  function handleSelectStudent(studentId) {
+    setSelectedStudents(prev => {
+      if (prev.includes(studentId)) {
+        return prev.filter(id => id !== studentId)
+      } else {
+        return [...prev, studentId]
+      }
+    })
+  }
+
+  function handleSelectAll() {
+    if (selectedStudents.length === filteredUnverifiedStudents.length) {
+      setSelectedStudents([])
+    } else {
+      setSelectedStudents(filteredUnverifiedStudents.map(s => s.id))
+    }
   }
 
   // Filter students based on search term
@@ -97,7 +255,11 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
           <div className="border-b border-gray-200 mb-4 lg:mb-6">
             <nav className="-mb-px flex space-x-4 lg:space-x-8 overflow-x-auto">
               <button
-                onClick={() => setActiveTab('pending')}
+                onClick={() => {
+                  setActiveTab('pending')
+                  setSelectedStudent(null)
+                  setSelectedStudents([])
+                }}
                 className={`py-2 px-2 lg:px-1 border-b-2 font-medium text-xs lg:text-sm whitespace-nowrap ${
                   activeTab === 'pending'
                     ? 'border-blue-500 text-blue-600'
@@ -112,7 +274,11 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
                 )}
               </button>
               <button
-                onClick={() => setActiveTab('verified')}
+                onClick={() => {
+                  setActiveTab('verified')
+                  setSelectedStudent(null)
+                  setSelectedStudents([])
+                }}
                 className={`py-2 px-2 lg:px-1 border-b-2 font-medium text-xs lg:text-sm whitespace-nowrap ${
                   activeTab === 'verified'
                     ? 'border-blue-500 text-blue-600'
@@ -124,15 +290,45 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
             </nav>
           </div>
 
-          {/* Pending Verification Tab */}
-          {activeTab === 'pending' && (
-            <div className="bg-white shadow rounded-lg">
+          {/* Split View Container */}
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+            {/* Left Side - List */}
+            <div className={`${selectedStudent ? 'lg:w-1/2' : 'w-full'} bg-white shadow rounded-lg`}>
               <div className="px-4 py-5 sm:p-6">
+                {/* Bulk Actions for Pending Tab */}
+                {activeTab === 'pending' && filteredUnverifiedStudents.length > 0 && (
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedStudents.length === filteredUnverifiedStudents.length && filteredUnverifiedStudents.length > 0}
+                        onChange={handleSelectAll}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-700">
+                        Select All ({selectedStudents.length} selected)
+                      </span>
+                    </div>
+                    {selectedStudents.length > 0 && (
+                      <button
+                        onClick={handleBulkApprove}
+                        disabled={isBulkApproving}
+                        className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Bulk Approve ({selectedStudents.length})
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                  Students Awaiting Verification
+                  {activeTab === 'pending' ? 'Students Awaiting Verification' : 'Verified Students'}
                 </h3>
                 
-                {filteredUnverifiedStudents.length === 0 ? (
+                {activeTab === 'pending' && filteredUnverifiedStudents.length === 0 ? (
                   <div className="text-center py-12">
                     <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -140,79 +336,7 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
                     <h3 className="mt-2 text-sm font-medium text-gray-900">No pending verifications</h3>
                     <p className="mt-1 text-sm text-gray-500">All student registrations have been processed.</p>
                   </div>
-                ) : (
-                  <div className="space-y-1">
-                    {filteredUnverifiedStudents.map((student) => (
-                      <div key={student.id} className="flex items-center justify-between p-4 hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
-                        <div className="flex items-center flex-1 min-w-0">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                              <span className="text-sm font-medium text-gray-700">
-                                {student.first_name?.[0]}{student.last_name?.[0]}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="ml-4 flex-1 min-w-0">
-                            <div className="flex items-center space-x-4">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-gray-900 truncate">
-                                  {student.full_name}
-                                </p>
-                                <p className="text-xs text-gray-500 truncate">
-                                  Grade {student.grade_level}
-                                </p>
-                              </div>
-                              <div className="hidden sm:block text-sm text-gray-500 font-mono">
-                                {student.lrn}
-                              </div>
-                              <div className="hidden md:block text-sm text-gray-500 truncate max-w-xs">
-                                {student.user?.email}
-                              </div>
-                              <div className="hidden lg:block text-sm text-gray-500">
-                                {new Date(student.created_at).toLocaleDateString()}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2 ml-4">
-                          <button
-                            onClick={() => handleVerification(student, 'approve')}
-                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                          >
-                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span className="hidden sm:inline">Approve</span>
-                            <span className="sm:hidden">✓</span>
-                          </button>
-                          <button
-                            onClick={() => handleVerification(student, 'reject')}
-                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                          >
-                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                            <span className="hidden sm:inline">Reject</span>
-                            <span className="sm:hidden">✕</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Verified Students Tab */}
-          {activeTab === 'verified' && (
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                  Verified Students
-                </h3>
-                
-                {filteredVerifiedStudents.length === 0 ? (
+                ) : activeTab === 'verified' && filteredVerifiedStudents.length === 0 ? (
                   <div className="text-center py-12">
                     <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -222,113 +346,229 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {filteredVerifiedStudents.map((student) => (
-                      <div key={student.id} className="flex items-center justify-between p-4 hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
+                    {(activeTab === 'pending' ? filteredUnverifiedStudents : filteredVerifiedStudents).map((student) => (
+                      <div 
+                        key={student.id} 
+                        className={`flex items-center justify-between p-4 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 cursor-pointer transition-colors ${
+                          selectedStudent?.id === student.id ? 'bg-blue-50 border-blue-200' : ''
+                        }`}
+                        onClick={() => handleViewStudent(student)}
+                      >
                         <div className="flex items-center flex-1 min-w-0">
+                          {/* Checkbox for bulk selection (pending tab only) */}
+                          {activeTab === 'pending' && (
+                            <input
+                              type="checkbox"
+                              checked={selectedStudents.includes(student.id)}
+                              onChange={(e) => {
+                                e.stopPropagation()
+                                handleSelectStudent(student.id)
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3"
+                            />
+                          )}
+                          
                           <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
+                            <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                              activeTab === 'pending' ? 'bg-gray-300' : 'bg-green-100'
+                            }`}>
+                              {activeTab === 'verified' ? (
+                                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <span className="text-sm font-medium text-gray-700">
+                                  {student.first_name?.[0]}{student.last_name?.[0]}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="ml-4 flex-1 min-w-0">
-                            <div className="flex items-center space-x-4">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-gray-900 truncate">
-                                  {student.full_name}
-                                </p>
-                                <p className="text-xs text-gray-500 truncate">
-                                  Grade {student.grade_level}
-                                </p>
-                              </div>
-                              <div className="hidden sm:block text-sm text-gray-500 font-mono">
-                                {student.lrn}
-                              </div>
-                              <div className="hidden md:block text-sm text-gray-500 truncate max-w-xs">
-                                {student.user?.email}
-                              </div>
-                              <div className="hidden lg:block text-sm text-gray-500">
-                                {new Date(student.verified_at).toLocaleDateString()}
-                              </div>
-                              <div className="hidden xl:block text-sm text-gray-500">
-                                {student.verified_by?.FirstName} {student.verified_by?.LastName}
-                              </div>
-                            </div>
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {student.full_name}
+                            </p>
+                            <p className="text-xs text-gray-500 font-mono">
+                              LRN: {student.lrn}
+                            </p>
                           </div>
                         </div>
-                        <div className="flex items-center ml-4">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Verified
-                          </span>
-                        </div>
+                        {activeTab === 'pending' && (
+                          <div className="flex items-center space-x-2 ml-4">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleViewStudent(student)
+                              }}
+                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              <span className="hidden sm:inline">View</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
               </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Verification Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-          <div className="relative mx-auto p-4 lg:p-5 border w-full max-w-md shadow-lg rounded-lg bg-white">
-            <div className="mt-3">
-              <div className="flex items-center justify-center mx-auto w-12 h-12 rounded-full bg-yellow-100">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <div className="mt-2 px-3 lg:px-7 py-3">
-                <h3 className="text-base lg:text-lg font-medium text-gray-900 text-center">
-                  {data.action === 'approve' ? 'Approve Student' : 'Reject Student'}
-                </h3>
-                <p className="text-xs lg:text-sm text-gray-500 mt-2 text-center">
-                  Are you sure you want to {data.action} the registration for{' '}
-                  <span className="font-medium">{selectedStudent?.full_name}</span>?
-                </p>
-                
-                {data.action === 'reject' && (
-                  <div className="mt-4">
-                    <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-2">
-                      Reason for rejection (optional)
-                    </label>
-                    <textarea
-                      value={data.reason}
-                      onChange={(e) => setData('reason', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                      rows="3"
-                      placeholder="Enter reason for rejection..."
-                    />
+            {/* Right Side - Details Card */}
+            {selectedStudent && (
+              <div className="lg:w-1/2 bg-white shadow rounded-lg">
+                <div className="px-4 py-5 sm:p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">Student Details</h3>
+                    <button
+                      onClick={() => setSelectedStudent(null)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
-                )}
+
+                  <div className="space-y-4">
+                    {/* Profile Section */}
+                    <div className="flex items-center space-x-4 pb-4 border-b">
+                      <div className="flex-shrink-0 h-16 w-16">
+                        <div className="h-16 w-16 rounded-full bg-gray-300 flex items-center justify-center">
+                          <span className="text-xl font-medium text-gray-700">
+                            {selectedStudent.first_name?.[0]}{selectedStudent.last_name?.[0]}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900">{selectedStudent.full_name}</h4>
+                        <p className="text-sm text-gray-500">{getLevelLabel(selectedStudent)}</p>
+                      </div>
+                    </div>
+
+                    {/* Personal Information */}
+                    <div className="space-y-3">
+                      <h5 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Personal Information</h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">LRN</p>
+                          <p className="text-sm text-gray-900 font-mono">{selectedStudent.lrn}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Email</p>
+                          <p className="text-sm text-gray-900">{selectedStudent.user?.email || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">First Name</p>
+                          <p className="text-sm text-gray-900">{selectedStudent.first_name || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Middle Name</p>
+                          <p className="text-sm text-gray-900">{selectedStudent.middle_name || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Last Name</p>
+                          <p className="text-sm text-gray-900">{selectedStudent.last_name || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Suffix</p>
+                          <p className="text-sm text-gray-900">{selectedStudent.suffix || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Date of Birth</p>
+                          <p className="text-sm text-gray-900">{selectedStudent.date_of_birth ? formatDateMedium(selectedStudent.date_of_birth) : 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Sex</p>
+                          <p className="text-sm text-gray-900">{selectedStudent.sex || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Age</p>
+                          <p className="text-sm text-gray-900">{selectedStudent.age || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Contact Number</p>
+                          <p className="text-sm text-gray-900">{selectedStudent.contact_number || 'N/A'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Address Information */}
+                    {(selectedStudent.address || selectedStudent.municipality || selectedStudent.barangay) && (
+                      <div className="space-y-3 pt-4 border-t">
+                        <h5 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Address</h5>
+                        <div className="space-y-2">
+                          {selectedStudent.address && (
+                            <div>
+                              <p className="text-xs font-medium text-gray-500">Street Address</p>
+                              <p className="text-sm text-gray-900">{selectedStudent.address}</p>
+                            </div>
+                          )}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {selectedStudent.barangay && (
+                              <div>
+                                <p className="text-xs font-medium text-gray-500">Barangay</p>
+                                <p className="text-sm text-gray-900">{selectedStudent.barangay}</p>
+                              </div>
+                            )}
+                            {selectedStudent.municipality && (
+                              <div>
+                                <p className="text-xs font-medium text-gray-500">Municipality</p>
+                                <p className="text-sm text-gray-900">{selectedStudent.municipality}</p>
+                              </div>
+                            )}
+                            {selectedStudent.zip_code && (
+                              <div>
+                                <p className="text-xs font-medium text-gray-500">Zip Code</p>
+                                <p className="text-sm text-gray-900">{selectedStudent.zip_code}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Registration Date */}
+                    <div className="pt-4 border-t">
+                      <p className="text-xs font-medium text-gray-500">Registration Date</p>
+                      <p className="text-sm text-gray-900">{formatDateMedium(selectedStudent.created_at)}</p>
+                    </div>
+
+                    {/* Action Buttons (only for pending tab) */}
+                    {activeTab === 'pending' && (
+                      <div className="pt-4 border-t flex space-x-3">
+                        <button
+                          onClick={() => handleApprove(selectedStudent)}
+                          disabled={processing}
+                          className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleReject(selectedStudent)}
+                          disabled={processing}
+                          className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center px-3 lg:px-4 py-3 space-x-2 lg:space-x-3">
-                <button
-                  onClick={closeModal}
-                  className="flex-1 px-3 lg:px-4 py-2 bg-gray-300 text-gray-700 text-sm lg:text-base font-medium rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={submitVerification}
-                  disabled={processing}
-                  className={`flex-1 px-3 lg:px-4 py-2 text-white text-sm lg:text-base font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                    data.action === 'approve'
-                      ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                      : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-                  } disabled:opacity-50`}
-                >
-                  {processing ? 'Processing...' : (data.action === 'approve' ? 'Approve' : 'Reject')}
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
       </div>
     </div>
   )

@@ -19,7 +19,11 @@ return new class extends Migration
             $table->foreignId('adviser_id')->nullable()->constrained('users')->nullOnDelete();
             $table->integer('max_capacity');
             $table->foreignId('school_year_id')->constrained('school_year')->cascadeOnDelete();
+            $table->foreignId('semester_id')->nullable()->constrained('semester')->cascadeOnDelete();
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
+
+            $table->unique(['section_name', 'school_year_id', 'semester_id'], 'sections_name_school_year_semester_unique');
         });
     }
 

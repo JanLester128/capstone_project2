@@ -71,7 +71,8 @@ class STEMGrade12SecondSemSeeder extends Seeder
                 'Subject_code' => 'GEN_BIO_2',
                 'Semester' => '2',
                 'year_level' => 12,
-                'strand_id' => $stem->id,                'PREREQUISITES' => 'General Biology 1',
+                'strand_id' => $stem->id,
+                'PREREQUISITES' => 'General Biology 1',
                 'CO-REQUISITES' => null,
             ],
             [
@@ -79,7 +80,8 @@ class STEMGrade12SecondSemSeeder extends Seeder
                 'Subject_code' => 'GEN_PHYS_2',
                 'Semester' => '2',
                 'year_level' => 12,
-                'strand_id' => $stem->id,                'PREREQUISITES' => 'General Physics 1',
+                'strand_id' => $stem->id,
+                'PREREQUISITES' => 'General Physics 1',
                 'CO-REQUISITES' => null,
             ],
             [

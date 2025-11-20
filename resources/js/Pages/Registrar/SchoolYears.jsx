@@ -4,6 +4,7 @@ import RegistrarSidebar from '../Auth/Registrar_sidebar'
 import Breadcrumb from './Components/Breadcrumb'
 import SemesterForm from './Components/SemesterForm'
 import EnrollmentControlModal from './Components/EnrollmentControlModal'
+import { formatDateMedium } from '../../utils/dateFormatter'
 
 export default function SchoolYears({ schoolYears = [], flash = {} }) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -484,12 +485,12 @@ Continue?`)) {
                             </span>
                             {year.enrollment_start_date && (
                               <span className="text-xs text-gray-500">
-                                From: {new Date(year.enrollment_start_date).toLocaleDateString()}
+                                From: {formatDateMedium(year.enrollment_start_date)}
                               </span>
                             )}
                             {year.enrollment_end_date && (
                               <span className="text-xs text-gray-500">
-                                Until: {new Date(year.enrollment_end_date).toLocaleDateString()}
+                                Until: {formatDateMedium(year.enrollment_end_date)}
                               </span>
                             )}
                           </div>

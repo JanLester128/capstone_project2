@@ -331,12 +331,7 @@ export default function Strands({ strands = [], sections = [], previousSections 
                           Edit
                         </button>
                         <button
-                          onClick={() => router.put(`/registrar/strands/${strand.id}/toggle`, {}, {
-                            onSuccess: () => {
-                              // Force page refresh to update strand status
-                              window.location.reload()
-                            }
-                          })}
+                          onClick={() => router.put(`/registrar/strands/${strand.id}/toggle`)}
                           className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
                             (activeSemester ? strand.is_active_for_semester : strand.is_active_for_year)
                               ? 'text-orange-600 bg-orange-50 hover:bg-orange-100 focus:ring-orange-500' 
@@ -382,6 +377,7 @@ export default function Strands({ strands = [], sections = [], previousSections 
                                 section={section}
                                 onEdit={handleEditSection}
                                 onToggle={handleToggleSection}
+                                faculty={users}
                               />
                             ))}
                           </div>

@@ -11,7 +11,6 @@ export default function Login() {
   const { data, setData, post, processing, errors, reset } = useForm({
     email: '',
     password: '',
-    remember: true,
   })
 
   useEffect(() => {
@@ -46,60 +45,53 @@ export default function Login() {
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 flex items-center justify-center px-4 py-4" style={{fontFamily: 'Poppins, sans-serif'}}>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center px-4 py-4" style={{fontFamily: 'Poppins, sans-serif'}}>
         <div className="w-full max-w-4xl bg-white/95 backdrop-blur-sm shadow-xl rounded-2xl overflow-hidden border border-white/20">
           <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[400px]">
-            {/* Left panel: Logo + School name */}
-            <div className="relative bg-gradient-to-br from-white via-blue-50/30 to-blue-100/50 p-6 flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-transparent to-blue-800/10 rounded-l-2xl"></div>
+            {/* Left panel: Logo + School name with gradient background */}
+            <div className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 p-6 flex items-center justify-center overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 via-indigo-600/80 to-purple-600/90 rounded-l-2xl"></div>
+              
+              {/* Decorative Translucent White Circles */}
+              <div className="absolute top-0 left-0 w-64 h-64 bg-white/15 rounded-full blur-3xl -translate-x-1/4 -translate-y-1/4"></div>
+              <div className="absolute bottom-0 right-0 w-48 h-48 bg-white/15 rounded-full blur-3xl translate-x-1/4 translate-y-1/4"></div>
+              <div className="absolute top-1/2 left-1/4 w-40 h-40 bg-white/10 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2"></div>
+              <div className="absolute bottom-1/4 left-0 w-32 h-32 bg-white/12 rounded-full blur-2xl -translate-x-1/3"></div>
+              
               <div className="relative max-w-xs text-center z-10">
                 <div className="relative mb-6">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-blue-600/20 rounded-full blur-3xl scale-150"></div>
-                  <img
-                    src="/onsts.png"
-                    alt="OPOL NATIONAL SECONDARY TECHNICAL SCHOOL logo"
-                    className="relative mx-auto h-20 w-20 object-contain drop-shadow-xl transform hover:scale-105 transition-transform duration-300"
-                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-indigo-600/20 rounded-full blur-3xl scale-150"></div>
+                  <div className="relative mx-auto h-20 w-20 bg-white rounded-full p-2 flex items-center justify-center shadow-xl">
+                    <img
+                      src="/onsts.png"
+                      alt="OPOL NATIONAL SECONDARY TECHNICAL SCHOOL logo"
+                      className="h-full w-full object-contain transform hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
                 </div>
                 
-                <h1 className="text-lg font-bold tracking-wide leading-tight text-transparent bg-gradient-to-r from-blue-700 via-blue-800 to-blue-900 bg-clip-text mb-2">
+                <h1 className="text-lg font-bold tracking-wide leading-tight text-white mb-2">
                   OPOL NATIONAL SECONDARY TECHNICAL SCHOOL
                 </h1>
                 
-                <div className="h-0.5 w-16 bg-gradient-to-r from-blue-500 to-blue-700 mx-auto rounded-full mb-3"></div>
+                <div className="h-0.5 w-16 bg-white/60 mx-auto rounded-full mb-3"></div>
                 
-                <p className="text-blue-700 text-sm font-semibold mb-1">
-                  Welcome to our Management System
+                <p className="text-white text-sm font-semibold mb-1">
+                  Welcome to our Enrollment System
                 </p>
-                <p className="text-blue-600 text-xs font-medium mb-4">
+                <p className="text-blue-100 text-xs font-medium">
                   Please sign in with your account to continue.
                 </p>
-                
-                <div className="flex items-center justify-center gap-4 text-xs text-blue-500">
-                  <div className="flex items-center gap-1 bg-blue-50/50 px-2 py-1 rounded-full">
-                    <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="font-medium">Secure</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-blue-50/50 px-2 py-1 rounded-full">
-                    <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    <span className="font-medium">Private</span>
-                  </div>
-                </div>
               </div>
             </div>
 
-            {/* Right panel: Login form with gradient background */}
-            <div className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-white p-6 flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 via-blue-500/70 to-white/95 rounded-r-2xl"></div>
+            {/* Right panel: Login form with white background */}
+            <div className="relative bg-white p-6 flex items-center justify-center">
               <div className="relative w-full max-w-sm z-10">
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl p-5 shadow-xl border border-white/30">
+                <div className="bg-white rounded-xl p-5">
                   <div className="text-center mb-4">
-                    <h2 className="text-lg font-bold text-blue-800 mb-1">Sign in to your account</h2>
-                    <p className="text-xs text-blue-600 font-medium">Use the credentials provided by the registrar.</p>
+                    <h2 className="text-lg font-bold text-gray-900 mb-1">Sign in to your account</h2>
+                    <p className="text-xs text-gray-600 font-medium">Use the credentials provided by the registrar.</p>
                   </div>
 
                   {/* Success Notification */}
@@ -129,7 +121,7 @@ export default function Login() {
 
                   <form onSubmit={handleSubmit} className="space-y-3" noValidate>
                     <div>
-                      <label htmlFor="email" className="block text-xs font-semibold text-blue-700 mb-1">
+                      <label htmlFor="email" className="block text-xs font-semibold text-gray-700 mb-1">
                         Email or LRN
                       </label>
                       <div className="relative">
@@ -143,7 +135,7 @@ export default function Login() {
                           className={`w-full px-3 py-2 rounded-lg border-2 transition-all duration-200 font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
                             errors.email 
                               ? 'border-red-300 bg-red-50 focus:border-red-500' 
-                              : 'border-gray-200 bg-white/80 focus:border-blue-500 hover:border-gray-300'
+                              : 'border-gray-200 bg-white focus:border-blue-500 hover:border-gray-300'
                           }`}
                           placeholder="Enter your email or LRN"
                           aria-invalid={!!errors.email}
@@ -164,12 +156,12 @@ export default function Login() {
                         </p>
                       )}
                       {!errors.email && (
-                        <p id="email-help" className="mt-1 text-xs text-blue-500">Enter your registered email address</p>
+                        <p id="email-help" className="mt-1 text-xs text-gray-500">Enter your registered email address</p>
                       )}
                     </div>
 
                     <div>
-                      <label htmlFor="password" className="block text-xs font-semibold text-blue-700 mb-1">
+                      <label htmlFor="password" className="block text-xs font-semibold text-gray-700 mb-1">
                         Password
                       </label>
                       <div className="relative">
@@ -183,7 +175,7 @@ export default function Login() {
                           className={`w-full px-3 py-2 pr-10 rounded-lg border-2 transition-all duration-200 font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
                             errors.password 
                               ? 'border-red-300 bg-red-50 focus:border-red-500' 
-                              : 'border-gray-200 bg-white/80 focus:border-blue-500 hover:border-gray-300'
+                              : 'border-gray-200 bg-white focus:border-blue-500 hover:border-gray-300'
                           }`}
                           placeholder="••••••••"
                           aria-invalid={!!errors.password}
@@ -192,7 +184,7 @@ export default function Login() {
                         <button
                           type="button"
                           onClick={() => setShowPassword((s) => !s)}
-                          className="absolute inset-y-0 right-0 px-3 flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 focus:outline-none focus:text-blue-600 transition-colors duration-200 rounded-r-lg"
+                          className="absolute inset-y-0 right-0 px-3 flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 focus:outline-none focus:text-purple-600 transition-colors duration-200 rounded-r-lg"
                           aria-label={showPassword ? 'Hide password' : 'Show password'}
                         >
                           {showPassword ? (
@@ -216,22 +208,13 @@ export default function Login() {
                         </p>
                       )}
                       {!errors.password && (
-                        <p id="password-help" className="mt-1 text-xs text-blue-500">Enter your secure password</p>
+                        <p id="password-help" className="mt-1 text-xs text-gray-500">Enter your secure password</p>
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <label className="flex items-center gap-2 text-xs font-medium text-blue-700 cursor-pointer hover:text-blue-800 transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={data.remember}
-                          onChange={(e) => setData('remember', e.target.checked)}
-                          className="h-3 w-3 rounded border-2 border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-1 transition-all"
-                        />
-                        Remember me
-                      </label>
+                    <div className="flex items-center justify-end">
                       <a 
-                        href="#" 
+                        href={`/password/forgot${data.email ? `?email=${encodeURIComponent(data.email)}` : ''}`}
                         className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors duration-200 hover:underline focus:outline-none focus:ring-1 focus:ring-blue-500 focus:ring-offset-1 rounded px-1"
                       >
                         Forgot password?
@@ -241,7 +224,7 @@ export default function Login() {
                     <button
                       type="submit"
                       disabled={processing || isLoading}
-                      className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
                       aria-busy={processing || isLoading}
                     >
                       {(processing || isLoading) && (
@@ -260,17 +243,17 @@ export default function Login() {
                       </p>
                       <a
                         href="/student/register"
-                        className="inline-flex items-center justify-center w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                        className="inline-flex items-center justify-center w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                         </svg>
-                        Create Student Account
+                        Create Account
                       </a>
                     </div>
 
                     <div className="text-center mt-2">
-                      <p className="text-xs text-blue-500 leading-relaxed">
+                      <p className="text-xs text-gray-500 leading-relaxed">
                         By signing in, you agree to our{' '}
                         <a href="#" className="text-blue-600 hover:text-blue-800 font-medium hover:underline">acceptable use</a>
                         {' '}and{' '}

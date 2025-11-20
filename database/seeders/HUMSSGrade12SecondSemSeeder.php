@@ -71,7 +71,8 @@ class HUMSSGrade12SecondSemSeeder extends Seeder
                 'Subject_code' => 'COMSCI',
                 'Semester' => '2',
                 'year_level' => 12,
-                'strand_id' => $humss->id,                'PREREQUISITES' => 'Disciplines and Ideas in the Social Sciences, Disciplines and Ideas in the Applied Social Sciences, Philippine Politics and Governance',
+                'strand_id' => $humss->id,
+                'PREREQUISITES' => 'Disciplines and Ideas in the Social Sciences, Disciplines and Ideas in the Applied Social Sciences, Philippine Politics and Governance',
                 'CO-REQUISITES' => null,
             ],
             [

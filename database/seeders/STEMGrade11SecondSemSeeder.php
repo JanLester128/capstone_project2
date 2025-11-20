@@ -86,7 +86,8 @@ class STEMGrade11SecondSemSeeder extends Seeder
                 'Subject_code' => 'BASIC_CALC',
                 'Semester' => '2',
                 'year_level' => 11,
-                'strand_id' => $stem->id,                'PREREQUISITES' => 'Pre-calculus',
+                'strand_id' => $stem->id,
+                'PREREQUISITES' => 'Pre-calculus',
                 'CO-REQUISITES' => null,
             ],
             [
@@ -94,7 +95,8 @@ class STEMGrade11SecondSemSeeder extends Seeder
                 'Subject_code' => 'GEN_CHEM_2',
                 'Semester' => '2',
                 'year_level' => 11,
-                'strand_id' => $stem->id,                'PREREQUISITES' => 'General Chemistry 1',
+                'strand_id' => $stem->id,
+                'PREREQUISITES' => 'General Chemistry 1',
                 'CO-REQUISITES' => null,
             ],
         ];

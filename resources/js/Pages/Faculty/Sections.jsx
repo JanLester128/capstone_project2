@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react'
+import { Head, Link } from '@inertiajs/react'
 import FacultySidebar from '../Auth/Faculty_sidebar'
 
 export default function FacultySections({ sections = [], activeSchoolYear, activeSemester, user = {}, flash = {} }) {
@@ -45,6 +45,11 @@ export default function FacultySections({ sections = [], activeSchoolYear, activ
               <p className="mt-1 text-sm text-gray-500">
                 You are not currently assigned as an adviser to any sections for this semester.
               </p>
+              {(!activeSchoolYear || !activeSemester) && (
+                <p className="text-sm text-amber-600 mt-2">
+                  Note: No active school year or semester is currently set. Please contact the registrar to set up an active school year and semester.
+                </p>
+              )}
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -91,6 +96,16 @@ export default function FacultySections({ sections = [], activeSchoolYear, activ
                         </span>
                       </div>
 
+                      {/* Number of Students */}
+                      <div className="flex items-center text-sm text-gray-600">
+                        <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                        </svg>
+                        <span>
+                          {section.students?.length || 0} Student{(section.students?.length || 0) !== 1 ? 's' : ''} Enrolled
+                        </span>
+                      </div>
+
                       {/* Subjects List */}
                       {section.classes && section.classes.length > 0 && (
                         <div className="mt-3">
@@ -115,6 +130,35 @@ export default function FacultySections({ sections = [], activeSchoolYear, activ
                     </div>
                   </div>
 
+                  {/* Students List (if any) */}
+                  {section.students && section.students.length > 0 && (
+                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                      <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">
+                        Enrolled Students ({section.students.length})
+                      </h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {section.students.slice(0, 5).map((student) => (
+                          <div key={student.id || student.enrollment_id} className="flex items-center justify-between text-sm bg-white rounded-md px-3 py-2 border border-gray-200">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate">{student.name}</p>
+                              <p className="text-xs text-gray-500">LRN: {student.lrn || ''}</p>
+                            </div>
+                            {student.strand && (
+                              <span className="ml-2 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                                {student.strand.code}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                        {section.students.length > 5 && (
+                          <p className="text-xs text-gray-500 text-center pt-2">
+                            +{section.students.length - 5} more student{section.students.length - 5 !== 1 ? 's' : ''}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Section Actions */}
                   <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
                     <div className="flex items-center justify-between">
@@ -124,9 +168,12 @@ export default function FacultySections({ sections = [], activeSchoolYear, activ
                         </svg>
                         Advisory Role
                       </div>
-                      <button className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                      <Link
+                        href={`/faculty/students/${section.id}`}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                      >
                         View Details →
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </div>

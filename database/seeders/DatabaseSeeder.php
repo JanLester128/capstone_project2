@@ -38,9 +38,7 @@ class DatabaseSeeder extends Seeder
         // Note: School Years should be created manually through the web interface
         // Subjects should be added manually or via bulk import after creating a school year
         
-        // Note: Subject seeders are available but not called by default.
-        // To seed subjects for testing, uncomment the seeder calls below:
-        /*
+        // Seed all subject seeders to populate subjects with prerequisites
         $this->call([
             STEMGrade11FirstSemSeeder::class,
             STEMGrade11SecondSemSeeder::class,
@@ -59,6 +57,5 @@ class DatabaseSeeder extends Seeder
             ABMGrade12FirstSemSeeder::class,
             ABMGrade12SecondSemSeeder::class,
         ]);
-        */
     }
 }

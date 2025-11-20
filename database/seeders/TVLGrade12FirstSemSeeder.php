@@ -47,7 +47,8 @@ class TVLGrade12FirstSemSeeder extends Seeder
                 'Subject_code' => 'PRAC_RES_2_TVL',
                 'Semester' => '1',
                 'year_level' => 12,
-                'strand_id' => $tvl->id,                'PREREQUISITES' => 'Practical Research 1, Statistics and Probability',
+                'strand_id' => $tvl->id,
+                'PREREQUISITES' => 'Practical Research 1, Statistics and Probability',
                 'CO-REQUISITES' => null,
             ],
             [

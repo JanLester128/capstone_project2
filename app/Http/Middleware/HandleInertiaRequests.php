@@ -48,6 +48,7 @@ class HandleInertiaRequests extends Middleware
                     'email' => Auth::user()->email,
                     'Role' => Auth::user()->Role,
                     'must_change_password' => Auth::user()->must_change_password ?? false,
+                    'profile_photo' => Auth::user()->profile_photo,
                 ] : null,
                 'check' => Auth::check(),
             ],
@@ -56,6 +57,8 @@ class HandleInertiaRequests extends Middleware
                 'error' => Session::get('error'),
                 'warning' => Session::get('warning'),
                 'info' => Session::get('info'),
+                'reset_token' => Session::get('reset_token'),
+                'email' => Session::get('email'),
             ],
             'session' => [
                 'id' => Session::getId(),

@@ -1,193 +1,202 @@
 import { Head } from '@inertiajs/react'
 import StudentSidebar from '../Auth/Student_sidebar'
+import { useMemo } from 'react'
 
-// Updated for navigation fix
-export default function Classes({ classes = [] }) {
-  const getSubjectIcon = (subject) => {
-    const icons = {
-      'Mathematics': '📐',
-      'Science': '🔬',
-      'English': '📚',
-      'Filipino': '🇵🇭',
-      'History': '🏛️',
-      'Physical Education': '⚽'
+// Deduplicate subjects that appear on multiple days
+function deduplicateSubjects(schedule) {
+  if (!schedule || schedule.length === 0) return []
+  
+  const grouped = {}
+  schedule.forEach((item) => {
+    const key = item.subject_code || item.subject || item.id
+    if (!grouped[key]) {
+      grouped[key] = { ...item }
     }
-    return icons[subject] || '📖'
-  }
+  })
+  
+  return Object.values(grouped)
+}
 
-  const getSubjectColor = (subject) => {
-    const colors = {
-      'Mathematics': 'bg-blue-100 text-blue-800 border-blue-200',
-      'Science': 'bg-green-100 text-green-800 border-green-200',
-      'English': 'bg-purple-100 text-purple-800 border-purple-200',
-      'Filipino': 'bg-red-100 text-red-800 border-red-200',
-      'History': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      'Physical Education': 'bg-orange-100 text-orange-800 border-orange-200'
-    }
-    return colors[subject] || 'bg-gray-100 text-gray-800 border-gray-200'
-  }
+export default function Classes({ enrollments = [], enrollmentStatus = {} }) {
+  // Process enrollments to deduplicate subjects
+  const processedEnrollments = useMemo(() => {
+    return enrollments.map(enrollment => ({
+      ...enrollment,
+      schedule: deduplicateSubjects(enrollment.schedule || [])
+    }))
+  }, [enrollments])
+
+  const totalSubjects = useMemo(() => {
+    return processedEnrollments.reduce(
+      (sum, enrollment) => sum + (enrollment.schedule?.length || 0),
+      0
+    )
+  }, [processedEnrollments])
+  // latestEnrollment is not required for the record layout
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <StudentSidebar />
+      <StudentSidebar enrollmentStatus={enrollmentStatus} />
       <div className="flex-1">
-        <Head title="My Classes" />
-      
-      <div className="py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">My Classes</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              View all your enrolled classes for the current semester
-            </p>
-          </div>
+        <Head title="Class Record" />
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="h-8 w-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <svg className="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Total Classes</p>
-                  <p className="text-lg font-semibold text-gray-900">{classes.length}</p>
-                </div>
+        <div className="py-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Title */}
+            <div className="bg-white border border-gray-200 rounded-lg mb-6">
+              <div className="px-6 py-6 text-center">
+                <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-wide">
+                  ENROLLMENT RECORD
+                </h1>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="h-8 w-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Total Credits</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {classes.reduce((sum, cls) => sum + (cls.credits || 0), 0)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="h-8 w-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                    <svg className="h-4 w-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Current Semester</p>
-                  <p className="text-lg font-semibold text-gray-900">1st Semester</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="h-8 w-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <svg className="h-4 w-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Active Classes</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {classes.filter(cls => cls.status === 'active').length}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Classes Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {classes.map((classItem) => (
-              <div key={classItem.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
-                <div className="p-6">
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center">
-                      <span className="text-2xl mr-3">{getSubjectIcon(classItem.subject)}</span>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{classItem.subject}</h3>
-                        <p className="text-sm text-gray-500">{classItem.teacher}</p>
+            {/* Enrollment sections */}
+            {processedEnrollments.length > 0 ? (
+              <div className="space-y-6">
+                {processedEnrollments.map((enrollment) => (
+                  <div key={enrollment.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                      <h2 className="text-base md:text-lg font-semibold text-gray-900">
+                        {(enrollment.grade_level ? `${enrollment.grade_level} | ` : '')}
+                        {enrollment.school_year || ''} {enrollment.semester || ''}
+                      </h2>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">{enrollment.strand?.name || ''}</p>
+                        {enrollment.section && (<p className="text-xs text-gray-500">Section {enrollment.section}</p>)}
                       </div>
                     </div>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getSubjectColor(classItem.subject)}`}>
-                      {classItem.credits} credits
-                    </span>
-                  </div>
-
-                  {/* Description */}
-                  <p className="text-sm text-gray-600 mb-4">{classItem.description}</p>
-
-                  {/* Details */}
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm text-gray-500">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      Room {classItem.room}
-                    </div>
-                    
-                    <div className="flex items-center text-sm text-gray-500">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {classItem.schedule}
-                    </div>
-                    
-                    <div className="flex items-center text-sm text-gray-500">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      {classItem.semester}
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Instructor</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Subject Code</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Descriptive Title</th>
+                            <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
+                              {quarterHeader(enrollment.semester, 1)}
+                            </th>
+                            <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
+                              {quarterHeader(enrollment.semester, 2)}
+                            </th>
+                            <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Final Grade</th>
+                            <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Remarks</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                          {(enrollment.schedule || []).map((c, idx) => (
+                            <ClassRecordRow key={`${c.id}-${idx}`} row={c} semesterLabel={enrollment.semester} />
+                          ))}
+                          {(enrollment.schedule || []).length === 0 && (
+                            <tr>
+                              <td colSpan={7} className="px-6 py-6 text-center text-sm text-gray-500">No classes for this term.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-
-                  {/* Actions */}
-                  <div className="mt-6 flex space-x-2">
-                    <button className="flex-1 bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-md hover:bg-blue-700 transition-colors duration-200">
-                      View Details
-                    </button>
-                    <button className="flex-1 bg-gray-100 text-gray-700 text-sm font-medium py-2 px-4 rounded-md hover:bg-gray-200 transition-colors duration-200">
-                      Materials
-                    </button>
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-10 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h2 className="mt-4 text-lg font-semibold text-gray-900">No class history yet</h2>
+                <p className="mt-2 text-sm text-gray-600">
+                  Once you are officially assigned to a strand and section, your subjects will appear here.
+                </p>
+              </div>
+            )}
           </div>
-
-          {/* Empty State */}
-          {classes.length === 0 && (
-            <div className="text-center py-12">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No classes found</h3>
-              <p className="mt-1 text-sm text-gray-500">You are not enrolled in any classes for this semester.</p>
-            </div>
-          )}
         </div>
       </div>
-      </div>
     </div>
+  )
+}
+
+function parseSemesterCode(label) {
+  if (!label) return '1st'
+  const l = String(label).toLowerCase()
+  if (l.includes('2nd')) return '2nd'
+  if (l.includes('summer')) return 'Summer'
+  return '1st'
+}
+
+function quarterHeader(semesterLabel, index) {
+  const sem = parseSemesterCode(semesterLabel)
+  if (sem === 'Summer') {
+    return index === 1 ? 'Original Failed Grade' : 'Summer Grade'
+  }
+  if (sem === '2nd') {
+    return index === 1 ? '3rd Quarter' : '4th Quarter'
+  }
+  // default (1st semester)
+  return index === 1 ? '1st Quarter' : '2nd Quarter'
+}
+
+function formatGradeValue(value) {
+  if (value === null || value === undefined) return ''
+  const n = parseFloat(value)
+  if (Number.isNaN(n)) return ''
+  return n > 0 && n <= 5 ? n.toFixed(1) : n.toFixed(2)
+}
+
+function deriveRemarks(grade) {
+  if (grade === null || grade === undefined || grade === '' || grade === '—') return ''
+  const n = parseFloat(grade)
+  if (Number.isNaN(n)) return ''
+  // Support 1.0–5.0 and 100 scales
+  if (n <= 5) return n <= 3.0 ? 'PASSED' : 'FAILED'
+  return n >= 75 ? 'PASSED' : 'FAILED'
+}
+
+function ClassRecordRow({ row, semesterLabel }) {
+  const sem = parseSemesterCode(semesterLabel)
+  const isSummer = sem === 'Summer'
+  
+  // For summer grades, use original_failed_grade and summer_grade
+  // For regular semesters, use quarters
+  const midterm = isSummer 
+    ? row?.original_failed_grade 
+    : (sem === '1st' ? row?.first_quarter : sem === '2nd' ? row?.third_quarter : null)
+  const finalTerm = isSummer
+    ? row?.summer_grade
+    : (sem === '1st' ? row?.second_quarter : sem === '2nd' ? row?.fourth_quarter : null)
+  const avg = (() => {
+    // For summer grades, use final_grade directly (already calculated)
+    if (isSummer) {
+      return row?.final_grade ?? null
+    }
+    // For regular semesters, calculate from quarters
+    const a = parseFloat(midterm)
+    const b = parseFloat(finalTerm)
+    if (!Number.isNaN(a) && !Number.isNaN(b)) return (a + b) / 2
+    return row?.final_grade ?? null
+  })()
+
+  return (
+    <tr>
+      <td className="px-6 py-3 text-sm text-gray-900">{row?.faculty || ''}</td>
+      <td className="px-6 py-3 text-sm text-gray-700">{row?.subject_code || ''}</td>
+      <td className="px-6 py-3 text-sm text-gray-900">
+        {row?.subject || ''}
+        {row?.is_credited && (
+          <span className="ml-1 text-xs font-semibold text-indigo-600">(Credited)</span>
+        )}
+        {isSummer && row?.notes && (
+          <div className="mt-0.5 text-[10px] text-blue-500 italic">
+            {row.notes.length > 50 ? row.notes.substring(0, 50) + '...' : row.notes}
+          </div>
+        )}
+      </td>
+      <td className="px-6 py-3 text-center text-sm text-gray-700">{formatGradeValue(midterm)}</td>
+      <td className="px-6 py-3 text-center text-sm text-gray-700">{formatGradeValue(finalTerm)}</td>
+      <td className="px-6 py-3 text-center text-sm text-gray-700">{formatGradeValue(avg)}</td>
+      <td className="px-6 py-3 text-center text-sm text-gray-700">{row?.remarks || deriveRemarks(avg)}</td>
+    </tr>
   )
 }

@@ -16,6 +16,10 @@ return new class extends Migration
             $table->year('School_year_start');
             $table->year('School_year_end');
             $table->boolean('is_active')->default(true);
+            $table->boolean('enabled')->default(true);
+            $table->boolean('enrollment_open')->default(false);
+            $table->date('enrollment_start_date')->nullable();
+            $table->date('enrollment_end_date')->nullable();
             $table->timestamps();
         });
     }

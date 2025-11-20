@@ -79,7 +79,8 @@ class HUMSSGrade11SecondSemSeeder extends Seeder
                 'Subject_code' => 'CREATIVE_WRITING',
                 'Semester' => '2',
                 'year_level' => 11,
-                'strand_id' => $humss->id,                'PREREQUISITES' => '21st Century Literature from the Philippines and the World',
+                'strand_id' => $humss->id,
+                'PREREQUISITES' => '21st Century Literature from the Philippines and the World',
                 'CO-REQUISITES' => null,
             ],
             [
@@ -87,7 +88,8 @@ class HUMSSGrade11SecondSemSeeder extends Seeder
                 'Subject_code' => 'DISS_2',
                 'Semester' => '2',
                 'year_level' => 11,
-                'strand_id' => $humss->id,                'PREREQUISITES' => 'Disciplines and Ideas in the Social Sciences',
+                'strand_id' => $humss->id,
+                'PREREQUISITES' => 'Disciplines and Ideas in the Social Sciences',
                 'CO-REQUISITES' => null,
             ],
         ];
