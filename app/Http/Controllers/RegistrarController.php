@@ -3022,7 +3022,7 @@ class RegistrarController extends Controller
                         if (preg_match('/^\d{4}$/', $timeStr)) {
                             $timeStr = substr($timeStr, 0, 2) . ':' . substr($timeStr, 2, 2);
                         } else {
-                            \Log::warning('Invalid time format in getTimeSlotsFromPreviousSemester', [
+                            Log::warning('Invalid time format in getTimeSlotsFromPreviousSemester', [
                                 'original' => $time,
                                 'raw' => $rawValue,
                                 'normalized' => $timeStr
@@ -3583,7 +3583,7 @@ class RegistrarController extends Controller
             // Check if mail is properly configured
             $mailDriver = config('mail.default');
             if ($mailDriver === 'log' || $mailDriver === 'array') {
-                \Log::warning("Faculty account created but mail driver is set to '{$mailDriver}'. Email not sent.", [
+                Log::warning("Faculty account created but mail driver is set to '{$mailDriver}'. Email not sent.", [
                     'faculty_id' => $faculty->id,
                     'email' => $faculty->email,
                     'mail_driver' => $mailDriver
@@ -3595,7 +3595,7 @@ class RegistrarController extends Controller
             
             Mail::to($faculty->email)->send(new FacultyAccountCreated($faculty, $generatedPassword));
             
-            \Log::info("Faculty account created and email sent successfully", [
+            Log::info("Faculty account created and email sent successfully", [
                 'faculty_id' => $faculty->id,
                 'email' => $faculty->email
             ]);
@@ -3604,7 +3604,7 @@ class RegistrarController extends Controller
                 ->with('success', "Faculty member '{$validated['FirstName']} {$validated['LastName']}' created successfully. Login credentials have been sent to {$faculty->email}.");
         } catch (\Exception $e) {
             // Log the actual error for debugging
-            \Log::error("Failed to send faculty account creation email", [
+            Log::error("Failed to send faculty account creation email", [
                 'faculty_id' => $faculty->id,
                 'email' => $faculty->email,
                 'error' => $e->getMessage(),
