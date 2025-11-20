@@ -90,7 +90,15 @@ export default function Classes({
   // Days of the week options
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-  // Time slots
+  // Predefined time slot pairs
+  const predefinedTimeSlots = [
+    { id: 'slot1', start: '08:30', end: '10:30', label: '8:30 AM - 10:30 AM' },
+    { id: 'slot2', start: '11:00', end: '12:30', label: '11:00 AM - 12:30 PM' },
+    { id: 'slot3', start: '13:30', end: '15:30', label: '1:30 PM - 3:30 PM' },
+    { id: 'slot4', start: '15:30', end: '16:30', label: '3:30 PM - 4:30 PM' }
+  ]
+
+  // Time slots (kept for backward compatibility if needed)
   const timeSlots = [
     '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
     '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
@@ -106,6 +114,47 @@ export default function Classes({
       Section_id: sectionId,
       subject_id: '' // Reset subject when section changes
     })))
+  }
+
+  // Handle time slot selection
+  const handleTimeSlotChange = (index, timeSlotId) => {
+    const selectedSlot = predefinedTimeSlots.find(slot => slot.id === timeSlotId)
+    if (selectedSlot) {
+      setBulkClasses(prev => {
+        const updated = [...prev]
+        updated[index] = {
+          ...updated[index],
+          start_time: selectedSlot.start,
+          endtime: selectedSlot.end
+        }
+        return updated
+      })
+      
+      // Clear conflict errors for time fields
+      setConflictErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors[`classes.${index}.start_time`]
+        delete newErrors[`classes.${index}.endtime`]
+        return newErrors
+      })
+    } else {
+      // Clear times if "Select Time Slot" is selected
+      setBulkClasses(prev => {
+        const updated = [...prev]
+        updated[index] = {
+          ...updated[index],
+          start_time: '',
+          endtime: ''
+        }
+        return updated
+      })
+    }
+  }
+
+  // Get selected time slot ID for a class
+  const getSelectedTimeSlotId = (startTime, endTime) => {
+    const slot = predefinedTimeSlots.find(slot => slot.start === startTime && slot.end === endTime)
+    return slot ? slot.id : ''
   }
 
   // Normalize time to HH:MM format
@@ -1144,9 +1193,9 @@ export default function Classes({
                       const sectionName = section.section_name || section.SectionName || 'Unnamed Section'
                       const strandName = section.strand?.Strand_name || section.strand?.Strand_name || 'No Strand'
                       return (
-                        <option key={section.id} value={section.id}>
+                    <option key={section.id} value={section.id}>
                           {sectionName} - {strandName}
-                        </option>
+                    </option>
                       )
                     })
                   ) : (
@@ -1232,9 +1281,9 @@ export default function Classes({
                               const sectionName = section.section_name || section.SectionName || 'Unnamed Section'
                               const strandName = section.strand?.Strand_name || section.strand?.Strand_name || 'No Strand'
                               return (
-                                <option key={section.id} value={section.id}>
+                            <option key={section.id} value={section.id}>
                                   {sectionName} - {strandName}
-                                </option>
+                            </option>
                               )
                             })
                           ) : (
@@ -1360,55 +1409,35 @@ export default function Classes({
                       )}
                     </div>
 
-                    {/* Start Time - read-only in time slot mode */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Start Time</label>
+                    {/* Time Slot - Single dropdown for predefined time slots */}
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Time Slot</label>
                       {isTimeSlotMode ? (
                         <div className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
-                          {classData.start_time ? formatTimeTo12Hour(classData.start_time) : '—'}
+                          {classData.start_time && classData.endtime 
+                            ? `${formatTimeTo12Hour(classData.start_time)} - ${formatTimeTo12Hour(classData.endtime)}`
+                            : '—'}
                         </div>
                       ) : (
                         <select
-                          value={classData.start_time}
-                          onChange={(e) => handleBulkChange(index, 'start_time', e.target.value)}
+                          value={getSelectedTimeSlotId(classData.start_time, classData.endtime)}
+                          onChange={(e) => handleTimeSlotChange(index, e.target.value)}
                           className={`w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
-                            conflictErrors[`classes.${index}.start_time`] ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                            (conflictErrors[`classes.${index}.start_time`] || conflictErrors[`classes.${index}.endtime`]) 
+                              ? 'border-red-500 bg-red-50' 
+                              : 'border-gray-300'
                           }`}
                         >
-                          <option value="">Select Time</option>
-                          {timeSlots.map(time => (
-                            <option key={time} value={time}>{formatTimeTo12Hour(time)}</option>
+                          <option value="">Select Time Slot</option>
+                          {predefinedTimeSlots.map(slot => (
+                            <option key={slot.id} value={slot.id}>{slot.label}</option>
                           ))}
                         </select>
                       )}
-                      {conflictErrors[`classes.${index}.start_time`] && (
-                        <p className="mt-1 text-xs text-red-600">{conflictErrors[`classes.${index}.start_time`]}</p>
-                      )}
-                    </div>
-
-                    {/* End Time - read-only in time slot mode */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">End Time</label>
-                      {isTimeSlotMode ? (
-                        <div className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
-                          {classData.endtime ? formatTimeTo12Hour(classData.endtime) : '—'}
-                        </div>
-                      ) : (
-                        <select
-                          value={classData.endtime}
-                          onChange={(e) => handleBulkChange(index, 'endtime', e.target.value)}
-                          className={`w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
-                            conflictErrors[`classes.${index}.endtime`] ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                          }`}
-                        >
-                          <option value="">Select Time</option>
-                          {timeSlots.map(time => (
-                            <option key={time} value={time}>{formatTimeTo12Hour(time)}</option>
-                          ))}
-                        </select>
-                      )}
-                      {conflictErrors[`classes.${index}.endtime`] && (
-                        <p className="mt-1 text-xs text-red-600">{conflictErrors[`classes.${index}.endtime`]}</p>
+                      {(conflictErrors[`classes.${index}.start_time`] || conflictErrors[`classes.${index}.endtime`]) && (
+                        <p className="mt-1 text-xs text-red-600">
+                          {conflictErrors[`classes.${index}.start_time`] || conflictErrors[`classes.${index}.endtime`]}
+                        </p>
                       )}
                     </div>
                   </div>

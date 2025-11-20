@@ -651,12 +651,12 @@ class StudentController extends Controller
                         
                         if ($hasFailedPrerequisite) {
                             // Failed prerequisite → Must transfer strand
-                            $requiresStrandChange = true;
+                        $requiresStrandChange = true;
                             $requiresSummer = false; // No summer class, must transfer
                             // Recommend TVL or HUMSS as alternatives
-                            $recommendedStrand = Strand::whereIn('Strand_code', ['TVL', 'HUMSS'])
-                                ->where('Is_active', true)
-                                ->first();
+                        $recommendedStrand = Strand::whereIn('Strand_code', ['TVL', 'HUMSS'])
+                            ->where('Is_active', true)
+                            ->first();
                         } else {
                             // No failed prerequisites, but check for failed non-prerequisites
                             $failedNonPrerequisite = $currentGrades->filter(function ($grade) {
@@ -1411,10 +1411,10 @@ class StudentController extends Controller
         if ($isStem) {
             if ($hasPrerequisites && $finalGrade < 85) {
                 // Failed prerequisite (< 85) → Must transfer strand
-                return [
-                    'decision' => 'transfer_strand',
+            return [
+                'decision' => 'transfer_strand',
                     'note' => 'STEM student failed prerequisite subject (< 85). Must transfer to another strand in the new semester.',
-                ];
+            ];
             } elseif (!$hasPrerequisites && $finalGrade < 75) {
                 // Failed non-prerequisite (< 75) → Summer class
                 return [
@@ -1426,10 +1426,10 @@ class StudentController extends Controller
             // OTHER STRANDS (HUMSS, ABM, TVL) LOGIC
             // Any failed subject (< 75) → Summer class only
             if ($finalGrade < 75) {
-                return [
+            return [
                     'decision' => 'summer_class',
                     'note' => 'Eligible for summer remedial class for this subject.',
-                ];
+            ];
             }
         }
 

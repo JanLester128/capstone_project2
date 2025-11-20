@@ -3580,14 +3580,40 @@ class RegistrarController extends Controller
 
         // Send email with login credentials
         try {
+            // Check if mail is properly configured
+            $mailDriver = config('mail.default');
+            if ($mailDriver === 'log' || $mailDriver === 'array') {
+                \Log::warning("Faculty account created but mail driver is set to '{$mailDriver}'. Email not sent.", [
+                    'faculty_id' => $faculty->id,
+                    'email' => $faculty->email,
+                    'mail_driver' => $mailDriver
+                ]);
+                
+                return redirect()->route('registrar.faculty')
+                    ->with('warning', "Faculty member '{$validated['FirstName']} {$validated['LastName']}' created successfully, but email could not be sent (mail driver is set to '{$mailDriver}'). Temporary password: {$generatedPassword} (Please share this securely with the faculty member)");
+            }
+            
             Mail::to($faculty->email)->send(new FacultyAccountCreated($faculty, $generatedPassword));
+            
+            \Log::info("Faculty account created and email sent successfully", [
+                'faculty_id' => $faculty->id,
+                'email' => $faculty->email
+            ]);
             
             return redirect()->route('registrar.faculty')
                 ->with('success', "Faculty member '{$validated['FirstName']} {$validated['LastName']}' created successfully. Login credentials have been sent to {$faculty->email}.");
         } catch (\Exception $e) {
+            // Log the actual error for debugging
+            \Log::error("Failed to send faculty account creation email", [
+                'faculty_id' => $faculty->id,
+                'email' => $faculty->email,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             // If email fails, still show success but with password for manual sharing
             return redirect()->route('registrar.faculty')
-                ->with('warning', "Faculty member '{$validated['FirstName']} {$validated['LastName']}' created successfully, but email could not be sent. Temporary password: {$generatedPassword} (Please share this securely with the faculty member)");
+                ->with('warning', "Faculty member '{$validated['FirstName']} {$validated['LastName']}' created successfully, but email could not be sent. Error: {$e->getMessage()}. Temporary password: {$generatedPassword} (Please share this securely with the faculty member)");
         }
     }
 

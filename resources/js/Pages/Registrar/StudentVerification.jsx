@@ -56,15 +56,30 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
       cancelButtonText: 'Cancel'
     }).then((result) => {
       if (result.isConfirmed) {
-        setData('action', 'approve')
-        post(`/registrar/students/${student.id}/verify`, {
+        // Use router.post directly to ensure data is sent correctly
+        router.post(`/registrar/students/${student.id}/verify`, {
+          action: 'approve',
+          reason: ''
+        }, {
+          onStart: () => {
+            // Optionally show loading
+          },
           onSuccess: () => {
             setSelectedStudent(null)
             reset()
-            Swal.fire('Approved!', 'Student has been verified and approved.', 'success')
+            // Success message will come from backend flash message via useEffect
           },
-          onError: () => {
-            Swal.fire('Error', 'Failed to approve student. Please try again.', 'error')
+          onError: (errors) => {
+            console.error('Approve error:', errors)
+            let errorMessage = 'Failed to approve student. Please try again.'
+            if (errors?.action) {
+              errorMessage = Array.isArray(errors.action) ? errors.action[0] : errors.action
+            } else if (errors?.general) {
+              errorMessage = errors.general
+            } else if (errors?.message) {
+              errorMessage = errors.message
+            }
+            Swal.fire('Error', errorMessage, 'error')
           }
         })
       }
@@ -89,16 +104,30 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
       showCancelButton: true
     }).then((result) => {
       if (result.isConfirmed) {
-        setData('action', 'reject')
-        setData('reason', result.value || '')
-        post(`/registrar/students/${student.id}/verify`, {
+        // Use router.post directly to ensure data is sent correctly
+        router.post(`/registrar/students/${student.id}/verify`, {
+          action: 'reject',
+          reason: result.value || ''
+        }, {
+          onStart: () => {
+            // Optionally show loading
+          },
           onSuccess: () => {
             setSelectedStudent(null)
             reset()
-            Swal.fire('Rejected!', 'Student registration has been rejected and removed.', 'success')
+            // Success message will come from backend flash message via useEffect
           },
-          onError: () => {
-            Swal.fire('Error', 'Failed to reject student. Please try again.', 'error')
+          onError: (errors) => {
+            console.error('Reject error:', errors)
+            let errorMessage = 'Failed to reject student. Please try again.'
+            if (errors?.action) {
+              errorMessage = Array.isArray(errors.action) ? errors.action[0] : errors.action
+            } else if (errors?.general) {
+              errorMessage = errors.general
+            } else if (errors?.message) {
+              errorMessage = errors.message
+            }
+            Swal.fire('Error', errorMessage, 'error')
           }
         })
       }
@@ -145,7 +174,7 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
         }, {
           onSuccess: () => {
             setSelectedStudents([])
-            setSelectedStudent(null)
+    setSelectedStudent(null)
             setIsBulkApproving(false)
             // Success message will come from backend flash message via useEffect
           },
@@ -374,9 +403,9 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
                               activeTab === 'pending' ? 'bg-gray-300' : 'bg-green-100'
                             }`}>
                               {activeTab === 'verified' ? (
-                                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
+                              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
                               ) : (
                                 <span className="text-sm font-medium text-gray-700">
                                   {student.first_name?.[0]}{student.last_name?.[0]}
@@ -385,9 +414,9 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
                             </div>
                           </div>
                           <div className="ml-4 flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {student.full_name}
-                            </p>
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {student.full_name}
+                                </p>
                             <p className="text-xs text-gray-500 font-mono">
                               LRN: {student.lrn}
                             </p>
@@ -408,7 +437,7 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
                               </svg>
                               <span className="hidden sm:inline">View</span>
                             </button>
-                          </div>
+                        </div>
                         )}
                       </div>
                     ))}
@@ -446,8 +475,8 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
                       <div>
                         <h4 className="text-lg font-semibold text-gray-900">{selectedStudent.full_name}</h4>
                         <p className="text-sm text-gray-500">{getLevelLabel(selectedStudent)}</p>
-                      </div>
-                    </div>
+        </div>
+      </div>
 
                     {/* Personal Information */}
                     <div className="space-y-3">
@@ -494,7 +523,7 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
                           <p className="text-sm text-gray-900">{selectedStudent.contact_number || 'N/A'}</p>
                         </div>
                       </div>
-                    </div>
+              </div>
 
                     {/* Address Information */}
                     {(selectedStudent.address || selectedStudent.municipality || selectedStudent.barangay) && (
@@ -524,9 +553,9 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
                               <div>
                                 <p className="text-xs font-medium text-gray-500">Zip Code</p>
                                 <p className="text-sm text-gray-900">{selectedStudent.zip_code}</p>
-                              </div>
-                            )}
-                          </div>
+                  </div>
+                )}
+              </div>
                         </div>
                       </div>
                     )}
@@ -540,32 +569,32 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
                     {/* Action Buttons (only for pending tab) */}
                     {activeTab === 'pending' && (
                       <div className="pt-4 border-t flex space-x-3">
-                        <button
+                <button
                           onClick={() => handleApprove(selectedStudent)}
                           disabled={processing}
                           className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                        >
+                >
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                           Approve
-                        </button>
-                        <button
+                </button>
+                <button
                           onClick={() => handleReject(selectedStudent)}
-                          disabled={processing}
+                  disabled={processing}
                           className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
                         >
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
                           Reject
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                </button>
               </div>
-            )}
+                    )}
+            </div>
+          </div>
+        </div>
+      )}
           </div>
         </div>
       </div>

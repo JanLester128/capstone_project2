@@ -129,18 +129,6 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
                   </svg>
                   Back to Dashboard
                 </Link>
-                <button
-                  onClick={() => setShowForm(true)}
-                  disabled={!hasActiveStrands}
-                  className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${
-                    hasActiveStrands
-                      ? 'bg-indigo-600 text-white hover:bg-indigo-500'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                  title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
-                >
-                  Add Subject
-                </button>
               </div>
             </div>
           </div>
@@ -178,58 +166,76 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3 mb-8">
-            <button
-              onClick={() => setShowForm(true)}
-              disabled={!hasActiveStrands}
-              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                hasActiveStrands
-                  ? 'text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
-                  : 'text-gray-400 bg-gray-200 cursor-not-allowed'
-              }`}
-              title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
-            >
-              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Add Subject
-            </button>
-            
-            <button
-              onClick={() => setShowBulkImport(true)}
-              disabled={!hasActiveStrands}
-              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                hasActiveStrands
-                  ? 'text-white bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                  : 'text-gray-400 bg-gray-200 cursor-not-allowed'
-              }`}
-              title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
-            >
-              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-              </svg>
-              Bulk Import
-            </button>
-            
-            <button
-              onClick={() => setShowBulkCreate(true)}
-              disabled={!hasActiveStrands}
-              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                hasActiveStrands
-                  ? 'text-white bg-purple-600 hover:bg-purple-700 focus:ring-purple-500'
-                  : 'text-gray-400 bg-gray-200 cursor-not-allowed'
-              }`}
-              title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
-            >
-              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Bulk Create
-            </button>
+          {/* Action Buttons - Consolidated Design */}
+          <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              {/* Primary Action Button with Dropdown */}
+              <div className="relative inline-block">
+                <button
+                  onClick={() => setShowForm(true)}
+                  disabled={!hasActiveStrands}
+                  className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-semibold rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    hasActiveStrands
+                      ? 'text-white bg-[#000825] hover:bg-[#1a1f3a] focus:ring-[#000825]/50'
+                      : 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                  }`}
+                  title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
+                >
+                  <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Add Subject
+                </button>
+              </div>
+              
+              {/* Secondary Actions - Grouped */}
+              <div className="flex items-center gap-2 border-l border-gray-300 pl-3">
+                <button
+                  onClick={() => setShowBulkImport(true)}
+                  disabled={!hasActiveStrands}
+                  className={`inline-flex items-center px-3 py-2 border text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    hasActiveStrands
+                      ? 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50 focus:ring-[#000825]/50'
+                      : 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed'
+                  }`}
+                  title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
+                >
+                  <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                  </svg>
+                  Bulk Import
+                </button>
+                
+                <button
+                  onClick={() => setShowBulkCreate(true)}
+                  disabled={!hasActiveStrands}
+                  className={`inline-flex items-center px-3 py-2 border text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    hasActiveStrands
+                      ? 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50 focus:ring-[#000825]/50'
+                      : 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed'
+                  }`}
+                  title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
+                >
+                  <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  Bulk Create
+                </button>
+              </div>
+            </div>
 
-            <div className="ml-auto text-sm text-gray-500">
-              {displaySubjects.length > 0 ? `${displaySubjects.length} subjects added` : 'No subjects added yet'}
+            {/* Subject Count */}
+            <div className="text-sm text-gray-500 font-medium">
+              {displaySubjects.length > 0 ? (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-gray-100 text-gray-700">
+                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                  {displaySubjects.length} {displaySubjects.length === 1 ? 'Subject' : 'Subjects'}
+                </span>
+              ) : (
+                <span className="text-gray-400">No subjects added yet</span>
+              )}
             </div>
           </div>
 
@@ -241,46 +247,8 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
               </svg>
               <h3 className="mt-2 text-sm font-semibold text-gray-900">No subjects added</h3>
               <p className="mt-1 text-sm text-gray-500">
-                Get started by adding your first subject or use bulk import to add multiple subjects at once.
+                Use the buttons above to add your first subject or import multiple subjects at once.
               </p>
-              <div className="mt-6 flex items-center justify-center gap-3">
-                <button
-                  onClick={() => setShowForm(true)}
-                  disabled={!hasActiveStrands}
-                  className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm ${
-                    hasActiveStrands
-                      ? 'bg-indigo-600 text-white hover:bg-indigo-500'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  }`}
-                  title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
-                >
-                  Add Subject
-                </button>
-                <button
-                  onClick={() => setShowBulkImport(true)}
-                  disabled={!hasActiveStrands}
-                  className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset ${
-                    hasActiveStrands
-                      ? 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50'
-                      : 'bg-gray-100 text-gray-400 ring-gray-200 cursor-not-allowed'
-                  }`}
-                  title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
-                >
-                  Bulk Import
-                </button>
-                <button
-                  onClick={() => setShowBulkCreate(true)}
-                  disabled={!hasActiveStrands}
-                  className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset ${
-                    hasActiveStrands
-                      ? 'bg-purple-600 text-white ring-purple-300 hover:bg-purple-700'
-                      : 'bg-gray-100 text-gray-400 ring-gray-200 cursor-not-allowed'
-                  }`}
-                  title={!hasActiveStrands ? 'No active strands. Please activate at least one strand first.' : ''}
-                >
-                  Bulk Create
-                </button>
-              </div>
             </div>
           )}
 
@@ -302,7 +270,7 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
                     placeholder="Search subjects..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#000825]/50 focus:border-[#000825] sm:text-sm"
                   />
                   {searchTerm && (
                     <button
