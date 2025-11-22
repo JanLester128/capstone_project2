@@ -3802,7 +3802,7 @@ class RegistrarController extends Controller
                     ->with('warning', "Faculty member '{$validated['FirstName']} {$validated['LastName']}' created successfully, but email could not be sent (mail driver is set to '{$mailDriver}'). Temporary password: {$generatedPassword} (Please share this securely with the faculty member)");
             }
             
-            Mail::to($faculty->email)->queue(new FacultyAccountCreated($faculty, $generatedPassword));
+            Mail::to($faculty->email)->send(new FacultyAccountCreated($faculty, $generatedPassword));
             
             Log::info("Faculty account created and email sent successfully", [
                 'faculty_id' => $faculty->id,
@@ -3971,7 +3971,7 @@ class RegistrarController extends Controller
 
             // Send approval email notification
             try {
-                Mail::to($student->user->email)->queue(new StudentApprovalNotification($student->user));
+                Mail::to($student->user->email)->send(new StudentApprovalNotification($student->user));
             } catch (\Exception $e) {
                 Log::error('Failed to send student approval email: ' . $e->getMessage());
             }
@@ -4075,7 +4075,7 @@ class RegistrarController extends Controller
 
                         // Send approval email notification
                         try {
-                            Mail::to($student->user->email)->queue(new StudentApprovalNotification($student->user));
+                            Mail::to($student->user->email)->send(new StudentApprovalNotification($student->user));
                         } catch (\Exception $e) {
                             Log::error('Failed to send student approval email: ' . $e->getMessage());
                             // Don't fail the approval if email fails
