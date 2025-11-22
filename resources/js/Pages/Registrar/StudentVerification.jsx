@@ -11,6 +11,7 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStudents, setSelectedStudents] = useState([])
   const [isBulkApproving, setIsBulkApproving] = useState(false)
+  const detailValueClass = 'text-sm text-gray-900 break-words'
 
   // Show flash messages
   useEffect(() => {
@@ -430,7 +431,7 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
 
                 <div className="bg-white rounded-lg shadow border border-gray-100 lg:sticky lg:top-6 self-start">
                   {selectedStudent ? (
-                    <div className="px-5 py-6 space-y-5">
+                    <div className="px-5 py-6 space-y-5 break-words">
                     <div className="flex items-center gap-4 border-b pb-4">
                       <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center text-xl font-semibold text-gray-700">
                         {selectedStudent.first_name?.[0]}{selectedStudent.last_name?.[0]}
@@ -446,43 +447,43 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
                       <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                         <div>
                           <dt className="text-xs font-medium text-gray-500">LRN</dt>
-                          <dd className="text-sm text-gray-900 font-mono">{selectedStudent.lrn}</dd>
+                          <dd className={`${detailValueClass} font-mono`}>{selectedStudent.lrn}</dd>
                         </div>
                         <div>
                           <dt className="text-xs font-medium text-gray-500">Email</dt>
-                          <dd className="text-sm text-gray-900">{selectedStudent.user?.email || 'N/A'}</dd>
+                          <dd className={detailValueClass}>{selectedStudent.user?.email || 'N/A'}</dd>
                         </div>
                         <div>
                           <dt className="text-xs font-medium text-gray-500">First Name</dt>
-                          <dd className="text-sm text-gray-900">{selectedStudent.first_name || 'N/A'}</dd>
+                          <dd className={detailValueClass}>{selectedStudent.first_name || 'N/A'}</dd>
                         </div>
                         <div>
                           <dt className="text-xs font-medium text-gray-500">Middle Name</dt>
-                          <dd className="text-sm text-gray-900">{selectedStudent.middle_name || 'N/A'}</dd>
+                          <dd className={detailValueClass}>{selectedStudent.middle_name || 'N/A'}</dd>
                         </div>
                         <div>
                           <dt className="text-xs font-medium text-gray-500">Last Name</dt>
-                          <dd className="text-sm text-gray-900">{selectedStudent.last_name || 'N/A'}</dd>
+                          <dd className={detailValueClass}>{selectedStudent.last_name || 'N/A'}</dd>
                         </div>
                         <div>
                           <dt className="text-xs font-medium text-gray-500">Suffix</dt>
-                          <dd className="text-sm text-gray-900">{selectedStudent.suffix || 'N/A'}</dd>
+                          <dd className={detailValueClass}>{selectedStudent.suffix || 'N/A'}</dd>
                         </div>
                         <div>
                           <dt className="text-xs font-medium text-gray-500">Birthdate</dt>
-                          <dd className="text-sm text-gray-900">{selectedStudent.date_of_birth ? formatDateMedium(selectedStudent.date_of_birth) : 'N/A'}</dd>
+                          <dd className={detailValueClass}>{selectedStudent.date_of_birth ? formatDateMedium(selectedStudent.date_of_birth) : 'N/A'}</dd>
                         </div>
                         <div>
                           <dt className="text-xs font-medium text-gray-500">Sex</dt>
-                          <dd className="text-sm text-gray-900">{selectedStudent.sex || 'N/A'}</dd>
+                          <dd className={detailValueClass}>{selectedStudent.sex || 'N/A'}</dd>
                         </div>
                         <div>
                           <dt className="text-xs font-medium text-gray-500">Age</dt>
-                          <dd className="text-sm text-gray-900">{selectedStudent.age || 'N/A'}</dd>
+                          <dd className={detailValueClass}>{selectedStudent.age || 'N/A'}</dd>
                         </div>
                         <div>
                           <dt className="text-xs font-medium text-gray-500">Contact Number</dt>
-                          <dd className="text-sm text-gray-900">{selectedStudent.contact_number || 'N/A'}</dd>
+                          <dd className={detailValueClass}>{selectedStudent.contact_number || 'N/A'}</dd>
                         </div>
                       </dl>
                     </div>
@@ -494,26 +495,26 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
                           {selectedStudent.address && (
                             <div>
                               <dt className="text-xs font-medium text-gray-500">Street</dt>
-                              <dd className="text-sm text-gray-900">{selectedStudent.address}</dd>
+                              <dd className={detailValueClass}>{selectedStudent.address}</dd>
                             </div>
                           )}
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             {selectedStudent.barangay && (
                               <div>
                                 <dt className="text-xs font-medium text-gray-500">Barangay</dt>
-                                <dd className="text-sm text-gray-900">{selectedStudent.barangay}</dd>
+                                <dd className={detailValueClass}>{selectedStudent.barangay}</dd>
                               </div>
                             )}
                             {selectedStudent.municipality && (
                               <div>
                                 <dt className="text-xs font-medium text-gray-500">Municipality</dt>
-                                <dd className="text-sm text-gray-900">{selectedStudent.municipality}</dd>
+                                <dd className={detailValueClass}>{selectedStudent.municipality}</dd>
                               </div>
                             )}
                             {selectedStudent.zip_code && (
                               <div>
                                 <dt className="text-xs font-medium text-gray-500">Zip Code</dt>
-                                <dd className="text-sm text-gray-900">{selectedStudent.zip_code}</dd>
+                                <dd className={detailValueClass}>{selectedStudent.zip_code}</dd>
                               </div>
                             )}
                           </div>
@@ -523,7 +524,7 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
 
                     <div className="border-t pt-4">
                       <dt className="text-xs font-medium text-gray-500">Registration Date</dt>
-                      <dd className="text-sm text-gray-900">{formatDateMedium(selectedStudent.created_at)}</dd>
+                      <dd className={detailValueClass}>{formatDateMedium(selectedStudent.created_at)}</dd>
                     </div>
 
                     {showingPending && (
