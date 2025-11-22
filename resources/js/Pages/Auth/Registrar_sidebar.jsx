@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, router, usePage } from '@inertiajs/react'
 import { registrarNav } from '../Registrar/navConfig'
 import sessionManager from '../../utils/sessionManager'
@@ -10,6 +10,18 @@ export default function RegistrarSidebar() {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const { url } = usePage()
   const { isCollapsed, toggleSidebar } = useSidebar()
+
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = originalOverflow || ''
+    }
+    return () => {
+      document.body.style.overflow = originalOverflow || ''
+    }
+  }, [mobileOpen])
 
   function isActive(href) {
     if (!url) return false
@@ -137,6 +149,8 @@ export default function RegistrarSidebar() {
   // Render a navigation item
   function renderNavItem(item, isCollapsed = false, category = null) {
     const active = isActive(item.href)
+    const activeStyles = active ? 'bg-[#000825] text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'
+    const iconCircle = active ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-500'
     
     if (isCollapsed) {
       return (
@@ -173,17 +187,14 @@ export default function RegistrarSidebar() {
       <Link
         key={item.href}
         href={item.href}
-        className={
-          (active
-            ? 'text-white font-semibold'
-            : 'text-gray-900 hover:bg-gray-50') +
-          ' flex items-center gap-2 px-2 py-1.5 text-sm transition-colors rounded-md'
-        }
-        style={active ? { backgroundColor: '#000825' } : {}}
+        className={`${activeStyles} flex items-center gap-2 px-2.5 py-1.5 text-sm transition-colors rounded-lg border border-transparent`}
         aria-current={active ? 'page' : undefined}
+        style={active ? { borderColor: '#000825' } : {}}
       >
-        {item.icon && <span className="text-gray-600">{getIcon(item.icon, "w-4 h-4")}</span>}
-        <span>{item.label}</span>
+        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs ${iconCircle}`}>
+          {item.icon ? getIcon(item.icon, 'w-4 h-4') : item.label.charAt(0)}
+        </span>
+        <span className="font-medium truncate">{item.label}</span>
       </Link>
     )
   }
@@ -208,7 +219,7 @@ export default function RegistrarSidebar() {
     // Expanded view - always show items (no dropdown)
     return (
       <div key={categoryItem.category} className="mb-2">
-        <div className={`px-2 py-1 text-xs font-semibold ${categoryColor} uppercase tracking-wider`}>
+        <div className={`px-2 py-0.5 text-[10px] font-semibold ${categoryColor} uppercase tracking-wider`}>
           {categoryItem.categoryLabel}
         </div>
         <div className="mt-0.5 space-y-0.5">
@@ -222,9 +233,13 @@ export default function RegistrarSidebar() {
   const filteredNav = registrarNav.filter(Boolean)
 
   return (
-    <aside className={`bg-white border-r border-gray-200 shadow-sm transition-all duration-300 flex-shrink-0 relative ${
-      isCollapsed ? 'w-16' : 'w-64'
-    }`} style={{ overflowX: 'visible' }}>
+    <>
+      <aside
+        className={`bg-white border-r border-gray-200 shadow-sm transition-all duration-300 ${
+          isCollapsed ? 'w-16' : 'w-64'
+        } md:fixed md:inset-y-0 md:left-0 md:z-40 md:h-screen flex-shrink-0`}
+        style={{ overflow: 'hidden' }}
+      >
       {/* Mobile header */}
       <div className="md:hidden flex items-center justify-between px-3 py-2 border-b bg-[#000825] relative overflow-hidden">
         {/* Decorative Translucent White Circles */}
@@ -257,21 +272,19 @@ export default function RegistrarSidebar() {
       </div>
 
       {/* Desktop nav */}
-      <nav className={`hidden md:flex flex-col h-screen sticky top-0 relative z-10 ${
-        isCollapsed ? 'w-16' : 'w-64'
-      }`}>
+      <nav
+        className={`hidden md:flex flex-col h-full ${
+          isCollapsed ? 'w-16' : 'w-64'
+        }`}
+      >
         {/* Logo and School Info */}
-        <div className="p-3 text-white flex-shrink-0 relative" style={{ backgroundColor: '#000825' }}>
+        <div className="p-2 text-white flex-shrink-0 relative" style={{ backgroundColor: '#000825' }}>
           {/* Decorative Translucent White Circles */}
-          <div className="absolute top-0 left-0 w-64 h-64 bg-white/20 rounded-full blur-3xl -translate-x-1/4 -translate-y-1/4 pointer-events-none"></div>
-          <div className="absolute bottom-0 right-0 w-48 h-48 bg-white/20 rounded-full blur-3xl translate-x-1/4 translate-y-1/4 pointer-events-none"></div>
-          <div className="absolute top-1/2 left-1/4 w-40 h-40 bg-white/15 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
-          <div className="absolute bottom-1/4 left-0 w-32 h-32 bg-white/18 rounded-full blur-2xl -translate-x-1/3 pointer-events-none"></div>
-          <div className="absolute top-1/3 right-1/3 w-24 h-24 bg-white/12 rounded-full blur-xl translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
-          <div className="absolute bottom-1/3 left-1/3 w-28 h-28 bg-white/10 rounded-full blur-xl -translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
+          <div className="absolute top-0 left-0 w-48 h-48 bg-white/15 rounded-full blur-2xl -translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
+          <div className="absolute bottom-0 right-0 w-40 h-40 bg-white/15 rounded-full blur-2xl translate-x-1/3 translate-y-1/3 pointer-events-none"></div>
           
           <div className="flex items-center gap-2 pr-8 relative z-10">
-            <div className="h-10 w-10 rounded-full bg-white flex items-center justify-center shadow-lg p-1.5 flex-shrink-0">
+            <div className="h-9 w-9 rounded-full bg-white flex items-center justify-center shadow-lg p-1 flex-shrink-0">
               <img
                 src="/onsts.png"
                 alt="ONSTS Logo"
@@ -280,10 +293,10 @@ export default function RegistrarSidebar() {
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
-                <h2 className="text-[10px] font-bold leading-tight">
+                <h2 className="text-[9px] font-bold leading-tight">
                   OPOL NATIONAL SECONDARY TECHNICAL SCHOOL
                 </h2>
-                <p className="text-[9px] text-white/90">Student Management System</p>
+                <p className="text-[8px] text-white/90">Student Management System</p>
               </div>
             )}
           </div>
@@ -291,8 +304,8 @@ export default function RegistrarSidebar() {
           {/* Collapse Toggle Button - Top Right, White Hamburger Menu Style */}
           <button
             onClick={toggleSidebar}
-            className={`absolute w-8 h-8 flex items-center justify-center transition-all duration-300 z-[9999] group hover:bg-white/10 rounded ${
-              isCollapsed ? 'bottom-3 left-1/2 -translate-x-1/2' : 'top-3 right-3'
+            className={`absolute w-7 h-7 flex items-center justify-center transition-all duration-300 z-[9999] group hover:bg-white/15 rounded ${
+              isCollapsed ? 'bottom-2 left-1/2 -translate-x-1/2' : 'top-2 right-2'
             }`}
             title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           >
@@ -317,8 +330,11 @@ export default function RegistrarSidebar() {
           </button>
         </div>
 
-        {/* Navigation Items - Compact spacing to fit all items */}
-        <div className="flex-1 p-2 space-y-0.5 overflow-y-auto sidebar-nav" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        {/* Navigation Items */}
+        <div
+          className="flex-1 px-3 py-4 space-y-4 overflow-y-auto sidebar-nav"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
           {filteredNav.map((item) => {
             // Handle main dashboard item
             if (item.category === 'main') {
@@ -336,64 +352,81 @@ export default function RegistrarSidebar() {
 
       {/* Mobile flyout */}
       {mobileOpen && (
-        <nav id="registrar-mobile-nav" className="md:hidden bg-white border-b shadow-lg">
-          <div className="p-3 space-y-2 max-h-[80vh] overflow-y-auto">
-            {filteredNav.map((item) => {
-              if (item.category === 'main') {
-                const active = isActive(item.href)
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    className={
-                      (active 
-                        ? 'text-white shadow-md' 
-                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100') +
-                      ' flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all'
-                    }
-                    style={active ? { backgroundColor: '#000825' } : {}}
-                  >
-                    <span>{item.label}</span>
-                  </Link>
-                )
-              }
-              
-              if (item.category && item.items) {
-                return (
-                  <div key={item.category} className="space-y-1.5">
-                    <div className="text-xs font-bold text-gray-500 uppercase tracking-wider px-2">
-                      {item.categoryLabel}
+        <div className="md:hidden fixed inset-0 z-40">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setMobileOpen(false)}
+          ></div>
+          <nav
+            id="registrar-mobile-nav"
+            className="absolute inset-y-0 left-0 w-72 max-w-full bg-white shadow-2xl flex flex-col"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+                  <img src="/onsts.png" alt="ONSTS Logo" className="h-6 w-6 object-contain" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Registrar Portal</p>
+                  <p className="text-xs text-gray-500">Navigation</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="p-2 rounded-full hover:bg-gray-100"
+                onClick={() => setMobileOpen(false)}
+                aria-label="Close sidebar"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+              {filteredNav.map((item) => {
+                if (item.category === 'main') {
+                  const active = isActive(item.href)
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={`${active ? 'bg-[#000825] text-white shadow-md' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'} flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all`}
+                    >
+                      {item.label}
+                    </Link>
+                  )
+                }
+
+                if (item.category && item.items) {
+                  return (
+                    <div key={item.category} className="space-y-2">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">
+                        {item.categoryLabel}
+                      </p>
+                      <div className="space-y-1">
+                        {item.items.map((subItem) => {
+                          const active = isActive(subItem.href)
+                          return (
+                            <Link
+                              key={subItem.href}
+                              href={subItem.href}
+                              onClick={() => setMobileOpen(false)}
+                              className={`${active ? 'bg-[#000825] text-white shadow-md' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'} flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all`}
+                            >
+                              {subItem.label}
+                            </Link>
+                          )
+                        })}
+                      </div>
                     </div>
-                    <div className="pl-4 space-y-1">
-                      {item.items.map((subItem) => {
-                        const active = isActive(subItem.href)
-                        return (
-                          <Link
-                            key={subItem.href}
-                            href={subItem.href}
-                            onClick={() => setMobileOpen(false)}
-                            className={
-                              (active 
-                                ? 'text-white shadow-md' 
-                                : 'bg-gray-50 text-gray-700 hover:bg-gray-100') +
-                              ' flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-all'
-                            }
-                            style={active ? { backgroundColor: '#000825' } : {}}
-                          >
-                            <span>{subItem.label}</span>
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              }
-              return null
-            })}
-            
-          </div>
-        </nav>
+                  )
+                }
+                return null
+              })}
+            </div>
+          </nav>
+        </div>
       )}
 
       {/* Logout Confirmation Modal */}
@@ -437,5 +470,10 @@ export default function RegistrarSidebar() {
         </div>
       )}
     </aside>
+      <div
+        className={`hidden md:block ${isCollapsed ? 'w-16' : 'w-64'}`}
+        aria-hidden="true"
+      />
+    </>
   )
 }

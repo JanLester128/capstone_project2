@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Head, useForm, usePage } from '@inertiajs/react'
 import sessionManager from '../../utils/sessionManager'
+import Swal from 'sweetalert2'
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
@@ -34,8 +35,91 @@ export default function Login() {
   function handleSubmit(e) {
     e.preventDefault()
     setIsLoading(true)
+    
+    // Client-side validation
+    if (!data.email.trim()) {
+      Swal.fire({
+        title: 'Missing Email/LRN',
+        text: 'Please enter your email address or LRN.',
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#f59e0b'
+      })
+      setIsLoading(false)
+      return
+    }
+    
+    if (!data.password.trim()) {
+      Swal.fire({
+        title: 'Missing Password',
+        text: 'Please enter your password.',
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#f59e0b'
+      })
+      setIsLoading(false)
+      return
+    }
+    
     post('/login', {
-      onFinish: () => setIsLoading(false)
+      onFinish: () => setIsLoading(false),
+      onError: (errors) => {
+        // Handle specific login errors with SweetAlert
+        if (errors.email) {
+          if (errors.email.includes('LRN not found')) {
+            Swal.fire({
+              title: 'LRN Not Found',
+              text: 'The LRN you entered was not found in our system. Please check your LRN or contact the registrar office.',
+              icon: 'error',
+              confirmButtonText: 'Try Again',
+              confirmButtonColor: '#dc2626',
+              footer: '<a href="#" onclick="window.location.href=\'tel:+1234567890\'">Contact Registrar: (123) 456-7890</a>'
+            })
+          } else if (errors.email.includes('Email address not found')) {
+            Swal.fire({
+              title: 'Email Not Found',
+              text: 'This email address is not registered in our system. Please check your email or register for an account.',
+              icon: 'error',
+              confirmButtonText: 'Try Again',
+              confirmButtonColor: '#dc2626',
+              showCancelButton: true,
+              cancelButtonText: 'Register Account',
+              cancelButtonColor: '#6b7280'
+            }).then((result) => {
+              if (!result.isConfirmed) {
+                window.location.href = '/student/register'
+              }
+            })
+          } else if (errors.email.includes('Incorrect password')) {
+            Swal.fire({
+              title: 'Incorrect Password',
+              text: 'The password you entered is incorrect. Please check your password and try again.',
+              icon: 'error',
+              confirmButtonText: 'Try Again',
+              confirmButtonColor: '#dc2626',
+              footer: '<a href="/forgot-password">Forgot your password?</a>'
+            })
+          } else if (errors.email.includes('pending verification')) {
+            Swal.fire({
+              title: 'Account Pending Verification',
+              html: 'Your account is pending verification by the registrar.<br><br>You will receive an email notification once your account is approved.<br><br>Please contact the registrar office if you have been waiting for more than 3 business days.',
+              icon: 'info',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#3b82f6',
+              footer: '<a href="#" onclick="window.location.href=\'tel:+1234567890\'">Contact Registrar: (123) 456-7890</a>'
+            })
+          } else {
+            // Generic error
+            Swal.fire({
+              title: 'Login Failed',
+              text: errors.email,
+              icon: 'error',
+              confirmButtonText: 'Try Again',
+              confirmButtonColor: '#dc2626'
+            })
+          }
+        }
+      }
     })
   }
 

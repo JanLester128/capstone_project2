@@ -33,12 +33,14 @@ export default function Reports({
   facultyLoads = { faculty: [], summary: {} },
   schoolYears = [],
   semesters = [],
+  strandOptions = [],
   activeSchoolYear = null,
   activeSemester = null,
   filters = {},
 }) {
   const [selectedSchoolYear, setSelectedSchoolYear] = useState(filters.school_year_id || activeSchoolYear?.id || '')
   const [selectedSemester, setSelectedSemester] = useState(filters.semester_id || activeSemester?.id || '')
+  const [selectedStrand, setSelectedStrand] = useState(filters.strand_id || '')
 
   // Filter semesters based on selected school year
   const filteredSemesters = useMemo(() => {
@@ -46,10 +48,17 @@ export default function Reports({
     return semesters.filter(s => s.school_year_id === parseInt(selectedSchoolYear))
   }, [selectedSchoolYear, semesters])
 
+  const selectedStrandLabel = useMemo(() => {
+    if (!selectedStrand) return 'All Strands'
+    const strandId = parseInt(selectedStrand)
+    return strandOptions.find(strand => strand.id === strandId)?.name || 'All Strands'
+  }, [selectedStrand, strandOptions])
+
   const handleFilterChange = () => {
     const params = {}
     if (selectedSchoolYear) params.school_year_id = selectedSchoolYear
     if (selectedSemester) params.semester_id = selectedSemester
+    if (selectedStrand) params.strand_id = selectedStrand
     
     router.get('/registrar/reports', params, {
       preserveState: true,
@@ -180,7 +189,7 @@ export default function Reports({
           {/* Filters */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Filters</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label htmlFor="school-year" className="block text-sm font-medium text-gray-700 mb-2">
                   School Year
@@ -217,6 +226,24 @@ export default function Reports({
                   {filteredSemesters.map((sem) => (
                     <option key={sem.id} value={sem.id}>
                       {sem.semester_type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="strand" className="block text-sm font-medium text-gray-700 mb-2">
+                  Strand
+                </label>
+                <select
+                  id="strand"
+                  value={selectedStrand}
+                  onChange={(e) => setSelectedStrand(e.target.value)}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                >
+                  <option value="">All Strands</option>
+                  {strandOptions.map(strand => (
+                    <option key={strand.id} value={strand.id}>
+                      {strand.code ? `${strand.code} — ${strand.name}` : strand.name}
                     </option>
                   ))}
                 </select>
@@ -361,9 +388,12 @@ export default function Reports({
             {/* Strand Enrollment */}
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Enrollment by Strand</h3>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Enrollment by Strand</h3>
+                  <p className="text-xs text-gray-500">Currently showing: {selectedStrandLabel}</p>
+                </div>
                 <a
-                  href={`/registrar/reports/strands/pdf?school_year_id=${selectedSchoolYear || ''}&semester_id=${selectedSemester || ''}`}
+                  href={`/registrar/reports/strands/pdf?school_year_id=${selectedSchoolYear || ''}&semester_id=${selectedSemester || ''}&strand_id=${selectedStrand || ''}`}
                   target="_blank"
                   className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-xs font-medium"
                   title="Export Strands Report"

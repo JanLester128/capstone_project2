@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { Head, useForm, usePage, Link } from '@inertiajs/react';
-import RegistrarSidebar from '../Auth/Registrar_sidebar';
+import { Head, useForm, Link } from '@inertiajs/react';
+import FacultySidebar from '../Auth/Faculty_sidebar';
 
-export default function CreditedSubjectsDetail({ enrollment = null, subjects = [] }) {
+export default function CreditedSubjectsDetail({ enrollment = null, subjects = [], user }) {
 	const [showAddForm, setShowAddForm] = useState(false);
 
 	// Per-subject semester awareness for add form
@@ -28,7 +28,7 @@ export default function CreditedSubjectsDetail({ enrollment = null, subjects = [
 
 	const createCredit = (e) => {
 		e.preventDefault();
-		post('/registrar/credited-subjects', {
+		post('/faculty/credited-subjects', {
 			data: {
 				enrollment_id: data.enrollment_id,
 				subject_id: data.subject_id,
@@ -53,7 +53,7 @@ export default function CreditedSubjectsDetail({ enrollment = null, subjects = [
 	if (!enrollment) {
 		return (
 			<div className="min-h-screen bg-gray-50 lg:flex">
-				<RegistrarSidebar />
+				<FacultySidebar user={user} />
 				<div className="flex-1 lg:ml-0">
 					<Head title="Credit Subject - Not Found" />
 					<div className="py-4 lg:py-6">
@@ -61,7 +61,7 @@ export default function CreditedSubjectsDetail({ enrollment = null, subjects = [
 							<div className="bg-white rounded-lg shadow border p-6 text-center">
 								<p className="text-gray-600">Enrollment not found.</p>
 								<Link
-									href="/registrar/credited-subjects"
+									href="/faculty/credited-subjects"
 									className="mt-4 inline-flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700"
 								>
 									Back to List
@@ -76,7 +76,7 @@ export default function CreditedSubjectsDetail({ enrollment = null, subjects = [
 
 	return (
 		<div className="min-h-screen bg-gray-50 lg:flex">
-			<RegistrarSidebar />
+			<FacultySidebar user={user} />
 			<div className="flex-1 lg:ml-0">
 				<Head title={`Credit Subject - ${enrollment.student?.name}`} />
 
@@ -84,7 +84,7 @@ export default function CreditedSubjectsDetail({ enrollment = null, subjects = [
 					<div className="max-w-full mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
 						<div className="mb-4 lg:mb-6">
 							<Link
-								href="/registrar/credited-subjects"
+								href="/faculty/credited-subjects"
 								className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors mb-2"
 							>
 								<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -94,7 +94,7 @@ export default function CreditedSubjectsDetail({ enrollment = null, subjects = [
 							</Link>
 							<h1 className="text-xl lg:text-2xl font-bold text-gray-900">Credit Subject</h1>
 							<p className="mt-1 text-xs lg:text-sm text-gray-600">
-								Manage credited subjects and grades for {enrollment.student?.name}
+								Manage credited subjects and grades for {enrollment.student?.name}. Entries remain pending until the registrar approves them.
 							</p>
 						</div>
 
@@ -203,7 +203,7 @@ export default function CreditedSubjectsDetail({ enrollment = null, subjects = [
 											disabled={processing || !data.subject_id || data.quarter1 === '' || data.quarter2 === ''}
 											className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 text-sm"
 										>
-											{processing ? 'Saving...' : 'Save Credit Subject'}
+											{processing ? 'Saving...' : 'Save Credit Subject (Pending Approval)'}
 										</button>
 									</div>
 								</form>
@@ -222,8 +222,7 @@ export default function CreditedSubjectsDetail({ enrollment = null, subjects = [
 												<th className="px-3 py-2 text-left font-semibold text-gray-600">Q2/Q4</th>
 												<th className="px-3 py-2 text-left font-semibold text-gray-600">Avg</th>
 												<th className="px-3 py-2 text-left font-semibold text-gray-600">Remarks</th>
-												<th className="px-3 py-2 text-left font-semibold text-gray-600">Credited By / Status</th>
-												<th className="px-3 py-2 text-right font-semibold text-gray-600">Actions</th>
+												<th className="px-3 py-2 text-left font-semibold text-gray-600">Status</th>
 											</tr>
 										</thead>
 										<tbody className="divide-y divide-gray-200 bg-white">
@@ -243,57 +242,9 @@ export default function CreditedSubjectsDetail({ enrollment = null, subjects = [
 }
 
 function CreditRow({ credit }) {
-	const initialAvg = credit.credited_grade ?? '';
-	const { put, delete: destroy, processing, setData, data } = useForm({
-		quarter1: credit.quarter1 ?? '',
-		quarter2: credit.quarter2 ?? '',
-		avg: initialAvg,
-	});
-
+	const avg = credit.credited_grade ?? '';
 	const isApproved = !!credit.approved_by;
 	const hasCoordinatorSubmission = !!credit.credited_by;
-
-	const isFirstSem = (() => {
-		const sem = String(credit.subject_semester ?? '').toLowerCase();
-		return sem === '1' || sem.includes('1st');
-	})();
-
-	const computedAvg = useMemo(() => {
-		const q1 = parseFloat(data.quarter1);
-		const q2 = parseFloat(data.quarter2);
-		return Number.isFinite(q1) && Number.isFinite(q2) ? ((q1 + q2) / 2).toFixed(2) : (initialAvg || '');
-	}, [data.quarter1, data.quarter2, initialAvg]);
-
-	const computedRemarks = useMemo(() => {
-		if (credit.remarks && String(credit.remarks).trim() !== '') {
-			return credit.remarks;
-		}
-
-		const q1 = parseFloat(data.quarter1);
-		const q2 = parseFloat(data.quarter2);
-		const avgFromInputs = Number.isFinite(q1) && Number.isFinite(q2) ? (q1 + q2) / 2 : NaN;
-		const gradeNum = credit.credited_grade !== null && credit.credited_grade !== undefined
-			? parseFloat(credit.credited_grade)
-			: NaN;
-
-		const basis = Number.isFinite(gradeNum) ? gradeNum : avgFromInputs;
-		if (!Number.isFinite(basis)) return '';
-		return basis >= 75 ? 'Passed' : 'Failed';
-	}, [credit.remarks, credit.credited_grade, data.quarter1, data.quarter2]);
-
-	const update = () => {
-		put(`/registrar/credited-subjects/${credit.id}`, {
-			preserveScroll: true,
-		});
-	};
-
-	const remove = () => {
-		if (confirm('Are you sure you want to delete this credited subject?')) {
-			destroy(`/registrar/credited-subjects/${credit.id}`, {
-				preserveScroll: true,
-			});
-		}
-	};
 
 	return (
 		<tr className="align-top">
@@ -302,46 +253,15 @@ function CreditRow({ credit }) {
 				<div className="text-xs text-gray-500">Prev School: {credit.previous_school || ''}</div>
 			</td>
 			<td className="px-3 py-2 text-gray-700">{credit.subject_code}</td>
-			<td className="px-3 py-2">
-				<input
-					type="number"
-					min="0"
-					max="100"
-					step="0.01"
-					value={data.quarter1}
-					onChange={(e) => setData('quarter1', e.target.value)}
-					disabled={isApproved}
-					className={`w-20 border rounded px-2 py-1 ${isApproved ? 'bg-gray-100' : ''}`}
-					placeholder={isFirstSem ? 'Q1' : 'Q3'}
-				/>
-			</td>
-			<td className="px-3 py-2">
-				<input
-					type="number"
-					min="0"
-					max="100"
-					step="0.01"
-					value={data.quarter2}
-					onChange={(e) => setData('quarter2', e.target.value)}
-					disabled={isApproved}
-					className={`w-20 border rounded px-2 py-1 ${isApproved ? 'bg-gray-100' : ''}`}
-					placeholder={isFirstSem ? 'Q2' : 'Q4'}
-				/>
-			</td>
-			<td className="px-3 py-2">{computedAvg}</td>
-			<td className="px-3 py-2 text-sm">{computedRemarks}</td>
+			<td className="px-3 py-2">{credit.quarter1 ?? '—'}</td>
+			<td className="px-3 py-2">{credit.quarter2 ?? '—'}</td>
+			<td className="px-3 py-2">{avg || '—'}</td>
+			<td className="px-3 py-2 text-sm">{credit.remarks || '—'}</td>
 			<td className="px-3 py-2 text-gray-600 text-sm">
-				{hasCoordinatorSubmission && (
-					<div className="text-xs mb-1">
-						<span className="font-medium">Coordinator:</span>{' '}
-						{credit.credited_by?.name || ''}
-					</div>
-				)}
-
 				{isApproved ? (
 					<div className="text-xs flex flex-col">
 						<span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700 border border-green-200">
-							Approved
+							Approved by Registrar
 						</span>
 						{credit.credited_at && (
 							<span className="mt-0.5 text-[10px] text-gray-500">on {credit.credited_at}</span>
@@ -350,38 +270,17 @@ function CreditRow({ credit }) {
 				) : hasCoordinatorSubmission ? (
 					<div className="text-xs">
 						<span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 border border-amber-200">
-							Awaiting registrar approval
+							Pending Registrar Approval
 						</span>
 					</div>
 				) : (
 					<div className="text-xs">
 						<span className="inline-flex items-center rounded-full bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-600 border border-gray-200">
-							Registrar draft
+							Draft
 						</span>
 					</div>
 				)}
 			</td>
-			<td className="px-3 py-2 text-right">
-				<div className="inline-flex items-center gap-2">
-					{!isApproved && (
-						<button
-							onClick={update}
-							disabled={processing}
-							className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-xs"
-						>
-							{hasCoordinatorSubmission ? 'Approve' : 'Save'}
-						</button>
-					)}
-					<button
-						onClick={remove}
-						disabled={processing || isApproved}
-						className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 text-xs"
-					>
-						Delete
-					</button>
-				</div>
-			</td>
 		</tr>
 	);
 }
-

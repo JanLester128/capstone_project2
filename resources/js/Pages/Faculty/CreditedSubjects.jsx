@@ -1,344 +1,164 @@
-import React, { useMemo, useState } from 'react';
-import { Head, useForm } from '@inertiajs/react';
-import FacultySidebar from '../Auth/Faculty_sidebar';
+import React, { useMemo, useState } from 'react'
+import { Head, Link } from '@inertiajs/react'
+import FacultySidebar from '../Auth/Faculty_sidebar'
 
-export default function CreditedSubjects({ enrollments = [], subjects = [], user }) {
-	const [selectedEnrollmentId, setSelectedEnrollmentId] = useState(null);
-	const [showAddForm, setShowAddForm] = useState(false);
-	const selectedEnrollment = useMemo(() => enrollments.find(e => e.id === selectedEnrollmentId) || null, [enrollments, selectedEnrollmentId]);
+export default function CreditedSubjects({ enrollments = [], user }) {
+  const [search, setSearch] = useState('')
 
-	return (
-		<div className="min-h-screen bg-gray-50 lg:flex">
-			<FacultySidebar user={user} />
-			<div className="flex-1">
-				<Head title="Credit Subject (Coordinator)" />
-				<div className="py-4 lg:py-6">
-					<div className="max-w-full mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
-						<div className="mb-4">
-							<h1 className="text-xl lg:text-2xl font-bold text-gray-900">Credit Subject</h1>
-							<p className="mt-1 text-xs lg:text-sm text-gray-600">
-								Select a transferee enrollment and submit credited subjects. Entries remain pending until the registrar approves them.
-							</p>
-						</div>
-						<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-							<div className="lg:col-span-1 bg-white rounded-lg border">
-								<div className="px-4 py-3 border-b">
-									<h2 className="text-sm font-semibold text-gray-800">Transferee Enrollments</h2>
-								</div>
-								<div className="max-h-[28rem] overflow-y-auto divide-y">
-									{enrollments.length === 0 && <div className="p-4 text-sm text-gray-500">No transferee enrollments found.</div>}
-									{enrollments.map((e) => (
-										<button key={e.id} onClick={() => setSelectedEnrollmentId(e.id)} className={`w-full text-left p-4 hover:bg-gray-50 ${selectedEnrollmentId === e.id ? 'bg-blue-50' : ''}`}>
-											<div className="font-medium text-gray-900">{e.student?.name}</div>
-											<div className="text-xs text-gray-600">{e.student?.email}</div>
-											<div className="text-xs text-gray-600">LRN: {e.student?.lrn}</div>
-											<div className="mt-1 text-xs text-gray-500">
-												{e.assigned_strand?.code} • {e.school_year} • {e.semester}
-											</div>
-											{e.previous_school && <div className="mt-1 text-xs text-gray-500">Prev: {e.previous_school}</div>}
-										</button>
-									))}
-								</div>
-							</div>
-							<div className="lg:col-span-2">
-								{!selectedEnrollment ? (
-									<div className="bg-white rounded-lg border p-6 text-sm text-gray-600">Select a transferee from the left.</div>
-								) : (
-									<EnrollmentCreditsPanel
-										enrollment={selectedEnrollment}
-										subjects={subjects}
-										showAddForm={showAddForm}
-										setShowAddForm={setShowAddForm}
-									/>
-								)}
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	);
+  const metrics = useMemo(() => {
+    const total = enrollments.length
+    let totalCredits = 0
+    let pending = 0
+    let approved = 0
+    enrollments.forEach((enrollment) => {
+      const credits = enrollment.credited_subjects || []
+      totalCredits += credits.length
+      pending += credits.filter((c) => c.credited_by && !c.approved_by).length
+      approved += credits.filter((c) => c.approved_by).length
+    })
+    const drafts = totalCredits - (pending + approved)
+    return { total, totalCredits, pending, approved, drafts }
+  }, [enrollments])
+
+  const filteredEnrollments = useMemo(() => {
+    if (!search.trim()) return enrollments
+    const q = search.toLowerCase()
+    return enrollments.filter((enrollment) => {
+      const name = enrollment.student?.name?.toLowerCase() ?? ''
+      const lrn = enrollment.student?.lrn?.toLowerCase() ?? ''
+      const email = enrollment.student?.email?.toLowerCase() ?? ''
+      return name.includes(q) || lrn.includes(q) || email.includes(q)
+    })
+  }, [search, enrollments])
+
+  return (
+    <div className="min-h-screen bg-gray-50 lg:flex">
+      <FacultySidebar user={user} />
+      <div className="flex-1 lg:ml-0">
+        <Head title="Credit Subject (Coordinator)" />
+
+        <header className="relative overflow-hidden border-b border-gray-200 bg-gradient-to-r from-[#000825] via-[#14234f] to-[#1f2c6e] px-6 py-6 text-white">
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute -right-16 top-0 h-40 w-40 rounded-full bg-white/20 blur-3xl" />
+            <div className="absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+          </div>
+          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-3">
+              <Link
+                href="/faculty/enrollments"
+                className="inline-flex w-fit items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80 hover:bg-white/20"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to Coordinator Hub
+              </Link>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Credit Subject (Transferees)</h1>
+                <p className="mt-1 text-sm text-white/80 max-w-3xl">
+                  Track transferee submissions, add pending credited subjects, and monitor what still needs registrar approval.
+                  Coordinators can only submit entries—final approval remains with the registrar.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
+              {[/* eslint-disable-next-line */
+                { label: 'Transferees', value: metrics.total },
+                { label: 'Credits Logged', value: metrics.totalCredits },
+                { label: 'Pending Approval', value: metrics.pending },
+                { label: 'Approved', value: metrics.approved },
+              ].map((card) => (
+                <div key={card.label} className="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+                  <p className="text-xs uppercase tracking-wider text-white/70">{card.label}</p>
+                  <p className="mt-1 text-2xl font-semibold text-white">{card.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </header>
+
+        <div className="px-4 py-5 sm:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative w-full lg:max-w-md">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name, LRN, or email..."
+                className="w-full rounded-xl border border-gray-200 pl-11 pr-3 py-2.5 text-sm shadow-sm placeholder-gray-400 focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+              <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 font-medium">
+                Pending entries turn amber until the registrar approves them.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 sm:px-6 pb-8">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+            <div className="px-4 py-3 border-b">
+              <h2 className="text-sm font-semibold text-gray-800">Transferee Enrollments</h2>
+            </div>
+            {filteredEnrollments.length === 0 ? (
+              <div className="p-8 text-center text-sm text-gray-500">
+                {search ? 'No transferees match your search.' : 'No transferee enrollments found.'}
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {filteredEnrollments.map((enrollment) => {
+                  const creditedCount = enrollment.credited_subjects?.length || 0
+                  const approvedCount = enrollment.credited_subjects?.filter((c) => c.approved_by)?.length || 0
+                  const pendingCount = enrollment.credited_subjects?.filter((c) => c.credited_by && !c.approved_by)?.length || 0
+
+                  return (
+                    <Link
+                      key={enrollment.id}
+                      href={`/faculty/credited-subjects/${enrollment.id}`}
+                      className="block p-4 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex-1">
+                          <p className="text-base font-semibold text-gray-900">{enrollment.student?.name}</p>
+                          <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-600">
+                            <span>{enrollment.student?.email}</span>
+                            {enrollment.student?.lrn && <span>LRN: {enrollment.student.lrn}</span>}
+                            {enrollment.assigned_strand?.code && <span>Strand: {enrollment.assigned_strand.code}</span>}
+                            {enrollment.school_year && <span>{enrollment.school_year}</span>}
+                            {enrollment.semester && <span>{enrollment.semester}</span>}
+                            {enrollment.previous_school && <span>Prev: {enrollment.previous_school}</span>}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs font-medium">
+                          <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-gray-800">
+                            Credits: {creditedCount}
+                          </span>
+                          {pendingCount > 0 && (
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-amber-700">
+                              Pending: {pendingCount}
+                            </span>
+                          )}
+                          {approvedCount > 0 && (
+                            <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-green-700">
+                              Approved: {approvedCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
-
-function EnrollmentCreditsPanel({ enrollment, subjects, showAddForm, setShowAddForm }) {
-	const [selectedSubjectId, setSelectedSubjectId] = useState('');
-	const selectedSubject = useMemo(() => subjects.find(s => String(s.Id) === String(selectedSubjectId)), [subjects, selectedSubjectId]);
-	const isSelectedFirstSem = useMemo(() => {
-		if (!selectedSubject) return true;
-		const sem = String(selectedSubject.Semester ?? selectedSubject.semester ?? '').toLowerCase();
-		return sem === '1' || sem.includes('1st');
-	}, [selectedSubject]);
-
-	const { data, setData, post, processing, reset, errors } = useForm({
-		enrollment_id: enrollment.id,
-		subject_id: '',
-		previous_school: enrollment.previous_school || '',
-		quarter1: '',
-		quarter2: '',
-	});
-
-	const existing = enrollment.credited_subjects || [];
-
-	const submitCredit = (e) => {
-		e.preventDefault();
-		post('/faculty/credited-subjects', {
-			data: {
-				enrollment_id: data.enrollment_id,
-				subject_id: data.subject_id,
-				previous_school: data.previous_school,
-				quarter1: data.quarter1,
-				quarter2: data.quarter2,
-			},
-			onSuccess: () => {
-				reset({
-					enrollment_id: enrollment.id,
-					subject_id: '',
-					previous_school: enrollment.previous_school || '',
-					quarter1: '',
-					quarter2: '',
-				});
-			},
-			preserveScroll: true,
-		});
-	};
-
-	return (
-		<div className="space-y-4">
-			<div className="bg-white rounded-lg border">
-				<div className="px-4 py-3 border-b flex items-center justify-between">
-					<h2 className="text-sm font-semibold text-gray-800">Existing Credits</h2>
-					<button
-						type="button"
-						onClick={() => setShowAddForm((v) => !v)}
-						className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-500"
-					>
-						{showAddForm ? 'Close Credit Subject' : 'Add Credit Subject'}
-					</button>
-				</div>
-
-				{showAddForm && (
-					<form onSubmit={submitCredit} className="p-4 border-b border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50">
-						<div>
-							<label className="block text-xs font-medium text-gray-700 mb-1">Subject</label>
-							<select
-								value={data.subject_id}
-								onChange={(e) => { setData('subject_id', e.target.value); setSelectedSubjectId(e.target.value) }}
-								className="w-full border rounded px-3 py-2 text-sm"
-								required
-							>
-								<option value="">Select subject</option>
-								{subjects.map((s) => (
-									<option key={s.Id} value={s.Id}>
-										{s.Subject_name} ({s.Subject_code})
-									</option>
-								))}
-							</select>
-							{errors.subject_id && <p className="text-xs text-red-600 mt-1">{errors.subject_id}</p>}
-						</div>
-						<div>
-							<label className="block text-xs font-medium text-gray-700 mb-1">Previous School</label>
-							<input
-								type="text"
-								value={data.previous_school}
-								onChange={(e) => setData('previous_school', e.target.value)}
-								className="w-full border rounded px-3 py-2 text-sm"
-								placeholder="School name"
-							/>
-							{errors.previous_school && <p className="text-xs text-red-600 mt-1">{errors.previous_school}</p>}
-						</div>
-						<div className="grid grid-cols-2 gap-2">
-							<label className="block text-xs font-medium text-gray-700 col-span-2">
-								{isSelectedFirstSem ? '1st & 2nd Quarter' : '3rd & 4th Quarter'}
-							</label>
-							<input
-								type="number"
-								min="0"
-								max="100"
-								step="0.01"
-								value={data.quarter1}
-								onChange={(e) => setData('quarter1', e.target.value)}
-								className="border rounded px-3 py-2 text-sm"
-								placeholder={isSelectedFirstSem ? 'Q1' : 'Q3'}
-								required
-							/>
-							<input
-								type="number"
-								min="0"
-								max="100"
-								step="0.01"
-								value={data.quarter2}
-								onChange={(e) => setData('quarter2', e.target.value)}
-								className="border rounded px-3 py-2 text-sm"
-								placeholder={isSelectedFirstSem ? 'Q2' : 'Q4'}
-								required
-							/>
-						</div>
-						<div className="md:col-span-3 flex justify-end">
-							<button
-								type="submit"
-								disabled={processing || !data.subject_id || data.quarter1 === '' || data.quarter2 === ''}
-								className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 text-sm"
-							>
-								{processing ? 'Submitting...' : 'Save Credit Subject'}
-							</button>
-						</div>
-					</form>
-				)}
-
-				<div className="px-4 py-3 border-b flex items-center justify-between">
-					<h2 className="text-xs font-medium text-gray-600">Credited Subjects</h2>
-				</div>
-				{(existing || []).length === 0 ? (
-					<div className="p-4 text-sm text-gray-600">No credited subjects yet.</div>
-				) : (
-					<div className="divide-y divide-gray-200">
-						{existing.map((c) => (
-							<CreditRow key={c.id} credit={c} />
-						))}
-					</div>
-				)}
-			</div>
-		</div>
-	);
-}
-
-function CreditRow({ credit }) {
-	const [showGradeForm, setShowGradeForm] = useState(false);
-	const isApproved = !!credit.is_approved;
-	const isSubmitted = !!credit.is_submitted; // Check if submitted (credited_by is set)
-	const canEdit = !isApproved && !isSubmitted; // Cannot edit if approved or submitted
-	const form = useForm({ quarter1: credit.quarter1 ?? '', quarter2: credit.quarter2 ?? '', remarks: credit.remarks ?? '' });
-	const avg = useMemo(() => {
-		const q1 = parseFloat(form.data.quarter1);
-		const q2 = parseFloat(form.data.quarter2);
-		return Number.isFinite(q1) && Number.isFinite(q2) ? ((q1 + q2) / 2).toFixed(2) : (credit.credited_grade ?? '—');
-	}, [form.data.quarter1, form.data.quarter2, credit.credited_grade]);
-
-	const handleSave = (e) => {
-		e.preventDefault();
-		form.put(`/faculty/credited-subjects/${credit.id}`, { 
-			preserveScroll: true,
-			onSuccess: () => {
-				setShowGradeForm(false);
-			}
-		});
-	};
-
-	return (
-		<div className="px-4 py-3 hover:bg-gray-50">
-			<div className="flex items-center justify-between">
-				<div className="flex-1">
-					<div className="font-medium text-gray-900 text-sm">
-						{credit.subject_name}
-						{isApproved && (
-							<span className="ml-2 text-xs font-semibold text-green-600">(Approved)</span>
-						)}
-					</div>
-					{credit.previous_school && (
-						<div className="text-xs text-gray-500 mt-0.5">Prev: {credit.previous_school}</div>
-					)}
-				</div>
-				<div className="ml-4">
-					<button
-						type="button"
-						onClick={() => setShowGradeForm(!showGradeForm)}
-						className={`px-4 py-2 rounded-md text-xs font-medium transition-colors ${
-							canEdit 
-								? 'bg-indigo-600 text-white hover:bg-indigo-700' 
-								: 'bg-gray-400 text-white cursor-not-allowed'
-						}`}
-						disabled={!canEdit && !showGradeForm}
-					>
-						{showGradeForm ? 'Close' : canEdit ? 'View / Input Grades' : 'View Only (Submitted)'}
-					</button>
-				</div>
-			</div>
-			
-			{showGradeForm && (
-				<div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-					<form onSubmit={handleSave} className="space-y-4">
-						<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-							<div>
-								<label className="block text-xs font-medium text-gray-700 mb-1">Subject Code</label>
-								<div className="text-sm text-gray-900 font-medium">{credit.subject_code}</div>
-							</div>
-							<div>
-								<label className="block text-xs font-medium text-gray-700 mb-1">Q1/Q3</label>
-								<input
-									type="number"
-									min="0"
-									max="100"
-									step="0.01"
-									value={form.data.quarter1}
-									onChange={(e) => form.setData('quarter1', e.target.value)}
-									className={`w-full border rounded px-3 py-2 text-sm ${
-										!canEdit ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
-									}`}
-									placeholder="Enter grade"
-									disabled={!canEdit}
-									readOnly={!canEdit}
-								/>
-							</div>
-							<div>
-								<label className="block text-xs font-medium text-gray-700 mb-1">Q2/Q4</label>
-								<input
-									type="number"
-									min="0"
-									max="100"
-									step="0.01"
-									value={form.data.quarter2}
-									onChange={(e) => form.setData('quarter2', e.target.value)}
-									className={`w-full border rounded px-3 py-2 text-sm ${
-										!canEdit ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
-									}`}
-									placeholder="Enter grade"
-									disabled={!canEdit}
-									readOnly={!canEdit}
-								/>
-							</div>
-							<div>
-								<label className="block text-xs font-medium text-gray-700 mb-1">Average</label>
-								<div className="text-sm font-medium text-gray-900 py-2">{avg}</div>
-							</div>
-						</div>
-						<div>
-							<label className="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
-							<div className="text-sm text-gray-700">
-								{isApproved
-									? (credit.remarks || 'CREDITED')
-									: (avg !== '' && avg !== '—' ? (parseFloat(avg) >= 75 ? 'Passed' : 'Failed') : 'No Grades')}
-							</div>
-						</div>
-						{isApproved && (
-							<div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
-								<span className="font-medium">Approved by Registrar</span>
-								{credit.credited_at && (
-									<span className="ml-2 text-gray-600">on {credit.credited_at}</span>
-								)}
-							</div>
-						)}
-						{isSubmitted && !isApproved && (
-							<div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-								<span className="font-medium">Submitted - Pending Registrar Approval</span>
-								<p className="mt-1 text-gray-600">This credit has been submitted and cannot be edited. Please wait for registrar approval.</p>
-							</div>
-						)}
-						{canEdit && (
-							<div className="flex justify-end">
-								<button
-									type="submit"
-									disabled={form.processing}
-									className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 text-xs font-medium"
-								>
-									{form.processing ? 'Saving...' : 'Save Grades (Pending Approval)'}
-								</button>
-							</div>
-						)}
-					</form>
-				</div>
-			)}
-		</div>
-	);
-}
-
-

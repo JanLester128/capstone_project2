@@ -13,22 +13,26 @@ export default function Enrollment() {
 				<Head title="Registrar • Enrollment" />
 				<header className="bg-white shadow">
 					<div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-						<h1 className="text-2xl font-bold tracking-tight text-gray-900">Enrollment</h1>
-						<p className="mt-1 text-xs text-gray-600">
-							{activeSchoolYear ? `School Year: ${activeSchoolYear.label}` : 'No active school year'}
-							{activeSemester ? ` • ${activeSemester.label}` : ''}
-						</p>
+						<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+							<div>
+								<h1 className="text-2xl font-bold tracking-tight text-gray-900">Enrollment</h1>
+								<p className="mt-1 text-xs text-gray-600">
+									{activeSchoolYear ? `School Year: ${activeSchoolYear.label}` : 'No active school year'}
+									{activeSemester ? ` • ${activeSemester.label}` : ''}
+								</p>
+							</div>
+						</div>
 					</div>
 				</header>
 
-				<main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+				<main className="mx-auto max-w-7xl w-full px-4 py-6 sm:px-6 lg:px-8">
+				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					<Link
 						href={links?.enrollments || '/registrar/enrollments'}
-						className="block rounded-lg border border-gray-200 bg-white p-4 hover:shadow-md transition"
+						className="block rounded-xl border border-gray-200 bg-white p-5 hover:shadow-lg transition"
 					>
 						<div className="flex items-center justify-between">
-							<h2 className="text-sm font-semibold text-gray-900">Process New/Current Enrollments</h2>
+							<h2 className="text-base font-semibold text-gray-900">Process New/Current Enrollments</h2>
 							<div className="flex items-center gap-2">
 								{(counts?.pendingEnrollments || 0) > 0 && (
 									<span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1.5 rounded-full bg-red-600 text-white text-[10px]">
@@ -38,7 +42,7 @@ export default function Enrollment() {
 								<span className="text-[10px] text-purple-600">Go</span>
 							</div>
 						</div>
-						<p className="mt-1 text-xs text-gray-600">
+						<p className="mt-2 text-sm text-gray-600">
 							Review pre-enrolled/recommended students and approve enrollment.
 						</p>
 					</Link>
@@ -50,7 +54,11 @@ export default function Enrollment() {
 						<div className="flex items-center justify-between">
 							<h2 className="text-sm font-semibold text-gray-900">Re-enroll Students</h2>
 							<div className="flex items-center gap-2">
-								{/* optionally reflect pending counts if needed in future */}
+								{(counts?.reEnrollments || 0) > 0 && (
+									<span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1.5 rounded-full bg-red-600 text-white text-[10px]">
+										{counts.reEnrollments}
+									</span>
+								)}
 								<span className="text-[10px] text-purple-600">Go</span>
 							</div>
 						</div>

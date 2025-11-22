@@ -662,9 +662,21 @@ export default function Enrollments({
                                   {getInitials(enrollment.student?.name)}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="text-sm font-semibold text-gray-900 truncate">
-                                    {enrollment.student?.name}
-                                  </p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-semibold text-gray-900 truncate">
+                                      {enrollment.student?.name}
+                                    </p>
+                                    {enrollment.student_type && (
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                        enrollment.student_type_color === 'blue' ? 'bg-blue-100 text-blue-800' :
+                                        enrollment.student_type_color === 'green' ? 'bg-green-100 text-green-800' :
+                                        enrollment.student_type_color === 'purple' ? 'bg-purple-100 text-purple-800' :
+                                        'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        {enrollment.student_type_label}
+                                      </span>
+                                    )}
+                                  </div>
                                   <p className="text-xs text-gray-500 truncate">
                                     {enrollment.student?.email}
                                   </p>

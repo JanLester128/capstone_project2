@@ -5,6 +5,7 @@ import SectionForm from './Components/SectionForm'
 import SectionList from './Components/SectionList'
 import ReopenSectionModal from './Components/ReopenSectionModal'
 import Breadcrumb from './Components/Breadcrumb'
+import Swal from 'sweetalert2'
 
 export default function Sections({ sections = [], previousSections = [], strands = [], schoolYears = [], activeSchoolYear = null, activeSemester = null, users = [], flash = {} }) {
   const [showForm, setShowForm] = useState(false)
@@ -25,9 +26,31 @@ export default function Sections({ sections = [], previousSections = [], strands
   }
 
   const handleDelete = (sectionId) => {
-    if (confirm('Are you sure you want to delete this section?')) {
-      router.delete(`/registrar/sections/${sectionId}`)
-    }
+    Swal.fire({
+      title: 'Delete Section?',
+      text: 'Are you sure you want to delete this section? This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Delete',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        router.delete(`/registrar/sections/${sectionId}`, {
+          onSuccess: () => {
+            Swal.fire({
+              title: 'Deleted!',
+              text: 'Section has been deleted successfully.',
+              icon: 'success',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#10b981',
+              timer: 2000
+            })
+          }
+        })
+      }
+    })
   }
 
   const handleFormClose = () => {
@@ -37,26 +60,58 @@ export default function Sections({ sections = [], previousSections = [], strands
 
   const handleBulkReopen = (reopenType = 'school-year') => {
     if (selectedSections.length === 0) {
-      alert('Please select at least one section to reopen.')
+      Swal.fire({
+        title: 'No Sections Selected',
+        text: 'Please select at least one section to reopen.',
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#f59e0b'
+      })
       return
     }
 
     const actionText = reopenType === 'semester' ? 'for the active semester' : 'for the active school year'
     const endpoint = reopenType === 'semester' ? '/registrar/sections/reopen-for-semester' : '/registrar/sections/reopen-bulk'
 
-    if (confirm(`Are you sure you want to reopen ${selectedSections.length} sections ${actionText}? They will use their original capacity and no adviser will be assigned.`)) {
-      router.post(endpoint, {
-        section_ids: selectedSections
-      }, {
-        onSuccess: () => {
-          setSelectedSections([])
-          setBulkReopenMode(false)
-        },
-        onError: (errors) => {
-          console.error('Bulk reopen failed:', errors)
-        }
-      })
-    }
+    Swal.fire({
+      title: 'Reopen Sections?',
+      text: `Are you sure you want to reopen ${selectedSections.length} sections ${actionText}? They will use their original capacity and no adviser will be assigned.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Reopen',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        router.post(endpoint, {
+          section_ids: selectedSections
+        }, {
+          onSuccess: () => {
+            setSelectedSections([])
+            setBulkReopenMode(false)
+            Swal.fire({
+              title: 'Sections Reopened!',
+              text: `Successfully reopened ${selectedSections.length} sections.`,
+              icon: 'success',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#10b981',
+              timer: 2000
+            })
+          },
+          onError: (errors) => {
+            console.error('Bulk reopen failed:', errors)
+            Swal.fire({
+              title: 'Reopen Failed',
+              text: 'Failed to reopen sections. Please try again.',
+              icon: 'error',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#dc2626'
+            })
+          }
+        })
+      }
+    })
   }
 
   return (
@@ -65,9 +120,9 @@ export default function Sections({ sections = [], previousSections = [], strands
       <div className="flex-1 flex flex-col">
         <Head title="Registrar • Sections" />
 
-        <header className="bg-white shadow">
-          <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-            {/* Breadcrumb */}
+        {/* Enhanced Header */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
             <Breadcrumb 
               items={[
                 { href: '/registrar', label: 'Dashboard' },
@@ -75,20 +130,26 @@ export default function Sections({ sections = [], previousSections = [], strands
               ]} 
             />
             
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900">Sections</h1>
-                <p className="mt-1 text-sm text-gray-600">Manage class sections and their assignments</p>
+            <div className="mt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold text-gray-900">Class Sections</h1>
+                <p className="text-sm text-gray-600 mt-1">
+                  Manage class sections and their assignments
+                </p>
               </div>
+              
               <div className="flex items-center gap-3">
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">{filteredSections.length}</span> of <span className="font-medium">{sections.length}</span> sections
+                </div>
                 <Link
                   href="/registrar"
-                  className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                   </svg>
-                  Back to Dashboard
+                  Dashboard
                 </Link>
                 {previousSections && previousSections.length > 0 && (
                   <>
@@ -121,14 +182,17 @@ export default function Sections({ sections = [], previousSections = [], strands
                 )}
                 <button
                   onClick={() => setShowForm(true)}
-                  className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors shadow-sm"
                 >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
                   Add Section
                 </button>
               </div>
             </div>
           </div>
-        </header>
+        </div>
 
         <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           {/* Flash messages */}

@@ -665,10 +665,43 @@ export default function Classes({
   }
 
   const handleArchive = (classId, currentStatus) => {
-    const action = currentStatus ? 'archive (deactivate)' : 'restore (activate)'
-    if (confirm(`Are you sure you want to ${action} this class?`)) {
-      router.put(`/registrar/classes/${classId}/toggle`)
-    }
+    const action = currentStatus ? 'archive' : 'restore'
+    const actionText = currentStatus ? 'archive (deactivate)' : 'restore (activate)'
+    
+    Swal.fire({
+      title: `${action.charAt(0).toUpperCase() + action.slice(1)} Class?`,
+      text: `Are you sure you want to ${actionText} this class?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: currentStatus ? '#dc2626' : '#10b981',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: `Yes, ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        router.put(`/registrar/classes/${classId}/toggle`, {}, {
+          onSuccess: () => {
+            Swal.fire({
+              title: `${action.charAt(0).toUpperCase() + action.slice(1)}d!`,
+              text: `Class has been ${action}d successfully.`,
+              icon: 'success',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#10b981',
+              timer: 2000
+            })
+          },
+          onError: () => {
+            Swal.fire({
+              title: `${action.charAt(0).toUpperCase() + action.slice(1)} Failed`,
+              text: `Failed to ${action} the class. Please try again.`,
+              icon: 'error',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#dc2626'
+            })
+          }
+        })
+      }
+    })
   }
 
   const toggleSection = (sectionName) => {
@@ -1046,117 +1079,126 @@ export default function Classes({
           </div>
         )}
 
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm border p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Classes</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+        {/* Enhanced Header with Key Metrics */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            {/* System Status - Nielsen Heuristic #1: Visibility of System Status */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${
+                  activeSchoolYear && activeSemester ? 'bg-green-500' : 'bg-red-500'
+                }`}></div>
+                <span className="text-sm font-medium text-gray-700">
+                  {activeSchoolYear && activeSemester 
+                    ? `${activeSchoolYear.School_year_start}-${activeSchoolYear.School_year_end} • ${activeSemester.semester_type}`
+                    : 'No Active School Year/Semester'
+                  }
+                </span>
               </div>
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
+            </div>
+            
+            {/* Essential Statistics - Reduced from 5 to 3 cards */}
+            <div className="flex flex-wrap gap-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Classes</p>
+                  <p className="text-xl font-bold text-gray-900">{stats.total}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Active</p>
+                  <p className="text-xl font-bold text-green-600">{stats.active}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Sections</p>
+                  <p className="text-xl font-bold text-purple-600">{stats.sections}</p>
+                </div>
               </div>
             </div>
           </div>
-
-          <div className="bg-white rounded-lg shadow-sm border p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Active Classes</p>
-                <p className="text-2xl font-bold text-green-600">{stats.active}</p>
-              </div>
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Inactive Classes</p>
-                <p className="text-2xl font-bold text-red-600">{stats.inactive}</p>
-              </div>
-              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Sections</p>
-                <p className="text-2xl font-bold text-purple-600">{stats.sections}</p>
-              </div>
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Faculty</p>
-                <p className="text-2xl font-bold text-orange-600">{stats.faculty}</p>
-              </div>
-              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-            </div>
+          
+          {/* Secondary metrics in smaller text */}
+          <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-6 text-sm text-gray-600">
+            <span>Inactive: <strong className="text-red-600">{stats.inactive}</strong></span>
+            <span>Faculty Assigned: <strong className="text-orange-600">{stats.faculty}</strong></span>
+            <span>Completion Rate: <strong className="text-indigo-600">{stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0}%</strong></span>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="mb-6 flex justify-end gap-3">
-          {previousSemester && activeSemester && activeSemester.semester_type === '2nd Semester' && (
-            <button
-              onClick={handleCopyTimeSlots}
-              className="px-6 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 shadow-md bg-blue-600 hover:bg-blue-700 text-white"
-              title={`Copy time slots (schedule only) from ${previousSemester.semester_type} Semester`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Copy TimeSlots
-            </button>
-          )}
-          <button
-            onClick={() => setShowBulkForm(!showBulkForm)}
-            className={`px-6 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 shadow-md ${
-              showBulkForm
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-            }`}
-          >
-            {showBulkForm ? (
-              <>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        {/* Enhanced Action Bar - Nielsen Heuristic #7: Flexibility and Efficiency */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {/* Quick Actions */}
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => setShowBulkForm(!showBulkForm)}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm ${
+                  showBulkForm
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                }`}
+              >
+                {showBulkForm ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Cancel
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Create Classes
+                  </>
+                )}
+              </button>
+              
+              {previousSemester && activeSemester && activeSemester.semester_type === '2nd Semester' && (
+                <button
+                  onClick={handleCopyTimeSlots}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
+                  title={`Copy time slots from ${previousSemester.semester_type} Semester`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy Schedule
+                </button>
+              )}
+            </div>
+            
+            {/* Help Text - Nielsen Heuristic #10: Help and Documentation */}
+            <div className="text-sm text-gray-600">
+              <span className="inline-flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Cancel
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Add Classes (Bulk)
-              </>
-            )}
-          </button>
+                Tip: Use bulk creation for multiple classes or copy from previous semester
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Bulk Creation Form */}
@@ -1470,65 +1512,116 @@ export default function Classes({
           </div>
         )}
 
-        {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search Classes</label>
+        {/* Enhanced Search and Filters - Nielsen Heuristic #6: Recognition vs Recall */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+            {/* Primary Search */}
+            <div className="flex-1 lg:max-w-md">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Search Classes
+              </label>
+              <div className="relative">
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by section, faculty, semester..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Search by section, faculty, or subject..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
+                <svg className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Semester</label>
-              <select
-                value={filterSemester}
-                onChange={(e) => setFilterSemester(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">All Semesters</option>
-                {semesters.map(semester => (
-                  <option key={semester.id} value={semester.id}>
-                    {semester.semester_type}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
-              <select
-                value={filterSection}
-                onChange={(e) => setFilterSection(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">All Sections</option>
-                {sections.map(section => (
-                  <option key={section.id} value={section.id}>
-                    {section.section_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+            
+            {/* Filter Controls */}
+            <div className="flex flex-wrap gap-3">
+              <div className="min-w-[120px]">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Semester</label>
+                <select
+                  value={filterSemester}
+                  onChange={(e) => setFilterSemester(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                >
+                  <option value="">All</option>
+                  {semesters.map(semester => (
+                    <option key={semester.id} value={semester.id}>
+                      {semester.semester_type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="min-w-[140px]">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
+                <select
+                  value={filterSection}
+                  onChange={(e) => setFilterSection(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                >
+                  <option value="">All</option>
+                  {sections.map(section => (
+                    <option key={section.id} value={section.id}>
+                      {section.section_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="min-w-[100px]">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                >
+                  <option value="">All</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              
+              {/* Clear Filters */}
+              {(searchTerm || filterSemester || filterSection || filterStatus) && (
+                <div className="flex items-end">
+                  <button
+                    onClick={() => {
+                      setSearchTerm('')
+                      setFilterSemester('')
+                      setFilterSection('')
+                      setFilterStatus('')
+                    }}
+                    className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              )}
             </div>
           </div>
+          
+          {/* Results Summary */}
+          {(searchTerm || filterSemester || filterSection || filterStatus) && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-sm text-gray-600">
+                Showing <strong>{filteredClasses.length}</strong> of <strong>{classes.length}</strong> classes
+                {searchTerm && <span> matching "<strong>{searchTerm}</strong>"</span>}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Classes List */}

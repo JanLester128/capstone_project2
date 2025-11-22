@@ -90,8 +90,15 @@ export default function StudentDashboard({
       <StudentSidebar enrollmentStatus={enrollmentStatus} />
       <div className="flex-1">
         <Head title="Student Dashboard" />
-        <header className="bg-gradient-to-r from-rose-500 via-purple-500 to-indigo-500 text-white shadow">
-          <div className="max-w-6xl mx-auto px-6 py-8">
+        <header className="relative text-white shadow" style={{ backgroundColor: '#000825' }}>
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#000825] via-[#111946] to-[#1f2c6e] opacity-95" />
+            <div className="absolute top-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-x-1/3 -translate-y-1/3" />
+            <div className="absolute bottom-0 right-0 w-56 h-56 bg-white/10 rounded-full blur-3xl translate-x-1/4 translate-y-1/4" />
+            <div className="absolute top-1/3 right-1/4 w-48 h-48 bg-white/8 rounded-full blur-2xl" />
+            <div className="absolute bottom-1/3 left-1/4 w-40 h-40 bg-white/6 rounded-full blur-2xl" />
+          </div>
+          <div className="relative max-w-6xl mx-auto px-6 py-8">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-semibold">Welcome {auth?.user?.FirstName ?? 'Student'}</h1>

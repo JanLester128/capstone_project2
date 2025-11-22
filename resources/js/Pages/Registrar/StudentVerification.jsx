@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Head, useForm, router, usePage } from '@inertiajs/react'
 import RegistrarSidebar from '../Auth/Registrar_sidebar'
+import { useSidebar } from '../../contexts/SidebarContext'
 import { formatDateMedium } from '../../utils/dateFormatter'
 import Swal from 'sweetalert2'
 
 export default function StudentVerification({ unverifiedStudents, verifiedStudents }) {
+  const { isCollapsed } = useSidebar()
+  const desktopMarginClass = isCollapsed ? 'md:ml-16' : 'md:ml-64'
   const { flash } = usePage().props
   const [activeTab, setActiveTab] = useState('pending')
   const [selectedStudent, setSelectedStudent] = useState(null)
@@ -100,8 +103,7 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
       inputPlaceholder: 'Reason for rejection (optional)',
       inputAttributes: {
         'aria-label': 'Reason for rejection'
-      },
-      showCancelButton: true
+      }
     }).then((result) => {
       if (result.isConfirmed) {
         // Use router.post directly to ensure data is sent correctly
@@ -230,375 +232,301 @@ export default function StudentVerification({ unverifiedStudents, verifiedStuden
     student.user?.email?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const filteredVerifiedStudents = verifiedStudents.data.filter(student =>
+  const verifiedList = Array.isArray(verifiedStudents?.data) ? verifiedStudents.data : []
+
+  const filteredVerifiedStudents = verifiedList.filter(student =>
     student.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.lrn?.includes(searchTerm) ||
     student.user?.email?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  return (
-    <div className="min-h-screen bg-gray-50 lg:flex">
-      <RegistrarSidebar />
-      <div className="flex-1 lg:ml-0">
-        <Head title="Student Verification" />
-      
-      <div className="py-4 lg:py-6">
-        <div className="max-w-full mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
-          {/* Header */}
-          <div className="mb-4 lg:mb-6">
-            <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Student Account Verification</h1>
-            <p className="mt-1 text-xs lg:text-sm text-gray-600">
-              Review and verify student registrations based on their LRN and email information.
-            </p>
-          </div>
+  const showingPending = activeTab === 'pending'
+  const studentsToDisplay = showingPending ? filteredUnverifiedStudents : filteredVerifiedStudents
 
-          {/* Search Bar */}
-          <div className="mb-4 lg:mb-6">
-            <div className="relative max-w-md">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+  return (
+    <>
+      <Head title="Student Verification" />
+      <div className="min-h-screen bg-gray-50 flex">
+        <RegistrarSidebar />
+        <main className={`flex-1 ${desktopMarginClass}`}>
+          <div className="py-6 px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <p className="text-sm text-gray-500">Manage student registration approvals</p>
+                <h1 className="text-2xl font-semibold text-gray-900">Student Verification</h1>
               </div>
-              <input
-                type="text"
-                placeholder="Search by name, LRN, or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
-              />
-              {searchTerm && (
+              <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
                 <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setActiveTab('pending')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md ${showingPending ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}
                 >
-                  <svg className="h-4 w-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  Pending ({filteredUnverifiedStudents.length})
                 </button>
+                <button
+                  onClick={() => setActiveTab('verified')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md ${!showingPending ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  Verified ({filteredVerifiedStudents.length})
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full sm:max-w-md">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Search by name, LRN, or email"
+                  className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+              {showingPending && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleBulkApprove}
+                    disabled={isBulkApproving || selectedStudents.length === 0}
+                    className="inline-flex items-center rounded-lg border border-transparent bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isBulkApproving && (
+                      <svg className="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    )}
+                    Bulk Approve
+                  </button>
+                </div>
               )}
             </div>
-          </div>
 
-          {/* Tabs */}
-          <div className="border-b border-gray-200 mb-4 lg:mb-6">
-            <nav className="-mb-px flex space-x-4 lg:space-x-8 overflow-x-auto">
-              <button
-                onClick={() => {
-                  setActiveTab('pending')
-                  setSelectedStudent(null)
-                  setSelectedStudents([])
-                }}
-                className={`py-2 px-2 lg:px-1 border-b-2 font-medium text-xs lg:text-sm whitespace-nowrap ${
-                  activeTab === 'pending'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Pending Verification
-                {filteredUnverifiedStudents.length > 0 && (
-                  <span className="ml-1 lg:ml-2 bg-red-100 text-red-600 py-0.5 px-1.5 lg:px-2 rounded-full text-xs font-medium">
-                    {filteredUnverifiedStudents.length}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('verified')
-                  setSelectedStudent(null)
-                  setSelectedStudents([])
-                }}
-                className={`py-2 px-2 lg:px-1 border-b-2 font-medium text-xs lg:text-sm whitespace-nowrap ${
-                  activeTab === 'verified'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Verified Students
-              </button>
-            </nav>
-          </div>
-
-          {/* Split View Container */}
-          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
-            {/* Left Side - List */}
-            <div className={`${selectedStudent ? 'lg:w-1/2' : 'w-full'} bg-white shadow rounded-lg`}>
-              <div className="px-4 py-5 sm:p-6">
-                {/* Bulk Actions for Pending Tab */}
-                {activeTab === 'pending' && filteredUnverifiedStudents.length > 0 && (
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
+            <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <div className="bg-white rounded-lg shadow border border-gray-100">
+                {showingPending && filteredUnverifiedStudents.length > 0 && (
+                  <div className="flex items-center justify-between border-b px-4 py-3 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
                       <input
                         type="checkbox"
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         checked={selectedStudents.length === filteredUnverifiedStudents.length && filteredUnverifiedStudents.length > 0}
                         onChange={handleSelectAll}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
-                      <span className="text-sm text-gray-700">
-                        Select All ({selectedStudents.length} selected)
-                      </span>
+                      <span>Select all</span>
                     </div>
-                    {selectedStudents.length > 0 && (
-                      <button
-                        onClick={handleBulkApprove}
-                        disabled={isBulkApproving}
-                        className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Bulk Approve ({selectedStudents.length})
-                      </button>
-                    )}
+                    <span className="text-xs text-gray-500">{selectedStudents.length} selected</span>
                   </div>
                 )}
 
-                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                  {activeTab === 'pending' ? 'Students Awaiting Verification' : 'Verified Students'}
-                </h3>
-                
-                {activeTab === 'pending' && filteredUnverifiedStudents.length === 0 ? (
-                  <div className="text-center py-12">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No pending verifications</h3>
-                    <p className="mt-1 text-sm text-gray-500">All student registrations have been processed.</p>
-                  </div>
-                ) : activeTab === 'verified' && filteredVerifiedStudents.length === 0 ? (
-                  <div className="text-center py-12">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No verified students</h3>
-                    <p className="mt-1 text-sm text-gray-500">Verified students will appear here.</p>
+                {studentsToDisplay.length === 0 ? (
+                  <div className="px-6 py-12 text-center text-sm text-gray-500">
+                    {showingPending ? 'No pending students found.' : 'No verified students found.'}
                   </div>
                 ) : (
-                  <div className="space-y-1">
-                    {(activeTab === 'pending' ? filteredUnverifiedStudents : filteredVerifiedStudents).map((student) => (
-                      <div 
-                        key={student.id} 
-                        className={`flex items-center justify-between p-4 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 cursor-pointer transition-colors ${
-                          selectedStudent?.id === student.id ? 'bg-blue-50 border-blue-200' : ''
-                        }`}
-                        onClick={() => handleViewStudent(student)}
-                      >
-                        <div className="flex items-center flex-1 min-w-0">
-                          {/* Checkbox for bulk selection (pending tab only) */}
-                          {activeTab === 'pending' && (
+                  <ul className="divide-y divide-gray-100">
+                    {studentsToDisplay.map(student => {
+                      const initials = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.trim() || 'NA'
+                      const isSelected = selectedStudents.includes(student.id)
+                      const isActive = selectedStudent?.id === student.id
+
+                      return (
+                        <li
+                          key={student.id}
+                          onClick={() => handleViewStudent(student)}
+                          className={`p-4 flex items-start gap-4 cursor-pointer transition hover:bg-gray-50 ${isActive ? 'bg-blue-50/60' : ''}`}
+                        >
+                          {showingPending && (
                             <input
                               type="checkbox"
-                              checked={selectedStudents.includes(student.id)}
-                              onChange={(e) => {
-                                e.stopPropagation()
-                                handleSelectStudent(student.id)
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3"
+                              onClick={e => e.stopPropagation()}
+                              checked={isSelected}
+                              onChange={() => handleSelectStudent(student.id)}
+                              className="mt-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                           )}
-                          
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                              activeTab === 'pending' ? 'bg-gray-300' : 'bg-green-100'
-                            }`}>
-                              {activeTab === 'verified' ? (
-                              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
+                          <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full ${showingPending ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'} font-semibold`}>
+                            {initials}
+                          </div>
+                          <div className="flex flex-1 flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                              <p className="text-base font-semibold text-gray-900 truncate">{student.full_name}</p>
+                              {showingPending ? (
+                                <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">Pending</span>
                               ) : (
-                                <span className="text-sm font-medium text-gray-700">
-                                  {student.first_name?.[0]}{student.last_name?.[0]}
-                                </span>
+                                <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">Verified</span>
                               )}
                             </div>
+                            <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                              <div className="flex items-center gap-1">
+                                <svg className="h-4 w-4 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                </svg>
+                                <span className="font-medium text-gray-900">{student.lrn}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <svg className="h-4 w-4 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                <span className="text-gray-900">{student.user?.email || 'N/A'}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <svg className="h-4 w-4 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-9 4h4m-6 4h8a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                <span>{formatDateMedium(student.created_at)}</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="ml-4 flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">
-                                  {student.full_name}
-                                </p>
-                            <p className="text-xs text-gray-500 font-mono">
-                              LRN: {student.lrn}
-                            </p>
-                          </div>
-                        </div>
-                        {activeTab === 'pending' && (
-                          <div className="flex items-center space-x-2 ml-4">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleViewStudent(student)
-                              }}
-                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            >
-                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                              <span className="hidden sm:inline">View</span>
-                            </button>
-                        </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                          <button
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation()
+                              handleViewStudent(student)
+                            }}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
                 )}
               </div>
-            </div>
 
-            {/* Right Side - Details Card */}
-            {selectedStudent && (
-              <div className="lg:w-1/2 bg-white shadow rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">Student Details</h3>
-                    <button
-                      onClick={() => setSelectedStudent(null)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    {/* Profile Section */}
-                    <div className="flex items-center space-x-4 pb-4 border-b">
-                      <div className="flex-shrink-0 h-16 w-16">
-                        <div className="h-16 w-16 rounded-full bg-gray-300 flex items-center justify-center">
-                          <span className="text-xl font-medium text-gray-700">
-                            {selectedStudent.first_name?.[0]}{selectedStudent.last_name?.[0]}
-                          </span>
-                        </div>
+              <div className="bg-white rounded-lg shadow border border-gray-100">
+                {selectedStudent ? (
+                  <div className="px-5 py-6 space-y-5">
+                    <div className="flex items-center gap-4 border-b pb-4">
+                      <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center text-xl font-semibold text-gray-700">
+                        {selectedStudent.first_name?.[0]}{selectedStudent.last_name?.[0]}
                       </div>
                       <div>
-                        <h4 className="text-lg font-semibold text-gray-900">{selectedStudent.full_name}</h4>
-                        <p className="text-sm text-gray-500">{getLevelLabel(selectedStudent)}</p>
-        </div>
-      </div>
-
-                    {/* Personal Information */}
-                    <div className="space-y-3">
-                      <h5 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Personal Information</h5>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-xs font-medium text-gray-500">LRN</p>
-                          <p className="text-sm text-gray-900 font-mono">{selectedStudent.lrn}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500">Email</p>
-                          <p className="text-sm text-gray-900">{selectedStudent.user?.email || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500">First Name</p>
-                          <p className="text-sm text-gray-900">{selectedStudent.first_name || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500">Middle Name</p>
-                          <p className="text-sm text-gray-900">{selectedStudent.middle_name || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500">Last Name</p>
-                          <p className="text-sm text-gray-900">{selectedStudent.last_name || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500">Suffix</p>
-                          <p className="text-sm text-gray-900">{selectedStudent.suffix || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500">Date of Birth</p>
-                          <p className="text-sm text-gray-900">{selectedStudent.date_of_birth ? formatDateMedium(selectedStudent.date_of_birth) : 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500">Sex</p>
-                          <p className="text-sm text-gray-900">{selectedStudent.sex || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500">Age</p>
-                          <p className="text-sm text-gray-900">{selectedStudent.age || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500">Contact Number</p>
-                          <p className="text-sm text-gray-900">{selectedStudent.contact_number || 'N/A'}</p>
-                        </div>
+                        <h2 className="text-lg font-semibold text-gray-900">{selectedStudent.full_name}</h2>
+                        <p className="text-sm text-gray-500">{getLevelLabel(selectedStudent) || 'No level assigned yet'}</p>
                       </div>
-              </div>
+                    </div>
 
-                    {/* Address Information */}
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Personal Information</h3>
+                      <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500">LRN</dt>
+                          <dd className="text-sm text-gray-900 font-mono">{selectedStudent.lrn}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500">Email</dt>
+                          <dd className="text-sm text-gray-900">{selectedStudent.user?.email || 'N/A'}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500">First Name</dt>
+                          <dd className="text-sm text-gray-900">{selectedStudent.first_name || 'N/A'}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500">Middle Name</dt>
+                          <dd className="text-sm text-gray-900">{selectedStudent.middle_name || 'N/A'}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500">Last Name</dt>
+                          <dd className="text-sm text-gray-900">{selectedStudent.last_name || 'N/A'}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500">Suffix</dt>
+                          <dd className="text-sm text-gray-900">{selectedStudent.suffix || 'N/A'}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500">Birthdate</dt>
+                          <dd className="text-sm text-gray-900">{selectedStudent.date_of_birth ? formatDateMedium(selectedStudent.date_of_birth) : 'N/A'}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500">Sex</dt>
+                          <dd className="text-sm text-gray-900">{selectedStudent.sex || 'N/A'}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500">Age</dt>
+                          <dd className="text-sm text-gray-900">{selectedStudent.age || 'N/A'}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500">Contact Number</dt>
+                          <dd className="text-sm text-gray-900">{selectedStudent.contact_number || 'N/A'}</dd>
+                        </div>
+                      </dl>
+                    </div>
+
                     {(selectedStudent.address || selectedStudent.municipality || selectedStudent.barangay) && (
-                      <div className="space-y-3 pt-4 border-t">
-                        <h5 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Address</h5>
-                        <div className="space-y-2">
+                      <div className="space-y-3 border-t pt-4">
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Address</h3>
+                        <dl className="space-y-3">
                           {selectedStudent.address && (
                             <div>
-                              <p className="text-xs font-medium text-gray-500">Street Address</p>
-                              <p className="text-sm text-gray-900">{selectedStudent.address}</p>
+                              <dt className="text-xs font-medium text-gray-500">Street</dt>
+                              <dd className="text-sm text-gray-900">{selectedStudent.address}</dd>
                             </div>
                           )}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             {selectedStudent.barangay && (
                               <div>
-                                <p className="text-xs font-medium text-gray-500">Barangay</p>
-                                <p className="text-sm text-gray-900">{selectedStudent.barangay}</p>
+                                <dt className="text-xs font-medium text-gray-500">Barangay</dt>
+                                <dd className="text-sm text-gray-900">{selectedStudent.barangay}</dd>
                               </div>
                             )}
                             {selectedStudent.municipality && (
                               <div>
-                                <p className="text-xs font-medium text-gray-500">Municipality</p>
-                                <p className="text-sm text-gray-900">{selectedStudent.municipality}</p>
+                                <dt className="text-xs font-medium text-gray-500">Municipality</dt>
+                                <dd className="text-sm text-gray-900">{selectedStudent.municipality}</dd>
                               </div>
                             )}
                             {selectedStudent.zip_code && (
                               <div>
-                                <p className="text-xs font-medium text-gray-500">Zip Code</p>
-                                <p className="text-sm text-gray-900">{selectedStudent.zip_code}</p>
-                  </div>
-                )}
-              </div>
-                        </div>
+                                <dt className="text-xs font-medium text-gray-500">Zip Code</dt>
+                                <dd className="text-sm text-gray-900">{selectedStudent.zip_code}</dd>
+                              </div>
+                            )}
+                          </div>
+                        </dl>
                       </div>
                     )}
 
-                    {/* Registration Date */}
-                    <div className="pt-4 border-t">
-                      <p className="text-xs font-medium text-gray-500">Registration Date</p>
-                      <p className="text-sm text-gray-900">{formatDateMedium(selectedStudent.created_at)}</p>
+                    <div className="border-t pt-4">
+                      <dt className="text-xs font-medium text-gray-500">Registration Date</dt>
+                      <dd className="text-sm text-gray-900">{formatDateMedium(selectedStudent.created_at)}</dd>
                     </div>
 
-                    {/* Action Buttons (only for pending tab) */}
-                    {activeTab === 'pending' && (
-                      <div className="pt-4 border-t flex space-x-3">
-                <button
+                    {showingPending && (
+                      <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row">
+                        <button
                           onClick={() => handleApprove(selectedStudent)}
                           disabled={processing}
-                          className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                >
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          Approve
-                </button>
-                <button
-                          onClick={() => handleReject(selectedStudent)}
-                  disabled={processing}
-                          className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                          className="inline-flex flex-1 items-center justify-center rounded-lg border border-transparent bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                          Reject
-                </button>
-              </div>
+                          Approve Student
+                        </button>
+                        <button
+                          onClick={() => handleReject(selectedStudent)}
+                          disabled={processing}
+                          className="inline-flex flex-1 items-center justify-center rounded-lg border border-transparent bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Reject Student
+                        </button>
+                      </div>
                     )}
+                  </div>
+                ) : (
+                  <div className="px-6 py-16 text-center text-sm text-gray-500">
+                    Select a student to view their details.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-          </div>
-        </div>
+        </main>
       </div>
-      </div>
-    </div>
+    </>
   )
 }

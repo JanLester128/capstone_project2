@@ -2,84 +2,8 @@ import { useMemo, useState, useEffect } from 'react'
 import { Head, useForm, usePage } from '@inertiajs/react'
 import StudentSidebar from '../Auth/Student_sidebar'
 
-// Lightweight selector for transferee subjects, uses subjects passed from page props
-function TransfereeSubjectsSelector({ value, onChange, subjects, selectedStrandId, selectedSemester, selectedYearLevel }) {
-  // Filter by selected strand (first preference/assigned target), selected semester, and year level, then dedupe by subject code
-  const filteredByStrand = (subjects ?? []).filter(s => {
-    if (!selectedStrandId) return true
-    const sid = s.strand_id ?? s.strandId
-    return String(sid) === String(selectedStrandId)
-  })
-  const semesterNorm = String(selectedSemester || '').toLowerCase()
-  const filtered = filteredByStrand.filter(s => {
-    if (!semesterNorm) return true
-    const semField = (s.Semester ?? s.semester ?? '').toString().toLowerCase()
-    // Accept both numeric and text forms
-    if (semesterNorm.startsWith('1')) {
-      return semField === '1' || semField === '1st'
-    }
-    if (semesterNorm.startsWith('2')) {
-      return semField === '2' || semField === '2nd'
-    }
-    return true
-  })
-  const filteredByYear = (filtered ?? []).filter(s => {
-    if (!selectedYearLevel) return true
-    const yl = Number(s.year_level ?? s.yearLevel ?? 0)
-    return Number(selectedYearLevel) === yl
-  })
-  const deduped = Array.from(new Map(filteredByYear.map(s => {
-    const code = (s.Subject_code ?? s.code ?? '').toString()
-    return [code, s]
-  })).values())
-
-  const mapped = deduped.map(s => ({
-    id: s.Id ?? s.id,
-    name: s.Subject_name ?? s.name,
-    code: s.Subject_code ?? s.code,
-    strand_id: s.strand_id ?? s.strandId,
-  }))
-
-  const toggle = (id) => {
-    const idStr = String(id)
-    if (value.includes(idStr) || value.includes(id)) {
-      onChange(value.filter(v => String(v) !== idStr))
-    } else {
-      onChange([...value, idStr])
-    }
-  }
-
-  if (!mapped.length) {
-    return (
-      <div className="rounded border border-yellow-200 bg-yellow-50 px-3 py-2 text-xs text-yellow-800">
-        No subject catalog available yet. You can still proceed; registrar will handle crediting.
-      </div>
-    )
-  }
-
-  return (
-    <div className="max-h-48 overflow-auto rounded border border-gray-200">
-      {mapped.map((s) => {
-        const idStr = String(s.id)
-        const checked = value.map(String).includes(idStr)
-        return (
-          <label key={idStr} className="flex items-center justify-between px-3 py-2 border-b last:border-b-0 hover:bg-gray-50">
-            <div className="flex-1">
-              <div className="text-sm font-medium text-gray-900">{s.name}</div>
-              <div className="text-xs text-gray-500">{s.code}</div>
-            </div>
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={() => toggle(idStr)}
-              className="h-4 w-4 text-blue-600 rounded border-gray-300"
-            />
-          </label>
-        )
-      })}
-    </div>
-  )
-}
+// Note: Transferee subject selection has been removed from student enrollment. 
+// Subject crediting for transferees is now handled exclusively by coordinators/registrars.
 
 const STEP_FIELDS = {
   1: [
@@ -89,7 +13,6 @@ const STEP_FIELDS = {
   2: [
     'psa_birth_certificate_photo',
     'report_card_photo',
-    'subjects_for_credit',
   ],
 }
 
@@ -168,8 +91,7 @@ export default function EnrollmentForm({ strands, studentInfo, strandPreferences
       strandPreferences?.[3] || ''
     ],
     
-    // Transferee fields (only shown if transferee and after strand selection)
-    subjects_for_credit: [],
+    // Note: subjects_for_credit removed - transferee subject crediting handled by coordinators/registrars
     
     // Document Uploads
     psa_birth_certificate_photo: null,
@@ -520,32 +442,30 @@ export default function EnrollmentForm({ strands, studentInfo, strandPreferences
                       </div>
                     </div>
 
-                    {/* Transferee Subject Selection - Only show if transferee and after selecting 1st strand preference */}
-                    {isTransferee && data.strand_preferences?.[0] && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <h3 className="font-medium text-gray-900 mb-3">Subjects To Be Credited</h3>
-                        <p className="text-sm text-gray-600 mb-3">
-                          Select subjects from your <strong>1st choice strand</strong> that you want to credit. 
-                          Only subjects from {strands?.find(s => s.id.toString() === data.strand_preferences[0]?.toString())?.Strand_name || 'your selected strand'} are shown.
-                        </p>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Subjects To Be Credited (select all that apply)
-                          </label>
-                          <TransfereeSubjectsSelector
-                            value={data.subjects_for_credit}
-                            onChange={(ids) => setData('subjects_for_credit', ids)}
-                            subjects={availableSubjects}
-                            selectedStrandId={(data.strand_preferences?.[0] || '').toString()}
-                            selectedSemester={data.semester}
-                            selectedYearLevel={(Number(studentInfo?.grade_level_completed) === 10 ? 11 : (Number(studentInfo?.grade_level_completed) === 11 ? 12 : 11))}
-                          />
-                          {getFieldError('subjects_for_credit') && (
-                            <p className="mt-1 text-sm text-red-600">{getFieldError('subjects_for_credit')}</p>
-                          )}
-                          <p className="mt-1 text-xs text-gray-600">
-                            Selected subjects will be reviewed by the coordinator/registrar. Grades will be encoded in-person before final enrollment.
-                          </p>
+                    {/* Transferee Information Notice */}
+                    {isTransferee && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <div className="flex items-start">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="text-sm font-medium text-amber-800">
+                              Transferee Student Notice
+                            </h3>
+                            <div className="mt-2 text-sm text-amber-700">
+                              <p>
+                                As a transferee student, your subject crediting and grade input will be handled by the 
+                                <strong> coordinator or registrar</strong> during your enrollment processing. 
+                              </p>
+                              <p className="mt-2">
+                                Please proceed with your enrollment application. The academic staff will review your 
+                                previous academic records and determine appropriate subject credits.
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}

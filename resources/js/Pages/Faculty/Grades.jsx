@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import FacultySidebar from '../Auth/Faculty_sidebar'
 
 const FALLBACK_STATUSES = ['Draft', 'Pending', 'Approved', 'Rejected']
+const STORAGE_KEY = 'facultyGradesSelectedClassId'
 
 // Function to convert 24-hour time to 12-hour format
 const formatTimeTo12Hour = (time24) => {
@@ -58,17 +59,42 @@ const normalizeNumberForPayload = (value) => {
 export default function FacultyGrades({ user = {}, classes = [], gradeStatuses = [], flash = {}, activeSchoolYear, activeSemester }) {
   const statusOptions = useMemo(() => (gradeStatuses?.length ? gradeStatuses : FALLBACK_STATUSES), [gradeStatuses])
 
-  const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || null)
+  const [selectedClassId, setSelectedClassId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const storedId = window.localStorage.getItem(STORAGE_KEY)
+      if (storedId) {
+        return Number(storedId)
+      }
+    }
+    return classes[0]?.id || null
+  })
   const [gradeForm, setGradeForm] = useState({})
   const [statusFilter, setStatusFilter] = useState('all')
   const [saving, setSaving] = useState(false)
   const [selectedStudents, setSelectedStudents] = useState({})
 
   useEffect(() => {
-    if (!selectedClassId && classes.length) {
-      setSelectedClassId(classes[0].id)
+    if (!classes.length) {
+      setSelectedClassId(null)
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(STORAGE_KEY)
+      }
+      return
     }
-  }, [classes, selectedClassId])
+
+    setSelectedClassId((current) => {
+      if (current && classes.some((cls) => cls.id === current)) {
+        return current
+      }
+      return classes[0].id
+    })
+  }, [classes])
+
+  useEffect(() => {
+    if (selectedClassId && typeof window !== 'undefined') {
+      window.localStorage.setItem(STORAGE_KEY, String(selectedClassId))
+    }
+  }, [selectedClassId])
 
   const selectedClass = useMemo(
     () => classes.find((cls) => cls.id === selectedClassId) || null,

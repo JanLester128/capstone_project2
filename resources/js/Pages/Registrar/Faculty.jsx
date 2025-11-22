@@ -170,7 +170,7 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
           </div>
         )}
 
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 w-full">
+        <main className="mx-auto max-w-7xl w-full px-3 py-6 sm:px-6 lg:px-8">
           {/* Header - HCI Principle 6: Recognition rather than recall */}
           <div className="mb-8">
             <Breadcrumb 
@@ -179,8 +179,8 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                 { label: 'Faculty Management', href: '/registrar/faculty', current: true }
               ]} 
             />
-            <div className="flex items-center justify-between mt-4">
-              <div>
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mt-4">
+              <div className="w-full md:w-auto">
                 <h1 className="text-2xl font-bold text-gray-900">Faculty Management</h1>
                 <p className="text-sm text-gray-600 mt-1">
                   Manage faculty members and their information
@@ -188,7 +188,7 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
               </div>
               <button
                 onClick={() => setShowForm(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 w-full md:w-auto"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -200,8 +200,8 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
 
           {/* Enhanced Search and Controls */}
           <div className="mb-6 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="relative max-w-md">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="relative w-full lg:max-w-md">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -216,7 +216,7 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                 />
               </div>
               
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full lg:w-auto">
                 {/* View Mode Toggle */}
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">View:</span>
@@ -250,14 +250,14 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                   </div>
                 </div>
 
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-500 text-center sm:text-left">
                   Showing {filteredFaculty.length} of {faculty.length} faculty members
                 </div>
               </div>
             </div>
 
             {/* Strand Filter */}
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <span className="text-sm font-medium text-gray-700">Filter by Strand:</span>
               <select
                 value={selectedStrand}
@@ -287,8 +287,8 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                 return (
                   <div key={strand.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     {/* Strand Header */}
-                    <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-6 py-4 border-b border-gray-200">
-                      <div className="flex items-center justify-between">
+                    <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-4 py-4 sm:px-6 border-b border-gray-200">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center space-x-3">
                           <div className="flex items-center justify-center w-10 h-10 bg-indigo-100 rounded-lg">
                             <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -316,8 +316,8 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                     <div className="divide-y divide-gray-200">
                       {strandFaculty.map((member) => (
                         <div key={member.id} className="group hover:bg-gray-50 transition-colors duration-150">
-                          <div className="px-6 py-4">
-                            <div className="flex items-center justify-between">
+                          <div className="px-4 py-4 sm:px-6">
+                            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                               {/* Faculty Info */}
                               <div className="flex items-center space-x-4 flex-1 min-w-0">
                                 <div className="relative flex-shrink-0">
@@ -360,7 +360,7 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                               </div>
 
                               {/* Action Buttons */}
-                              <div className="flex items-center space-x-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 {/* Coordinator Toggle Button */}
                                 <button
                                   onClick={() => handleCoordinatorToggle(member)}
@@ -429,8 +429,8 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
               {groupedFaculty.unassigned.length > 0 && (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                   {/* Unassigned Header */}
-                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
-                    <div className="flex items-center justify-between">
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-4 sm:px-6 border-b border-gray-200">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="flex items-center justify-center w-10 h-10 bg-gray-100 rounded-lg">
                           <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -456,8 +456,8 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                   <div className="divide-y divide-gray-200">
                     {groupedFaculty.unassigned.map((member) => (
                       <div key={member.id} className="group hover:bg-gray-50 transition-colors duration-150">
-                        <div className="px-6 py-4">
-                          <div className="flex items-center justify-between">
+                        <div className="px-4 py-4 sm:px-6">
+                          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                             {/* Faculty Info */}
                             <div className="flex items-center space-x-4 flex-1 min-w-0">
                               <div className="relative flex-shrink-0">
@@ -500,7 +500,7 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="flex items-center space-x-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               {/* Coordinator Toggle Button */}
                               <button
                                 onClick={() => handleCoordinatorToggle(member)}
@@ -568,8 +568,8 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
             /* Regular List View */
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               {/* List Header */}
-              <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
-                <div className="flex items-center justify-between">
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 border-b border-gray-200">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <h3 className="text-sm font-medium text-gray-900">Faculty Members</h3>
                   <span className="text-xs text-gray-500">{filteredFaculty.length} members</span>
                 </div>
@@ -579,8 +579,8 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
               <div className="divide-y divide-gray-200">
                 {filteredFaculty.map((member, index) => (
                   <div key={member.id} className="group hover:bg-gray-50 transition-colors duration-150">
-                    <div className="px-6 py-4">
-                      <div className="flex items-center justify-between">
+                    <div className="px-4 py-4 sm:px-6">
+                      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         {/* Left Section - Avatar and Info */}
                         <div className="flex items-center space-x-4 flex-1 min-w-0">
                           {/* Avatar with Status */}
@@ -645,7 +645,7 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                         </div>
 
                         {/* Right Section - Actions */}
-                        <div className="flex items-center space-x-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {/* Coordinator Toggle Button - More Visible */}
                           <button
                             onClick={() => handleCoordinatorToggle(member)}

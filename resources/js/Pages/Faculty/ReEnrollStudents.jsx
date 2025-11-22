@@ -19,7 +19,6 @@ export default function ReEnrollStudents({
   const [selectedStudents, setSelectedStudents] = useState([])
   const [expandedStudent, setExpandedStudent] = useState(null)
   const [bulkProcessing, setBulkProcessing] = useState(false)
-
   const safeEnrolledStudents = Array.isArray(enrolledStudents) ? enrolledStudents : []
 
   const filteredStudents = useMemo(() => {
@@ -107,17 +106,23 @@ export default function ReEnrollStudents({
   }
 
   const getStatusBadge = (student) => {
+    if (student.is_enrolled_in_summer || student.academic_status === 'enrolled') {
+      return 'bg-blue-100 text-blue-800 border-blue-300'
+    }
     if (student.academic_status === 'critical') {
       return 'bg-red-100 text-red-800 border-red-300'
-    } else if (student.academic_status === 'warning') {
+    }
+    if (student.academic_status === 'warning') {
       return 'bg-amber-100 text-amber-800 border-amber-300'
     }
     return 'bg-green-100 text-green-800 border-green-300'
   }
 
   const getStatusLabel = (student) => {
+    if (student.is_enrolled_in_summer || student.academic_status === 'enrolled') {
+      return 'Enrolled in Summer'
+    }
     if (student.academic_status === 'critical') {
-      // Check if STEM student
       const isSTEM = student.latest_enrollment?.assigned_strand?.Strand_code?.toUpperCase().includes('STEM')
       if (isSTEM) return 'STEM - Must Change Strand'
       return 'Failed Prerequisites'
@@ -131,29 +136,7 @@ export default function ReEnrollStudents({
   }
 
   const handleReEnrollStudent = (student) => {
-    if (!activeSchoolYear || !activeSemester) {
-      alert('No active school year or semester found.')
-      return
-    }
-
-    if (checkIfEnrolledInCurrentTerm(student)) {
-      alert('This student is already enrolled for the current term.')
-      return
-    }
-
-    // Use previous strand/section or allow selection
-    const defaultStrandId = student.latest_enrollment?.assigned_strand_id
-    const defaultSectionId = student.latest_enrollment?.assigned_section_id
-
-    if (confirm(`Re-enroll ${student.user?.name || 'this student'} for ${activeSchoolYear.label} - ${activeSemester.label}?`)) {
-      router.post('/faculty/enrollments/re-enroll-auto', {
-        student_info_id: student.id,
-        school_year_id: activeSchoolYear.id,
-        semester_id: activeSemester.id,
-        assigned_strand_id: defaultStrandId,
-        assigned_section_id: defaultSectionId,
-      })
-    }
+    window.open(`/faculty/students/${student.id}/enroll?from=re-enroll`, '_blank')
   }
 
   return (
@@ -500,17 +483,26 @@ export default function ReEnrollStudents({
                                     </div>
                                   )}
 
-                                  {/* Action Buttons */}
-                                  <div className="flex justify-end gap-3">
-                                    <button
-                                      onClick={() => handleReEnrollStudent(student)}
-                                      className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
-                                    >
-                                      <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M4 4a2 2 0 0 1 2-2h6l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" />
-                                      </svg>
-                                      Enroll
-                                    </button>
+                                  <div className="mt-6 rounded-lg border border-white/70 bg-white p-4 shadow-sm">
+                                    <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                                      Complete Enrollment in Registrar View
+                                    </h4>
+                                    <p className="text-sm text-gray-600">
+                                      Use the registrar enrollment workspace to assign a strand/section, review the student's
+                                      COR, and finalize re-enrollment. This opens the same screen used by the registrar team so
+                                      you can follow the full workflow.
+                                    </p>
+                                    <div className="mt-4 flex flex-wrap items-center gap-3 justify-end">
+                                      <button
+                                        onClick={() => handleReEnrollStudent(student)}
+                                        className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+                                      >
+                                        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                          <path d="M4 4a2 2 0 0 1 2-2h6l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" />
+                                        </svg>
+                                        Open Enrollment Page
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                               </td>

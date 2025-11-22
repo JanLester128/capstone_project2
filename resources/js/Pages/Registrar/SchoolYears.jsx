@@ -5,6 +5,7 @@ import Breadcrumb from './Components/Breadcrumb'
 import SemesterForm from './Components/SemesterForm'
 import EnrollmentControlModal from './Components/EnrollmentControlModal'
 import { formatDateMedium } from '../../utils/dateFormatter'
+import Swal from 'sweetalert2'
 
 export default function SchoolYears({ schoolYears = [], flash = {} }) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -63,12 +64,49 @@ export default function SchoolYears({ schoolYears = [], flash = {} }) {
     setProcessing(true)
     setErrors({})
 
-    // HCI Principle 5: Error prevention - Validate year range
+    // Enhanced validation with SweetAlert
     const startYear = parseInt(formData.School_year_start)
     const endYear = parseInt(formData.School_year_end)
     
+    if (!startYear || startYear < (currentYear - 5) || startYear > (currentYear + 10)) {
+      Swal.fire({
+        title: 'Invalid Start Year',
+        text: `Start year must be between ${currentYear - 5} and ${currentYear + 10}.`,
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#f59e0b'
+      })
+      setProcessing(false)
+      return
+    }
+    
     if (endYear !== startYear + 1) {
-      setErrors({ School_year_end: 'End year must be exactly one year after start year' })
+      Swal.fire({
+        title: 'Invalid Year Range',
+        text: 'End year must be exactly one year after start year.',
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#f59e0b'
+      })
+      setProcessing(false)
+      return
+    }
+
+    // Check for duplicate school years
+    const existingYear = schoolYears.find(year => 
+      year.School_year_start === startYear && 
+      year.School_year_end === endYear &&
+      (!editingYear || year.id !== editingYear.id)
+    )
+    
+    if (existingYear) {
+      Swal.fire({
+        title: 'Duplicate School Year',
+        text: `School year ${startYear}-${endYear} already exists. Please choose a different year range.`,
+        icon: 'error',
+        confirmButtonText: 'Choose Different Year',
+        confirmButtonColor: '#dc2626'
+      })
       setProcessing(false)
       return
     }
@@ -91,8 +129,27 @@ export default function SchoolYears({ schoolYears = [], flash = {} }) {
         setShowForm(false)
         setEditingYear(null)
         setFormData({ School_year_start: '', School_year_end: '', is_active: false })
+        
+        Swal.fire({
+          title: editingYear ? 'School Year Updated!' : 'School Year Created!',
+          text: `School year ${startYear}-${endYear} has been ${editingYear ? 'updated' : 'created'} successfully.`,
+          icon: 'success',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#10b981',
+          timer: 3000
+        })
       },
-      onError: (errors) => setErrors(errors),
+      onError: (errors) => {
+        setErrors(errors)
+        const errorMessages = Object.values(errors).flat()
+        Swal.fire({
+          title: 'Validation Error',
+          html: `Please fix the following errors:<br><br><strong>${errorMessages.join('<br>')}</strong>`,
+          icon: 'error',
+          confirmButtonText: 'Fix Errors',
+          confirmButtonColor: '#dc2626'
+        })
+      },
       onFinish: () => setProcessing(false)
     })
   }
@@ -108,20 +165,33 @@ export default function SchoolYears({ schoolYears = [], flash = {} }) {
   }
 
   const handleSetActive = (year) => {
-    // HCI Principle 5: Error prevention
     if (year.is_active) return
     
-    if (confirm(`Set ${year.School_year_start}-${year.School_year_end} as the active school year? 
-
-This will:
-• Deactivate the current active year
-• Automatically reset data for the new academic year
-• Deactivate all strands (you'll need to reactivate them)
-• Require you to reopen sections and add subjects for the new year
-
-Continue?`)) {
-      router.put(`/registrar/school-years/${year.id}/activate`)
-    }
+    Swal.fire({
+      title: 'Set Active School Year?',
+      html: `Set <strong>${year.School_year_start}-${year.School_year_end}</strong> as the active school year?<br><br>This will:<br>• Deactivate the current active year<br>• Automatically reset data for the new academic year<br>• Deactivate all strands (you'll need to reactivate them)<br>• Require you to reopen sections and add subjects for the new year`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3b82f6',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Set Active',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        router.put(`/registrar/school-years/${year.id}/activate`, {}, {
+          onSuccess: () => {
+            Swal.fire({
+              title: 'School Year Activated!',
+              text: `${year.School_year_start}-${year.School_year_end} is now the active school year.`,
+              icon: 'success',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#10b981',
+              timer: 3000
+            })
+          }
+        })
+      }
+    })
   }
 
   const handleEnrollmentControl = (year) => {
@@ -130,16 +200,43 @@ Continue?`)) {
   }
 
   const handleDisable = (year) => {
-    // HCI Principle 5: Error prevention
     if (year.is_active && year.enabled !== false) {
-      alert('Cannot disable the active school year. Please set another year as active first.')
+      Swal.fire({
+        title: 'Cannot Disable Active Year',
+        text: 'Cannot disable the active school year. Please set another year as active first.',
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#f59e0b'
+      })
       return
     }
     
     const action = year.enabled === false ? 'enable' : 'disable'
-    if (confirm(`Are you sure you want to ${action} school year ${year.School_year_start}-${year.School_year_end}?`)) {
-      router.put(`/registrar/school-years/${year.id}/toggle`)
-    }
+    Swal.fire({
+      title: `${action.charAt(0).toUpperCase() + action.slice(1)} School Year?`,
+      text: `Are you sure you want to ${action} school year ${year.School_year_start}-${year.School_year_end}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: year.enabled === false ? '#10b981' : '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: `Yes, ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        router.put(`/registrar/school-years/${year.id}/toggle`, {}, {
+          onSuccess: () => {
+            Swal.fire({
+              title: `School Year ${action.charAt(0).toUpperCase() + action.slice(1)}d!`,
+              text: `School year ${year.School_year_start}-${year.School_year_end} has been ${action}d successfully.`,
+              icon: 'success',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#10b981',
+              timer: 2000
+            })
+          }
+        })
+      }
+    })
   }
 
   const resetForm = () => {
@@ -162,22 +259,74 @@ Continue?`)) {
 
   // Semester management handlers
   const handleAddSemester = (schoolYear) => {
+    if (schoolYear?.enabled === false) {
+      Swal.fire({
+        title: 'School Year Disabled',
+        text: 'Enable this school year before managing semesters.',
+        icon: 'info',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#3b82f6'
+      })
+      return
+    }
     setSelectedSchoolYear(schoolYear)
     setEditingSemester(null)
     setShowSemesterForm(true)
   }
 
   const handleEditSemester = (semester, schoolYear) => {
+    if (schoolYear?.enabled === false) {
+      Swal.fire({
+        title: 'School Year Disabled',
+        text: 'Enable this school year before managing semesters.',
+        icon: 'info',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#3b82f6'
+      })
+      return
+    }
     setSelectedSchoolYear(schoolYear)
     setEditingSemester(semester)
     setShowSemesterForm(true)
   }
 
   const handleToggleSemester = (semester) => {
-    const action = semester.is_active ? 'deactivate' : 'activate'
-    if (confirm(`Are you sure you want to ${action} this semester?`)) {
-      router.put(`/registrar/semesters/${semester.id}/toggle`)
+    if (semester?.schoolYear?.enabled === false) {
+      Swal.fire({
+        title: 'School Year Disabled',
+        text: 'Enable this school year before activating semesters.',
+        icon: 'info',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#3b82f6'
+      })
+      return
     }
+    const action = semester.is_active ? 'deactivate' : 'activate'
+    Swal.fire({
+      title: `${action.charAt(0).toUpperCase() + action.slice(1)} Semester?`,
+      text: `Are you sure you want to ${action} the ${semester.semester_type}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: semester.is_active ? '#dc2626' : '#10b981',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: `Yes, ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        router.put(`/registrar/semesters/${semester.id}/toggle`, {}, {
+          onSuccess: () => {
+            Swal.fire({
+              title: `Semester ${action.charAt(0).toUpperCase() + action.slice(1)}d!`,
+              text: `${semester.semester_type} has been ${action}d successfully.`,
+              icon: 'success',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#10b981',
+              timer: 2000
+            })
+          }
+        })
+      }
+    })
   }
 
   return (
@@ -194,8 +343,8 @@ Continue?`)) {
                 { label: 'School Years', href: '/registrar/school-years', current: true }
               ]} 
             />
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mt-6 gap-4">
-              <div className="flex-1">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mt-6 gap-5">
+              <div className="flex-1 w-full">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="flex items-center justify-center w-10 h-10 bg-indigo-100 rounded-lg">
                     <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -212,9 +361,9 @@ Continue?`)) {
                 
                 {/* Enhanced Active Year Display */}
                 {activeYear && (
-                  <div className="flex items-center gap-4 mt-4">
-                    <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 mt-4">
+                    <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg w-full sm:w-auto">
+                      <div className="flex items-center justify-between gap-2 border border-gray-100 rounded-lg px-3 py-2 sm:border-none sm:px-0">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                         <span className="text-sm font-medium text-green-800">Active Year:</span>
                       </div>
@@ -225,7 +374,7 @@ Continue?`)) {
                     
                     {/* Active Semester Display */}
                     {activeYear.semesters?.find(s => s.is_active) && (
-                      <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg w-full sm:w-auto">
                         <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                         <span className="text-sm font-medium text-blue-800">Active Semester:</span>
                         <span className="text-sm font-semibold text-blue-900">
@@ -238,45 +387,23 @@ Continue?`)) {
               </div>
               
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                {/* Enhanced Stats Cards */}
-                <div className="grid grid-cols-3 gap-3 text-sm">
-                  <div className="flex flex-col items-center p-3 bg-green-50 border border-green-200 rounded-lg min-w-[80px]">
-                    <div className="flex items-center gap-1 mb-1">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-green-700">Active</span>
-                    </div>
-                    <span className="text-lg font-bold text-green-900">
-                      {schoolYears.filter(y => y.is_active).length}
-                    </span>
+                {/* Simplified Stats - Single Essential Card */}
+                <div className="flex items-center justify-between gap-3 text-sm border border-indigo-200 rounded-lg bg-gradient-to-r from-indigo-50 to-blue-50 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <span className="text-sm font-medium text-indigo-800">Total Years:</span>
                   </div>
-                  
-                  <div className="flex flex-col items-center p-3 bg-blue-50 border border-blue-200 rounded-lg min-w-[80px]">
-                    <div className="flex items-center gap-1 mb-1">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-blue-700">Enabled</span>
-                    </div>
-                    <span className="text-lg font-bold text-blue-900">
-                      {schoolYears.filter(y => y.enabled !== false && !y.is_active).length}
-                    </span>
-                  </div>
-                  
-                  <div className="flex flex-col items-center p-3 bg-red-50 border border-red-200 rounded-lg min-w-[80px]">
-                    <div className="flex items-center gap-1 mb-1">
-                      <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-                      <span className="text-xs font-medium text-red-700">Disabled</span>
-                    </div>
-                    <span className="text-lg font-bold text-red-900">
-                      {schoolYears.filter(y => y.enabled === false).length}
-                    </span>
-                  </div>
+                  <span className="text-lg font-bold text-indigo-900">
+                    {schoolYears.length}
+                  </span>
                 </div>
-                
-                {/* Enhanced Primary Action Button */}
                 <button
                   onClick={() => setShowForm(true)}
-                  className="inline-flex items-center rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transform transition-all duration-200 hover:scale-105 hover:shadow-xl border border-indigo-500"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors shadow-sm w-full sm:w-auto"
                 >
-                  <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
                   Add School Year
@@ -300,12 +427,12 @@ Continue?`)) {
           </div>
         )}
 
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-7xl w-full px-3 py-6 sm:px-6 lg:px-8">
           {/* Enhanced Search, Filter, and View Controls */}
-          <div className="mb-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="mb-8 bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               {/* Search Section */}
-              <div className="flex-1 max-w-lg">
+              <div className="flex-1 w-full lg:max-w-lg">
                 <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
                   Search School Years
                 </label>
@@ -343,9 +470,9 @@ Continue?`)) {
               </div>
               
               {/* Controls Section */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
                 {/* Sort Options */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2 border border-gray-100 rounded-lg px-3 py-2 sm:border-none sm:px-0">
                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sort:</span>
                   <select
                     value={sortBy}
@@ -377,7 +504,7 @@ Continue?`)) {
                 </div>
 
                 {/* Results Info */}
-                <div className="text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg border">
+                <div className="text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg border w-full sm:w-auto text-center sm:text-left">
                   <span className="font-medium">
                     {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredAndSortedYears.length)}
                   </span>
@@ -389,26 +516,26 @@ Continue?`)) {
 
           {/* School Years List */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
                       School Year
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
                       Enrollment
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Statistics
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">
+                      Stats
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
                       Semesters
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">
                       Actions
                     </th>
                   </tr>
@@ -419,51 +546,48 @@ Continue?`)) {
                         year.is_active ? 'bg-green-50' : year.enabled === false ? 'bg-red-50 opacity-75' : ''
                       }`}>
                         {/* School Year Column */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className={`flex items-center justify-center w-10 h-10 rounded-lg mr-3 ${
+                            <div className={`flex items-center justify-center w-8 h-8 rounded-lg mr-2 ${
                               year.is_active 
                                 ? 'bg-green-200 text-green-700' 
                                 : year.enabled === false
                                   ? 'bg-red-200 text-red-700'
                                   : 'bg-indigo-100 text-indigo-600'
                             }`}>
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a4 4 0 118 0v4m-4 6v6m-4-6h8m-8 0V9a2 2 0 012-2h4a2 2 0 012 2v2" />
                               </svg>
                             </div>
                             <div>
-                              <div className="text-lg font-semibold text-gray-900">
+                              <div className="text-sm font-semibold text-gray-900">
                                 {year.School_year_start}-{year.School_year_end}
                               </div>
                               {year.School_year_start === currentYear && (
-                                <div className="text-xs text-blue-600 font-medium">Current Year</div>
+                                <div className="text-xs text-blue-600 font-medium">Current</div>
                               )}
                             </div>
                           </div>
                         </td>
 
                         {/* Status Column */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex flex-col gap-1">
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          <div>
                             {year.is_active && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                                <svg className="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 8 8">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <svg className="mr-1 h-2 w-2" fill="currentColor" viewBox="0 0 8 8">
                                   <circle cx={4} cy={4} r={3} />
                                 </svg>
                                 Active
                               </span>
                             )}
                             {year.enabled === false && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-                                <svg className="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
-                                </svg>
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                 Disabled
                               </span>
                             )}
                             {!year.is_active && year.enabled !== false && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                                 Enabled
                               </span>
                             )}
@@ -471,42 +595,30 @@ Continue?`)) {
                         </td>
 
                         {/* Enrollment Column */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex flex-col gap-1">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              year.enrollment_open
-                                ? 'bg-green-100 text-green-800 border border-green-200'
-                                : 'bg-red-100 text-red-800 border border-red-200'
-                            }`}>
-                              <svg className="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 8 8">
-                                <circle cx={4} cy={4} r={3} />
-                              </svg>
-                              {year.enrollment_open ? 'Open' : 'Closed'}
-                            </span>
-                            {year.enrollment_start_date && (
-                              <span className="text-xs text-gray-500">
-                                From: {formatDateMedium(year.enrollment_start_date)}
-                              </span>
-                            )}
-                            {year.enrollment_end_date && (
-                              <span className="text-xs text-gray-500">
-                                Until: {formatDateMedium(year.enrollment_end_date)}
-                              </span>
-                            )}
-                          </div>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            year.enrollment_open
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            <svg className="mr-1 h-2 w-2" fill="currentColor" viewBox="0 0 8 8">
+                              <circle cx={4} cy={4} r={3} />
+                            </svg>
+                            {year.enrollment_open ? 'Open' : 'Closed'}
+                          </span>
                         </td>
 
                         {/* Statistics Column */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-4 text-sm text-gray-600">
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          <div className="flex flex-col gap-1 text-xs text-gray-600">
                             <div className="flex items-center gap-1">
-                              <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                               </svg>
                               <span className="font-medium">{year.sections_count || 0}</span>
                             </div>
                             <div className="flex items-center gap-1">
-                              <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3 h-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                               </svg>
                               <span className="font-medium">{year.classes_count || 0}</span>
@@ -515,53 +627,62 @@ Continue?`)) {
                         </td>
 
                         {/* Semesters Column */}
-                        <td className="px-6 py-4">
-                          <div className="flex flex-wrap gap-1">
+                        <td className="px-3 py-3">
+                          <div className="space-y-1">
                             {year.semesters && year.semesters.length > 0 ? (
                               year.semesters.map((semester) => (
-                                <div key={semester.id} className="flex items-center gap-1">
+                                <div key={semester.id} className="flex items-center justify-between py-1 border-b border-gray-100 last:border-b-0">
                                   <span
-                                    className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${
+                                    className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
                                       semester.is_active 
-                                        ? 'bg-green-100 text-green-800 border border-green-200' 
-                                        : 'bg-gray-100 text-gray-700 border border-gray-200'
+                                        ? 'bg-green-100 text-green-800' 
+                                        : 'bg-gray-100 text-gray-700'
                                     }`}
                                   >
-                                    {semester.is_active && (
-                                      <svg className="w-2 h-2 mr-1" fill="currentColor" viewBox="0 0 8 8">
-                                        <circle cx={4} cy={4} r={3} />
-                                      </svg>
-                                    )}
-                                    {semester.semester_type}
-                                  </span>
-                                  <button
-                                    onClick={() => handleEditSemester(semester, year)}
-                                    className="inline-flex items-center p-1 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded transition-colors duration-200"
-                                    title="Edit semester"
-                                  >
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    <svg className="w-2 h-2 mr-1" fill="currentColor" viewBox="0 0 8 8">
+                                      <circle cx={4} cy={4} r={3} />
                                     </svg>
-                                  </button>
-                                  <button
-                                    onClick={() => handleToggleSemester(semester)}
-                                    className={`inline-flex items-center p-1 rounded transition-colors duration-200 ${
-                                      semester.is_active 
-                                        ? 'text-orange-600 hover:text-orange-900 hover:bg-orange-50' 
-                                        : 'text-green-600 hover:text-green-900 hover:bg-green-50'
-                                    }`}
-                                    title={semester.is_active ? 'Deactivate semester' : 'Activate semester'}
-                                  >
-                                    {semester.is_active ? (
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                                    {semester.semester_type.replace(' Semester', '')}
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => handleEditSemester(semester, year)}
+                                      disabled={year.enabled === false}
+                                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100 transition-colors duration-200"
+                                      title="Edit semester"
+                                    >
+                                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                       </svg>
-                                    ) : (
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                      </svg>
-                                    )}
-                                  </button>
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={() => handleToggleSemester({ ...semester, schoolYear: year })}
+                                      disabled={year.enabled === false}
+                                      className={`inline-flex items-center px-2 py-1 text-xs font-medium border rounded transition-colors duration-200 ${
+                                        semester.is_active 
+                                          ? 'text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100' 
+                                          : 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'
+                                      }`}
+                                      title={semester.is_active ? 'Deactivate semester' : 'Activate semester'}
+                                    >
+                                      {semester.is_active ? (
+                                        <>
+                                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
+                                          </svg>
+                                          Deactivate
+                                        </>
+                                      ) : (
+                                        <>
+                                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          Activate
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
                                 </div>
                               ))
                             ) : (
@@ -571,38 +692,13 @@ Continue?`)) {
                         </td>
 
                         {/* Actions Column */}
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleEnrollmentControl(year)}
-                              className={`inline-flex items-center px-3 py-1.5 text-xs font-medium border rounded-md transition-colors duration-200 ${
-                                year.enrollment_open
-                                  ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'
-                                  : 'text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100'
-                              }`}
-                              title="Enrollment Control"
-                            >
-                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-                              </svg>
-                              Enroll
-                            </button>
-                            
-                            <button
-                              onClick={() => handleAddSemester(year)}
-                              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
-                              title="Add semester"
-                            >
-                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                              </svg>
-                              Add
-                            </button>
-                            
+                        <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end gap-1">
+                            {/* Primary Actions */}
                             {!year.is_active && (
                               <button
                                 onClick={() => handleSetActive(year)}
-                                className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                                className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-blue-600 border border-transparent rounded hover:bg-blue-700 transition-colors duration-200"
                                 title="Set active"
                               >
                                 <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -614,21 +710,197 @@ Continue?`)) {
                             
                             <button
                               onClick={() => handleEdit(year)}
-                              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100 transition-colors duration-200"
                               title="Edit"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                               </svg>
+                              Edit
                             </button>
+
+                            {/* Secondary Actions - With Text Labels */}
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleEnrollmentControl(year)}
+                                disabled={year.enabled === false}
+                                className={`inline-flex items-center px-2 py-1 text-xs font-medium border rounded transition-colors duration-200 ${
+                                  year.enrollment_open
+                                    ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'
+                                    : 'text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100'
+                                }`}
+                                title="Enrollment Control"
+                              >
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                                </svg>
+                                Enroll
+                              </button>
+                              
+                              <button
+                                onClick={() => handleDisable(year)}
+                                className={`inline-flex items-center px-2 py-1 text-xs font-medium border rounded transition-colors duration-200 ${
+                                  year.enabled === false
+                                    ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'
+                                    : 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100'
+                                }`}
+                                title={year.enabled === false ? 'Enable school year' : 'Disable school year'}
+                              >
+                                {year.enabled === false ? (
+                                  <>
+                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Enable
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
+                                    </svg>
+                                    Disable
+                                  </>
+                                )}
+                              </button>
+                            </div>
                           </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
             </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {paginatedYears.map((year) => (
+                <div
+                  key={year.id}
+                  className={`p-4 space-y-3 ${
+                    year.is_active ? 'bg-green-50' : year.enabled === false ? 'bg-red-50 opacity-80' : 'bg-white'
+                  }`}
+                >
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {year.School_year_start}-{year.School_year_end}
+                      </h3>
+                      <span className="text-xs text-gray-500">
+                        {formatDateMedium(year.created_at)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      {year.is_active && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-800 font-medium">
+                          Active
+                        </span>
+                      )}
+                      {year.enabled === false && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full bg-red-100 text-red-800 font-medium">
+                          Disabled
+                        </span>
+                      )}
+                      {!year.is_active && year.enabled !== false && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-800 font-medium">
+                          Enabled
+                        </span>
+                      )}
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full ${
+                        year.enrollment_open ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        Enrollment {year.enrollment_open ? 'Open' : 'Closed'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      <span>Sections: <strong>{year.sections_count || 0}</strong></span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                      <span>Classes: <strong>{year.classes_count || 0}</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {year.semesters?.length ? (
+                      year.semesters.map((semester) => (
+                        <div key={semester.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              semester.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {semester.semester_type.replace(' Semester', '')}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleEditSemester(semester, year)}
+                              disabled={year.enabled === false}
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleToggleSemester({ ...semester, schoolYear: year })}
+                              disabled={year.enabled === false}
+                              className={`inline-flex items-center px-2 py-1 text-xs font-medium border rounded ${
+                                semester.is_active ? 'text-orange-700 bg-orange-50 border-orange-200' : 'text-green-700 bg-green-50 border-green-200'
+                              }`}
+                            >
+                              {semester.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-gray-500 italic">No semesters</p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+                    {!year.is_active && (
+                      <button
+                        onClick={() => handleSetActive(year)}
+                        className="flex-1 inline-flex items-center justify-center px-3 py-2 text-xs font-semibold text-white bg-blue-600 rounded-lg"
+                      >
+                        Activate
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleEdit(year)}
+                      className="flex-1 inline-flex items-center justify-center px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 rounded-lg"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleEnrollmentControl(year)}
+                      disabled={year.enabled === false}
+                      className={`flex-1 inline-flex items-center justify-center px-3 py-2 text-xs font-semibold rounded-lg ${
+                        year.enrollment_open ? 'text-green-700 bg-green-50' : 'text-orange-700 bg-orange-50'
+                      }`}
+                    >
+                      {year.enrollment_open ? 'Enrollment Open' : 'Open Enrollment'}
+                    </button>
+                    <button
+                      onClick={() => handleDisable(year)}
+                      className={`flex-1 inline-flex items-center justify-center px-3 py-2 text-xs font-semibold rounded-lg ${
+                        year.enabled === false ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'
+                      }`}
+                    >
+                      {year.enabled === false ? 'Enable Year' : 'Disable Year'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* Pagination */}
           {totalPages > 1 && (

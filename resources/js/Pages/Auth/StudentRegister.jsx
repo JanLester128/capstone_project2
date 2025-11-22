@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Head, useForm, Link, router } from '@inertiajs/react'
+import Swal from 'sweetalert2'
 
 export default function StudentRegister({ strands = [], addressData = {} }) {
   const [showPassword, setShowPassword] = useState(false)
@@ -216,7 +217,19 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
     }
     
     if (missingFields.length > 0) {
-      alert(`Please fill in all required fields. Missing: ${missingFields.join(', ')}`)
+      Swal.fire({
+        title: 'Missing Required Fields',
+        html: `Please fill in the following required fields:<br><br><strong>${missingFields.map(field => field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())).join('<br>')}</strong>`,
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#f59e0b',
+        showClass: {
+          popup: 'animate__animated animate__fadeInDown'
+        },
+        hideClass: {
+          popup: 'animate__animated animate__fadeOutUp'
+        }
+      })
       return
     }
     
@@ -228,7 +241,19 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
       post('/student/register', {
         preserveScroll: false,
         onSuccess: () => {
-          // Redirect is handled by backend
+          // Show success message before redirect
+          Swal.fire({
+            title: 'Registration Successful!',
+            html: 'Your account has been created successfully!<br><br><strong>Next Steps:</strong><br>• Wait for the Registrar to approve your account<br>• You will receive an email notification once approved<br>• Then you can login using your email or LRN',
+            icon: 'success',
+            confirmButtonText: 'Go to Login',
+            confirmButtonColor: '#10b981',
+            allowOutsideClick: false,
+            allowEscapeKey: false
+          }).then(() => {
+            // Redirect is handled by backend, but we can also redirect here if needed
+            window.location.href = '/login'
+          })
           setIsSubmitting(false)
         },
         onFinish: () => {
@@ -236,6 +261,52 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
         },
         onError: (errors) => {
           setIsSubmitting(false)
+          
+          // Handle specific validation errors with SweetAlert
+          if (errors.email && errors.email.includes('already been taken')) {
+            Swal.fire({
+              title: 'Email Already Exists',
+              text: 'This email address is already registered. Please use a different email or try logging in.',
+              icon: 'error',
+              confirmButtonText: 'Try Different Email',
+              confirmButtonColor: '#dc2626',
+              showCancelButton: true,
+              cancelButtonText: 'Go to Login',
+              cancelButtonColor: '#6b7280'
+            }).then((result) => {
+              if (!result.isConfirmed) {
+                window.location.href = '/login'
+              }
+            })
+          } else if (errors.lrn && errors.lrn.includes('already been taken')) {
+            Swal.fire({
+              title: 'LRN Already Registered',
+              text: 'This LRN is already registered in the system. Please check your LRN or contact the registrar office.',
+              icon: 'error',
+              confirmButtonText: 'Check LRN',
+              confirmButtonColor: '#dc2626',
+              footer: '<a href="#" onclick="window.location.href=\'tel:+1234567890\'">Contact Registrar: (123) 456-7890</a>'
+            })
+          } else if (errors.password && errors.password.includes('confirmation')) {
+            Swal.fire({
+              title: 'Password Mismatch',
+              text: 'The password confirmation does not match. Please check both password fields.',
+              icon: 'warning',
+              confirmButtonText: 'Fix Password',
+              confirmButtonColor: '#f59e0b'
+            })
+          } else {
+            // Generic validation error
+            const errorMessages = Object.values(errors).flat()
+            Swal.fire({
+              title: 'Registration Failed',
+              html: `Please fix the following errors:<br><br><strong>${errorMessages.join('<br>')}</strong>`,
+              icon: 'error',
+              confirmButtonText: 'Fix Errors',
+              confirmButtonColor: '#dc2626'
+            })
+          }
+          
           // Scroll to top to show errors
           setTimeout(() => {
             window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -247,7 +318,14 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
       })
     } catch (error) {
       setIsSubmitting(false)
-      alert('An error occurred while submitting the form. Please try again.')
+      Swal.fire({
+        title: 'Registration Error',
+        text: 'An unexpected error occurred while submitting your registration. Please try again or contact support.',
+        icon: 'error',
+        confirmButtonText: 'Try Again',
+        confirmButtonColor: '#dc2626',
+        footer: '<a href="mailto:support@onsts.edu.ph">Contact Support: support@onsts.edu.ph</a>'
+      })
     }
   }
 
@@ -983,9 +1061,13 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                           id="guardian_contact_number"
                           name="guardian_contact_number"
                           value={data.guardian_contact_number}
-                          onChange={(e) => setData('guardian_contact_number', e.target.value)}
+                          onChange={(e) => {
+                            const sanitized = e.target.value.replace(/\D/g, '').slice(0, 11)
+                            setData('guardian_contact_number', sanitized)
+                          }}
                           placeholder="09XXXXXXXXX"
                           required
+                          maxLength={11}
                           className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
                         />
                         {errors.guardian_contact_number && (

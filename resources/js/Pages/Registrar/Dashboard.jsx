@@ -176,10 +176,10 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
       <Head title="Registrar • Dashboard" />
 
       <header className="bg-white shadow">
-        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 flex items-center justify-between">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Registrar Dashboard</h1>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 flex-wrap md:flex-nowrap justify-end">
             {/* Notification Bell Icon */}
             <div className="relative" ref={notificationMenuRef}>
               <button
@@ -309,12 +309,12 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
             </div>
             
             {/* Profile Photo with Dropdown */}
-            <div className="relative" ref={profileMenuRef}>
+            <div className="relative w-full max-w-xs sm:max-w-none" ref={profileMenuRef}>
               <button
                 onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                className="flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-1 transition-colors hover:bg-gray-50"
+                className="flex w-full items-center justify-between sm:justify-start sm:space-x-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-2 transition-colors hover:bg-gray-50"
               >
-                <div className="flex flex-col items-end">
+                <div className="flex flex-col items-start sm:items-end text-left sm:text-right">
                   <p className="text-sm font-medium text-gray-900">
                     {registrar?.FirstName} {registrar?.LastName}
                   </p>
@@ -365,7 +365,7 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl w-full px-3 py-8 sm:px-6 lg:px-8">
         {/* Status & visibility of system state */}
         <div className="mb-6 rounded-md bg-indigo-50 p-4 text-sm text-indigo-900">
           <p>
@@ -374,7 +374,7 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
         </div>
 
         {/* KPI cards */}
-        <section aria-labelledby="kpis" className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
+        <section aria-labelledby="kpis" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           {[
             { 
               label: 'Students', 
@@ -529,7 +529,7 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
             <h2 className="text-2xl font-bold text-gray-900">Quick Actions</h2>
             <p className="text-sm text-gray-500 mt-1">Common tasks and shortcuts</p>
           </div>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[
               { 
                 href: '/registrar/users?role=Student', 

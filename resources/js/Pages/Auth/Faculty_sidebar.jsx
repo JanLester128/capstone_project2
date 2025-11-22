@@ -237,7 +237,7 @@ export default function FacultySidebar({ user }) {
       </div>
 
       {/* Desktop nav */}
-      <nav className={`hidden md:flex flex-col h-screen sticky top-0 relative z-10 ${
+      <nav className={`hidden md:flex flex-col h-screen sticky top-0 z-10 ${
         isCollapsed ? 'w-16' : 'w-64'
       }`}>
         {/* Logo and School Info */}

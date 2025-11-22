@@ -489,6 +489,14 @@ class RegistrarController extends Controller
                 ->with('error', 'No active semester. Please activate a semester first.');
         }
 
+        if (!empty($validated['adviser_id'])) {
+            $this->assertAdviserIsAvailable(
+                (int) $validated['adviser_id'],
+                $schoolYearId,
+                $semesterId
+            );
+        }
+
         // Map the field names to match the database schema
         $sectionData = [
             'section_name' => $validated['section_name'],
@@ -498,6 +506,7 @@ class RegistrarController extends Controller
             'school_year_id' => $schoolYearId,
             'semester_id' => $semesterId, // Add semester assignment
             'adviser_id' => $validated['adviser_id'], // Add adviser assignment
+            'is_active' => true,
         ];
 
         try {
@@ -557,6 +566,17 @@ class RegistrarController extends Controller
             'adviser_id' => 'nullable|exists:users,id',
         ]);
 
+        $semesterId = $validated['semester_id'] ?? $section->semester_id;
+
+        if (!empty($validated['adviser_id'])) {
+            $this->assertAdviserIsAvailable(
+                (int) $validated['adviser_id'],
+                $validated['school_year_id'],
+                $semesterId,
+                $section->id
+            );
+        }
+
         // Map the field names to match the database schema
         $sectionData = [
             'section_name' => $validated['section_name'],
@@ -565,12 +585,8 @@ class RegistrarController extends Controller
             'max_capacity' => $validated['capacity'], // Map capacity to max_capacity
             'school_year_id' => $validated['school_year_id'],
             'adviser_id' => $validated['adviser_id'], // Add adviser assignment
+            'semester_id' => $semesterId,
         ];
-        
-        // Add semester_id if provided
-        if (isset($validated['semester_id'])) {
-            $sectionData['semester_id'] = $validated['semester_id'];
-        }
 
         try {
             $section->update($sectionData);
@@ -600,6 +616,15 @@ class RegistrarController extends Controller
             'adviser_id' => 'nullable|exists:users,id',
         ]);
 
+        if (!empty($validated['adviser_id'])) {
+            $this->assertAdviserIsAvailable(
+                (int) $validated['adviser_id'],
+                $section->school_year_id,
+                $section->semester_id,
+                $section->id
+            );
+        }
+
         $section->update(['adviser_id' => $validated['adviser_id']]);
 
         $adviserName = $validated['adviser_id'] 
@@ -624,6 +649,33 @@ class RegistrarController extends Controller
 
         return redirect()->route('registrar.strands')
             ->with('success', "Section '{$section->section_name}' has been {$action} successfully.");
+    }
+
+    /**
+     * Ensure a faculty adviser is not already assigned to another active section
+     * within the same school year and semester.
+     */
+    protected function assertAdviserIsAvailable(int $adviserId, int $schoolYearId, ?int $semesterId, ?int $ignoreSectionId = null): void
+    {
+        $query = Section::where('adviser_id', $adviserId)
+            ->where('school_year_id', $schoolYearId)
+            ->where('is_active', true);
+
+        if ($semesterId !== null) {
+            $query->where('semester_id', $semesterId);
+        } else {
+            $query->whereNull('semester_id');
+        }
+
+        if ($ignoreSectionId !== null) {
+            $query->where('id', '!=', $ignoreSectionId);
+        }
+
+        if ($query->exists()) {
+            throw ValidationException::withMessages([
+                'adviser_id' => 'The selected faculty member already advises another active section for this period.',
+            ]);
+        }
     }
 
     /**
@@ -1635,6 +1687,11 @@ class RegistrarController extends Controller
      */
     public function activateSchoolYear(SchoolYear $schoolYear)
     {
+        if (!$schoolYear->enabled) {
+            return redirect()->route('registrar.school-years')
+                ->with('error', 'Cannot activate a disabled school year. Please enable it first.');
+        }
+
         try {
             DB::beginTransaction();
 
@@ -1652,6 +1709,10 @@ class RegistrarController extends Controller
             
             // Activate the selected school year
             $schoolYear->update(['is_active' => true]);
+
+            // Reset adviser assignments for sections under this school year
+            Section::where('school_year_id', $schoolYear->id)
+                ->update(['adviser_id' => null]);
 
             // Check if this is a NEW school year (no existing sections or subjects)
             $hasSections = Section::where('school_year_id', $schoolYear->id)->exists();
@@ -1716,6 +1777,11 @@ class RegistrarController extends Controller
         
         $schoolYear->update(['enabled' => $newEnabledStatus]);
 
+        if (!$newEnabledStatus) {
+            Semester::where('school_year_id', $schoolYear->id)
+                ->update(['is_active' => false]);
+        }
+
         return redirect()->route('registrar.school-years')
             ->with('success', "School year {$schoolYear->School_year_start}-{$schoolYear->School_year_end} {$action} successfully.");
     }
@@ -1760,20 +1826,17 @@ class RegistrarController extends Controller
             'class_ids' => $classes->pluck('Id')->toArray(),
         ]);
         
-        // Get active sections for the active school year
-        // Show ALL active sections for the school year (semester_id filter is optional/not restrictive)
-        // This ensures sections are always available for class creation
+        // Get active sections for the active school year AND semester only
         $sections = Section::with('strand')
-                           ->where('is_active', true);
-        
-        if ($activeSchoolYear) {
-            // Primary filter: school_year_id
-            $sections->where('school_year_id', $activeSchoolYear->id);
-        }
-        
-        // Don't filter by semester_id - show all sections for the school year
-        // This allows flexibility in section assignment across semesters
-        $sections = $sections->orderBy('section_name')->get();
+            ->where('is_active', true)
+            ->when($activeSchoolYear, function ($query) use ($activeSchoolYear) {
+                return $query->where('school_year_id', $activeSchoolYear->id);
+            })
+            ->when($activeSemester, function ($query) use ($activeSemester) {
+                return $query->where('semester_id', $activeSemester->id);
+            })
+            ->orderBy('section_name')
+            ->get();
         
         // Format sections to ensure all fields are available for frontend
         $formattedSections = $sections->map(function ($section) {
@@ -2105,7 +2168,7 @@ class RegistrarController extends Controller
 
         $classes = $request->input('classes');
         $errors = [];
-        $createdCount = 0;
+        $preparedClasses = [];
 
         // Validate faculty load limit across all submitted classes
         // 1 load = 1 section, so we count unique sections per faculty
@@ -2155,7 +2218,7 @@ class RegistrarController extends Controller
             }
         }
 
-        // Process each class
+        // Process each class (validate and stage payloads only)
         foreach ($classes as $index => $classData) {
             try {
                 // Validate grade level and strand matching
@@ -2219,8 +2282,8 @@ class RegistrarController extends Controller
                     continue;
                 }
 
-                // Create the class
-                ClassModel::create([
+                // Stage payload for later insertion
+                $preparedClasses[] = [
                     'Section_id' => $classData['Section_id'],
                     'faculty_id' => $classData['faculty_id'],
                     'school_year_id' => $classData['school_year_id'],
@@ -2230,9 +2293,7 @@ class RegistrarController extends Controller
                     'start_time' => $classData['start_time'],
                     'endtime' => $classData['endtime'],
                     'is_active' => $classData['is_active'] ?? true,
-                ]);
-
-                $createdCount++;
+                ];
 
             } catch (\Exception $e) {
                 Log::error("Bulk class creation error for class {$index}", [
@@ -2248,7 +2309,26 @@ class RegistrarController extends Controller
             return back()->withErrors($errors)->withInput();
         }
 
-        // Success message
+        $createdCount = 0;
+
+        DB::beginTransaction();
+        try {
+            foreach ($preparedClasses as $payload) {
+                ClassModel::create($payload);
+                $createdCount++;
+            }
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Bulk class creation failed after staging validation', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors([
+                'general' => 'Failed to create classes due to an unexpected error. Please try again.'
+            ])->withInput();
+        }
+
         return redirect()->route('registrar.classes')
             ->with('success', "Successfully created {$createdCount} class(es).");
     }
@@ -2791,6 +2871,13 @@ class RegistrarController extends Controller
      */
     public function toggleSemester(Semester $semester)
     {
+        $schoolYear = $semester->schoolYear;
+
+        if (!$schoolYear || !$schoolYear->enabled) {
+            return redirect()->route('registrar.school-years')
+                ->with('error', 'Cannot modify semesters for a disabled school year. Please enable the school year first.');
+        }
+
         $newStatus = !$semester->is_active;
         
         try {
@@ -2862,6 +2949,13 @@ class RegistrarController extends Controller
      */
     public function activateSemester(Semester $semester)
     {
+        $schoolYear = $semester->schoolYear;
+
+        if (!$schoolYear || !$schoolYear->enabled) {
+            return redirect()->route('registrar.school-years')
+                ->with('error', 'Cannot activate a semester for a disabled school year. Please enable the school year first.');
+        }
+
         try {
             DB::beginTransaction();
             
@@ -3202,6 +3296,7 @@ class RegistrarController extends Controller
                             'school_year_id' => $activeSchoolYear->id,
                             'semester_id' => $activeSemester->id,
                             'adviser_id' => null, // Reset adviser for new semester (consistent with new year)
+                            'is_active' => true,
                         ]);
                         $reopenedCount++;
                     } else {
@@ -3272,6 +3367,14 @@ class RegistrarController extends Controller
             'max_capacity' => 'required|integer|min:1|max:50',
             'adviser_id' => 'nullable|integer',
         ]);
+
+        if (!empty($validated['adviser_id'])) {
+            $this->assertAdviserIsAvailable(
+                (int) $validated['adviser_id'],
+                $activeSchoolYear->id,
+                $activeSemester->id
+            );
+        }
 
         try {
             DB::beginTransaction();
@@ -3406,6 +3509,7 @@ class RegistrarController extends Controller
                             'school_year_id' => $activeSchoolYear->id,
                             'semester_id' => $activeSemester->id, // Add semester assignment
                             'adviser_id' => null, // Reset adviser for new year
+                            'is_active' => true,
                         ]);
                         $reopenedCount++;
                     } else {
@@ -3698,7 +3802,7 @@ class RegistrarController extends Controller
                     ->with('warning', "Faculty member '{$validated['FirstName']} {$validated['LastName']}' created successfully, but email could not be sent (mail driver is set to '{$mailDriver}'). Temporary password: {$generatedPassword} (Please share this securely with the faculty member)");
             }
             
-            Mail::to($faculty->email)->send(new FacultyAccountCreated($faculty, $generatedPassword));
+            Mail::to($faculty->email)->queue(new FacultyAccountCreated($faculty, $generatedPassword));
             
             Log::info("Faculty account created and email sent successfully", [
                 'faculty_id' => $faculty->id,
@@ -3867,7 +3971,7 @@ class RegistrarController extends Controller
 
             // Send approval email notification
             try {
-                Mail::to($student->user->email)->send(new StudentApprovalNotification($student->user));
+                Mail::to($student->user->email)->queue(new StudentApprovalNotification($student->user));
             } catch (\Exception $e) {
                 Log::error('Failed to send student approval email: ' . $e->getMessage());
             }
@@ -3971,7 +4075,7 @@ class RegistrarController extends Controller
 
                         // Send approval email notification
                         try {
-                            Mail::to($student->user->email)->send(new StudentApprovalNotification($student->user));
+                            Mail::to($student->user->email)->queue(new StudentApprovalNotification($student->user));
                         } catch (\Exception $e) {
                             Log::error('Failed to send student approval email: ' . $e->getMessage());
                             // Don't fail the approval if email fails
@@ -4162,13 +4266,72 @@ class RegistrarController extends Controller
                         ]];
                     });
 
-                // Merge grades into schedule
-                $schedule = collect($schedule)->map(function ($row) use ($gradesForEnrollment) {
+                // Build credited subjects map by subject_code (approved credits only)
+                $creditedSubjectsMap = $enrollment->creditedSubjects
+                    ->whereNotNull('approved_by')
+                    ->mapWithKeys(function ($credit) use ($enrollment) {
+                        $subject = $credit->subject;
+                        $code = $subject?->Subject_code ?? null;
+                        if (!$code) {
+                            return [];
+                        }
+
+                        $semesterLabel = $enrollment->semester?->semester_type;
+                        $semesterCode = $this->mapSemesterToCode($semesterLabel);
+
+                        $first = null;
+                        $second = null;
+                        $third = null;
+                        $fourth = null;
+
+                        if ($semesterCode === '1st') {
+                            $first = $credit->quarter1;
+                            $second = $credit->quarter2;
+                        } elseif ($semesterCode === '2nd') {
+                            $third = $credit->quarter1;
+                            $fourth = $credit->quarter2;
+                        }
+
+                        return [$code => [
+                            'first_quarter' => $first,
+                            'second_quarter' => $second,
+                            'third_quarter' => $third,
+                            'fourth_quarter' => $fourth,
+                            'final_grade' => $credit->credited_grade,
+                            'remarks' => $credit->remarks ? ('CREDITED - ' . $credit->remarks) : 'CREDITED',
+                            'is_credited' => true,
+                        ]];
+                    });
+
+                // Merge grades and credited data into schedule entries
+                $schedule = collect($schedule)->map(function ($row) use ($gradesForEnrollment, $creditedSubjectsMap) {
                     $code = $row['subject_code'] ?? null;
                     $g = $code ? ($gradesForEnrollment[$code] ?? null) : null;
                     if ($g) {
                         $row = array_merge($row, $g);
                     }
+
+                    $credited = $code ? ($creditedSubjectsMap[$code] ?? null) : null;
+                    if ($credited) {
+                        if (!$g || !$row['first_quarter']) {
+                            $row['first_quarter'] = $credited['first_quarter'];
+                        }
+                        if (!$g || !$row['second_quarter']) {
+                            $row['second_quarter'] = $credited['second_quarter'];
+                        }
+                        if (!$g || !$row['third_quarter']) {
+                            $row['third_quarter'] = $credited['third_quarter'];
+                        }
+                        if (!$g || !$row['fourth_quarter']) {
+                            $row['fourth_quarter'] = $credited['fourth_quarter'];
+                        }
+                        if (!$g || !$row['final_grade']) {
+                            $row['final_grade'] = $credited['final_grade'];
+                        }
+                        $row['is_credited'] = true;
+                        $row['remarks'] = $credited['remarks'];
+                    }
+
                     return $row;
                 })->values()->all();
 
@@ -4318,6 +4481,27 @@ class RegistrarController extends Controller
             
             // Add student_personal_info_id for deduplication
             $reviewArray['student_personal_info_id'] = $enrollment->student_personal_info_id;
+            
+            // Check if this is a re-enrollment (student has previous enrolled records)
+            $hasPreviousEnrollment = Enrollment::where('student_personal_info_id', $enrollment->student_personal_info_id)
+                ->where('status', Enrollment::STATUS_ENROLLED)
+                ->where('id', '!=', $enrollment->id) // Exclude current enrollment
+                ->exists();
+            
+            // Determine student type for display
+            if ($enrollment->is_transferee) {
+                $reviewArray['student_type'] = 'transferee';
+                $reviewArray['student_type_label'] = 'Transferee';
+                $reviewArray['student_type_color'] = 'blue';
+            } elseif ($hasPreviousEnrollment) {
+                $reviewArray['student_type'] = 'continuing';
+                $reviewArray['student_type_label'] = 'Continuing';
+                $reviewArray['student_type_color'] = 'green';
+            } else {
+                $reviewArray['student_type'] = 'new';
+                $reviewArray['student_type_label'] = 'New Student';
+                $reviewArray['student_type_color'] = 'purple';
+            }
             
             // Add next term info for enrolled students
             if ($enrollment->canBeReEnrolled()) {
@@ -4509,15 +4693,67 @@ class RegistrarController extends Controller
         $activeSemester = $activeSchoolYear
             ? Semester::where('school_year_id', $activeSchoolYear->id)->where('is_active', true)->first()
             : null;
+        $isSummerSemester = $activeSemester && str_contains(strtolower($activeSemester->semester_type ?? ''), 'summer');
 
-        // Pending indicators
-        $unverifiedStudents = \App\Models\StudentPersonalInfo::where('is_verified', false)->count();
+        // Pending indicators (scoped to active term when available)
+        $unverifiedStudents = \App\Models\StudentPersonalInfo::where('is_verified', false)
+            ->count();
+
         $pendingEnrollments = \App\Models\Enrollment::whereIn('status', [
             \App\Models\Enrollment::STATUS_PRE_ENROLLED,
             \App\Models\Enrollment::STATUS_RECOMMENDED,
-        ])->count();
-        $pendingCredits = \App\Models\CreditedSubject::whereNull('credited_grade')->count();
-        $pendingGradeApprovals = \App\Models\Grade::where('status', \App\Models\Grade::STATUS_PENDING)->count();
+        ])
+        ->when($activeSchoolYear, function ($query) use ($activeSchoolYear) {
+            return $query->where('school_year_id', $activeSchoolYear->id);
+        })
+        ->when($activeSemester, function ($query) use ($activeSemester) {
+            return $query->where('semester_id', $activeSemester->id);
+        })
+        ->count();
+
+        $pendingCredits = \App\Models\CreditedSubject::whereNull('credited_grade')
+            ->whereHas('enrollment', function ($query) use ($activeSchoolYear, $activeSemester) {
+                $query->when($activeSchoolYear, function ($q) use ($activeSchoolYear) {
+                    $q->where('school_year_id', $activeSchoolYear->id);
+                })
+                ->when($activeSemester, function ($q) use ($activeSemester) {
+                    $q->where('semester_id', $activeSemester->id);
+                });
+            })
+            ->count();
+
+        $pendingGradeApprovals = \App\Models\Grade::where('status', \App\Models\Grade::STATUS_PENDING)
+            ->when($activeSchoolYear, function ($query) use ($activeSchoolYear) {
+                return $query->where('school_year_id', $activeSchoolYear->id);
+            })
+            ->when($activeSemester, function ($query) use ($activeSemester) {
+                $semesterCode = $this->mapSemesterToCode($activeSemester->semester_type ?? null);
+                if ($semesterCode) {
+                    $query->where('semester', $semesterCode);
+                }
+                return $query;
+            })
+            ->count();
+
+        $reEnrollmentsCount = 0;
+        if ($activeSchoolYear && $activeSemester && !$isSummerSemester) {
+            $previousSemester = Semester::where('school_year_id', $activeSchoolYear->id)
+                ->where('id', '!=', $activeSemester->id)
+                ->orderBy('semester_type', 'desc')
+                ->first();
+
+            if ($previousSemester) {
+                $reEnrollmentsCount = Enrollment::where('status', Enrollment::STATUS_ENROLLED)
+                    ->where('school_year_id', $activeSchoolYear->id)
+                    ->where('semester_id', $previousSemester->id)
+                    ->whereDoesntHave('classDetails', function ($query) use ($activeSemester) {
+                        $query->whereHas('class', function ($q) use ($activeSemester) {
+                            $q->where('Semester_id', $activeSemester->id);
+                        });
+                    })
+                    ->count();
+            }
+        }
 
         return Inertia::render('Registrar/Enrollment', [
             'activeSchoolYear' => $activeSchoolYear ? [
@@ -4540,6 +4776,7 @@ class RegistrarController extends Controller
                 'pendingEnrollments' => $pendingEnrollments,
                 'pendingCredits' => $pendingCredits,
                 'pendingGradeApprovals' => $pendingGradeApprovals,
+                'reEnrollments' => $reEnrollmentsCount,
             ],
         ]);
     }
@@ -4995,6 +5232,14 @@ class RegistrarController extends Controller
      * @param bool $isReEnrollment Whether this is a re-enrollment (moving to new semester/year)
      */
     /**
+     * Expose class creation for failed subjects so other controllers can reuse the logic.
+     */
+    public function createFailedSubjectClassesForEnrollment(Enrollment $enrollment, \Illuminate\Support\Collection $failedGrades, int $createdBy): void
+    {
+        $this->createClassesForFailedSubjects($enrollment, $failedGrades, $createdBy);
+    }
+
+    /**
      * Create classes for failed subjects in summer semester if they don't exist.
      */
     private function createClassesForFailedSubjects(Enrollment $enrollment, \Illuminate\Support\Collection $failedGrades, int $createdBy): void
@@ -5173,6 +5418,14 @@ class RegistrarController extends Controller
                 ]);
             }
         }
+    }
+
+    /**
+     * Expose class detail creation so other controllers can reuse the logic.
+     */
+    public function createClassDetailsSnapshotForEnrollment(Enrollment $enrollment, int $processedBy, bool $isReEnrollment = false, ?\Illuminate\Support\Collection $failedGrades = null): void
+    {
+        $this->createClassDetailsForEnrollment($enrollment, $processedBy, $isReEnrollment, $failedGrades);
     }
 
     private function createClassDetailsForEnrollment(Enrollment $enrollment, int $processedBy, bool $isReEnrollment = false, ?\Illuminate\Support\Collection $failedGrades = null): void
@@ -6101,7 +6354,7 @@ class RegistrarController extends Controller
                     'lrn' => $studentInfo?->lrn,
                     'email' => $studentUser?->email,
                 ],
-                'previous_school' => $enrollment->previous_school,
+                'previous_school' => $enrollment->studentPersonalInfo->last_school_attended ?? $enrollment->previous_school,
                 'assigned_strand' => [
                     'id' => $enrollment->assignedStrand?->id,
                     'code' => $enrollment->assignedStrand?->Strand_code,
@@ -6187,7 +6440,7 @@ class RegistrarController extends Controller
                 'lrn' => $studentInfo?->lrn,
                 'email' => $studentUser?->email,
             ],
-            'previous_school' => $enrollment->previous_school,
+            'previous_school' => $enrollment->studentPersonalInfo->last_school_attended ?? $enrollment->previous_school,
             'assigned_strand' => [
                 'id' => $enrollment->assignedStrand?->id,
                 'code' => $enrollment->assignedStrand?->Strand_code,
@@ -6219,22 +6472,38 @@ class RegistrarController extends Controller
             })->values(),
         ];
         
-        // Get available subjects for crediting
-        $activeSchoolYear = SchoolYear::where('is_active', true)->first();
-        $activeSemester = $activeSchoolYear ? 
-            Semester::where('school_year_id', $activeSchoolYear->id)
-                   ->where('is_active', true)
-                   ->first() : null;
-        
-        $subjects = Subject::with(['strand'])
-            ->when($activeSchoolYear, function ($query) use ($activeSchoolYear) {
-                return $query->where('school_year_id', $activeSchoolYear->id);
+        // Get IDs of already credited subjects for this enrollment to exclude them
+        $creditedSubjectIds = $enrollment->creditedSubjects->pluck('subject_id')->toArray();
+
+        // Get available subjects for crediting - filter by enrollment's strand if available
+        $subjects = Subject::select('Id', 'Subject_name', 'Subject_code', 'strand_id', 'year_level', 'Semester', 'semester_id')
+            ->distinct()
+            ->when($enrollment->assignedStrand, function ($query) use ($enrollment) {
+                return $query->where('strand_id', $enrollment->assignedStrand->id);
             })
-            ->when($activeSemester, function ($query) use ($activeSemester) {
-                return $query->where('semester_id', $activeSemester->id);
+            ->when(!empty($creditedSubjectIds), function ($query) use ($creditedSubjectIds) {
+                return $query->whereNotIn('Id', $creditedSubjectIds);
             })
             ->orderBy('Subject_name')
-            ->get(['Id', 'Subject_name', 'Subject_code', 'strand_id', 'year_level', 'Semester', 'semester_id']);
+            ->orderBy('Subject_code')
+            ->get();
+
+        // Fallback: if no subjects found for the strand, load all subjects (excluding already credited)
+        if ($subjects->isEmpty()) {
+            $subjects = Subject::select('Id', 'Subject_name', 'Subject_code', 'strand_id', 'year_level', 'Semester', 'semester_id')
+                ->distinct()
+                ->when(!empty($creditedSubjectIds), function ($query) use ($creditedSubjectIds) {
+                    return $query->whereNotIn('Id', $creditedSubjectIds);
+                })
+                ->orderBy('Subject_name')
+                ->orderBy('Subject_code')
+                ->get();
+        }
+
+        // Remove duplicates by subject name and code (in case there are duplicate subjects in database)
+        $subjects = $subjects->unique(function ($subject) {
+            return strtolower(trim($subject->Subject_name)) . '|' . strtolower(trim($subject->Subject_code));
+        })->values();
 
         return Inertia::render('Registrar/CreditedSubjectsDetail', [
             'enrollment' => $enrollmentData,
@@ -6257,11 +6526,14 @@ class RegistrarController extends Controller
             'quarter2' => 'nullable|numeric|min:0|max:100',
         ]);
 
-        $enrollment = Enrollment::findOrFail($validated['enrollment_id']);
+        $enrollment = Enrollment::with('studentPersonalInfo')->findOrFail($validated['enrollment_id']);
 
         if (!$enrollment->is_transferee) {
             return back()->withErrors(['error' => 'Only transferee students can have credited subjects.']);
         }
+
+        // Auto-populate previous school from student registration data
+        $previousSchool = $enrollment->studentPersonalInfo->last_school_attended ?? $validated['previous_school'] ?? null;
 
         // Check if subject already credited
         $existing = CreditedSubject::where('enrollment_id', $validated['enrollment_id'])
@@ -6289,7 +6561,7 @@ class RegistrarController extends Controller
             'student_personal_info_id' => $enrollment->student_personal_info_id,
             'enrollment_id' => $validated['enrollment_id'],
             'subject_id' => $validated['subject_id'],
-            'previous_school' => $validated['previous_school'] ?? null,
+            'previous_school' => $previousSchool,
             'quarter1' => $validated['quarter1'] ?? null,
             'quarter2' => $validated['quarter2'] ?? null,
             'credited_grade' => $avg,
@@ -6492,6 +6764,7 @@ class RegistrarController extends Controller
         // Get filter parameters
         $schoolYearId = request('school_year_id', $activeSchoolYear?->id);
         $semesterId = request('semester_id', $activeSemester?->id);
+        $strandId = request('strand_id');
 
         // Get analytics data
         $analytics = $this->getAnalyticsData(
@@ -6516,9 +6789,23 @@ class RegistrarController extends Controller
             'rejected' => (clone $enrollmentsBase)->where('status', Enrollment::STATUS_REJECTED)->count(),
         ];
 
-        // Enrollment by strand
+        $enrollmentsBase = Enrollment::where('status', Enrollment::STATUS_ENROLLED)
+            ->when($schoolYearId, fn($q) => $q->where('school_year_id', $schoolYearId))
+            ->when($semesterId, fn($q) => $q->where('semester_id', $semesterId));
+
+        // Overall statistics
+        $totalStudents = (clone $enrollmentsBase)->count();
+
+        $genderStats = (clone $enrollmentsBase)
+            ->join('student_personal_info', 'enrollments.student_personal_info_id', '=', 'student_personal_info.id')
+            ->select('student_personal_info.sex', DB::raw('count(*) as count'))
+            ->groupBy('student_personal_info.sex')
+            ->get();
+
+        $maleCount = $genderStats->where('sex', 'Male')->first()->count ?? 0;
+        $femaleCount = $genderStats->where('sex', 'Female')->first()->count ?? 0;
+
         $enrollmentByStrand = (clone $enrollmentsBase)
-            ->where('status', Enrollment::STATUS_ENROLLED)
             ->leftJoin('strands', 'enrollments.assigned_strand_id', '=', 'strands.id')
             ->select('strands.Strand_name', 'strands.Strand_code', DB::raw('count(*) as count'))
             ->groupBy('strands.id', 'strands.Strand_name', 'strands.Strand_code')
@@ -6532,9 +6819,8 @@ class RegistrarController extends Controller
                 ];
             });
 
-        // Enrollment by grade level
+        // By grade level
         $enrollmentByGrade = (clone $enrollmentsBase)
-            ->where('status', Enrollment::STATUS_ENROLLED)
             ->join('student_personal_info', 'enrollments.student_personal_info_id', '=', 'student_personal_info.id')
             ->select('student_personal_info.grade_level', DB::raw('count(*) as count'))
             ->groupBy('student_personal_info.grade_level')
@@ -6546,6 +6832,12 @@ class RegistrarController extends Controller
                     'count' => $item->count,
                 ];
             });
+
+        $data = [
+            'total_students' => $totalStudents,
+            'male_count' => $maleCount,
+            'female_count' => $femaleCount,
+        ];
 
         // Academic statistics
         $academicStats = [
@@ -6618,6 +6910,16 @@ class RegistrarController extends Controller
                 ];
             });
 
+        $strandOptions = Strand::orderBy('Strand_name')
+            ->get(['id', 'Strand_name', 'Strand_code'])
+            ->map(function ($strand) {
+                return [
+                    'id' => $strand->id,
+                    'name' => $strand->Strand_name,
+                    'code' => $strand->Strand_code,
+                ];
+            });
+
         // Faculty Load Analysis
         $facultyLoads = $this->calculateFacultyLoads($schoolYearId, $semesterId);
 
@@ -6629,6 +6931,7 @@ class RegistrarController extends Controller
             'academicStats' => $academicStats,
             'gradeStats' => $gradeStats,
             'facultyLoads' => $facultyLoads,
+            'strandOptions' => $strandOptions,
             'schoolYears' => $schoolYears,
             'semesters' => $semesters,
             'activeSchoolYear' => $activeSchoolYear ? [
@@ -6642,6 +6945,7 @@ class RegistrarController extends Controller
             'filters' => [
                 'school_year_id' => $schoolYearId,
                 'semester_id' => $semesterId,
+                'strand_id' => request('strand_id'),
             ],
         ]);
     }
@@ -6890,49 +7194,51 @@ class RegistrarController extends Controller
     {
         $schoolYearId = $request->input('school_year_id');
         $semesterId = $request->input('semester_id');
-        
+        $strandId = $request->input('strand_id');
+
         $activeSchoolYear = $schoolYearId ? SchoolYear::find($schoolYearId) : SchoolYear::where('is_active', true)->first();
         $activeSemester = $semesterId ? Semester::find($semesterId) : null;
-        
-        $strands = [];
-        
+
+        $strandQuery = Strand::query();
+
+        if ($strandId) {
+            $strandQuery->where('id', $strandId);
+        }
+
         if ($semesterId) {
             $strandSemester = DB::table('strand_semester')
                 ->where('semester_id', $semesterId)
                 ->where('is_active', true)
                 ->pluck('strand_id');
-            
-            $strands = Strand::whereIn('id', $strandSemester)
-                ->orderBy('Strand_code')
-                ->get();
+
+            $strandQuery->whereIn('id', $strandSemester);
         } elseif ($schoolYearId) {
             $strandSchoolYear = DB::table('strand_school_year')
                 ->where('school_year_id', $schoolYearId)
                 ->where('is_active', true)
                 ->pluck('strand_id');
-            
-            $strands = Strand::whereIn('id', $strandSchoolYear)
-                ->orderBy('Strand_code')
-                ->get();
+
+            $strandQuery->whereIn('id', $strandSchoolYear);
         } else {
-            $strands = Strand::where('Is_active', true)
-                ->orderBy('Strand_code')
-                ->get();
+            $strandQuery->where('Is_active', true);
         }
-        
+
+        $strands = $strandQuery->orderBy('Strand_code')->get();
+
         $strandsWithStats = $strands->map(function ($strand) use ($schoolYearId, $semesterId) {
             $enrollmentQuery = Enrollment::where('assigned_strand_id', $strand->id)
                 ->where('status', Enrollment::STATUS_ENROLLED);
-            
+
             if ($schoolYearId) {
                 $enrollmentQuery->where('school_year_id', $schoolYearId);
             }
+
             if ($semesterId) {
                 $enrollmentQuery->where('semester_id', $semesterId);
             }
-            
+
             $studentCount = $enrollmentQuery->count();
-            
+
             return [
                 'strand_code' => $strand->Strand_code,
                 'strand_name' => $strand->Strand_name,
@@ -6940,16 +7246,19 @@ class RegistrarController extends Controller
                 'is_active' => $strand->Is_active,
             ];
         });
-        
+
+        $strandFilter = $strandId ? ($strands->firstWhere('id', $strandId)?->Strand_name ?? 'Specific Strand') : 'All Strands';
+
         $data = [
             'strands' => $strandsWithStats,
             'school_year' => $activeSchoolYear?->formatted ?? 'All School Years',
             'semester' => $activeSemester?->semester_type ?? 'All Semesters',
             'total_strands' => $strandsWithStats->count(),
             'total_students' => $strandsWithStats->sum('student_count'),
+            'strand_filter' => $strandFilter,
             'generated_at' => now()->format('F d, Y g:i A'),
         ];
-        
+
         $pdf = PDF::loadView('pdf.registrar.strands', $data);
         $filename = 'strands-report-' . now()->format('Y-m-d') . '.pdf';
         return $pdf->download($filename);
@@ -6969,20 +7278,18 @@ class RegistrarController extends Controller
         $enrollmentsBase = Enrollment::where('status', Enrollment::STATUS_ENROLLED)
             ->when($schoolYearId, fn($q) => $q->where('school_year_id', $schoolYearId))
             ->when($semesterId, fn($q) => $q->where('semester_id', $semesterId));
-        
-        // Overall statistics
+
         $totalStudents = (clone $enrollmentsBase)->count();
-        
+
         $genderStats = (clone $enrollmentsBase)
             ->join('student_personal_info', 'enrollments.student_personal_info_id', '=', 'student_personal_info.id')
             ->select('student_personal_info.sex', DB::raw('count(*) as count'))
             ->groupBy('student_personal_info.sex')
             ->get();
-        
+
         $maleCount = $genderStats->where('sex', 'Male')->first()->count ?? 0;
         $femaleCount = $genderStats->where('sex', 'Female')->first()->count ?? 0;
-        
-        // By strand
+
         $byStrand = (clone $enrollmentsBase)
             ->leftJoin('strands', 'enrollments.assigned_strand_id', '=', 'strands.id')
             ->select('strands.Strand_name', 'strands.Strand_code', DB::raw('count(*) as count'))
@@ -6996,8 +7303,7 @@ class RegistrarController extends Controller
                     'count' => $item->count,
                 ];
             });
-        
-        // By grade level
+
         $byGrade = (clone $enrollmentsBase)
             ->join('student_personal_info', 'enrollments.student_personal_info_id', '=', 'student_personal_info.id')
             ->select('student_personal_info.grade_level', DB::raw('count(*) as count'))
@@ -7010,7 +7316,7 @@ class RegistrarController extends Controller
                     'count' => $item->count,
                 ];
             });
-        
+
         $data = [
             'total_students' => $totalStudents,
             'male_count' => $maleCount,

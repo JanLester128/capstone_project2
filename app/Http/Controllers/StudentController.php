@@ -60,7 +60,7 @@ class StudentController extends Controller
                 $existingEnrollment = null;
                 
                 // Priority 1: Look for enrollment in active semester (if semester is defined)
-                if ($activeSemester) {
+                if ($activeSemester && $activeSchoolYear) {
                     $existingEnrollment = Enrollment::where('student_personal_info_id', $studentInfo->id)
                         ->where('school_year_id', $activeSchoolYear->id)
                         ->where('semester_id', $activeSemester->id)
@@ -69,7 +69,7 @@ class StudentController extends Controller
                 }
                 
                 // Priority 2: Fall back to any enrollment for the school year (if no active semester)
-                if (!$existingEnrollment && !$activeSemester) {
+                if (!$existingEnrollment && !$activeSemester && $activeSchoolYear) {
                     $existingEnrollment = Enrollment::where('student_personal_info_id', $studentInfo->id)
                         ->where('school_year_id', $activeSchoolYear->id)
                         ->orderByDesc('submitted_at')
@@ -928,7 +928,7 @@ class StudentController extends Controller
             'current_zip_code' => 'required|string|max:10',
             // Guardian
             'guardian_name' => 'required|string|max:150',
-            'guardian_contact_number' => 'required|string|max:100',
+            'guardian_contact_number' => 'required|digits:11',
             'guardian_address' => 'required|string|max:255',
             'guardian_relationship' => 'required|in:Mother,Father,Guardian,Relative,Other',
             // Previous School
@@ -939,6 +939,39 @@ class StudentController extends Controller
             'grade_level_completed' => 'required|string|max:100',
             // Transferee
             'previous_school' => 'required_if:student_status,transferee|nullable|string|max:255',
+        ], [
+            // Custom error messages
+            'email.unique' => 'This email address is already been taken. Please use a different email address.',
+            'lrn.unique' => 'This LRN has already been taken. Please check your LRN or contact the registrar office.',
+            'lrn.size' => 'LRN must be exactly 12 digits.',
+            'password.confirmed' => 'Password confirmation does not match.',
+            'password.min' => 'Password must be at least 8 characters long.',
+            'first_name.required' => 'First name is required.',
+            'last_name.required' => 'Last name is required.',
+            'birthdate.required' => 'Birthdate is required.',
+            'age.required' => 'Age is required.',
+            'sex.required' => 'Sex is required.',
+            'email.required' => 'Email address is required.',
+            'email.email' => 'Please enter a valid email address.',
+            'lrn.required' => 'LRN is required.',
+            'place_of_birth.required' => 'Place of birth is required.',
+            'student_status.required' => 'Student status is required.',
+            'current_sitio_street.required' => 'Street address is required.',
+            'current_barangay.required' => 'Barangay is required.',
+            'current_municipality_city.required' => 'Municipality/City is required.',
+            'current_province.required' => 'Province is required.',
+            'current_zip_code.required' => 'ZIP code is required.',
+            'guardian_name.required' => 'Guardian name is required.',
+            'guardian_contact_number.required' => 'Guardian contact number is required.',
+            'guardian_address.required' => 'Guardian address is required.',
+            'guardian_contact_number.digits' => 'Guardian contact number must be exactly 11 digits.',
+            'guardian_relationship.required' => 'Guardian relationship is required.',
+            'last_school_attended.required' => 'Last school attended is required.',
+            'school_year_last_attended.required' => 'School year last attended is required.',
+            'last_school_address.required' => 'Last school address is required.',
+            'last_school_type.required' => 'Last school type is required.',
+            'grade_level_completed.required' => 'Grade level completed is required.',
+            'previous_school.required_if' => 'Previous school is required for transferee students.',
         ]);
 
         try {
@@ -1059,13 +1092,17 @@ class StudentController extends Controller
         }
 
         // Provide available subjects filtered to active school year/semester when available
-        $availableSubjects = Subject::orderBy('Subject_name')
-            ->when($activeSchoolYear, function ($q) use ($activeSchoolYear) {
-                $q->where('school_year_id', $activeSchoolYear->id);
-            })
-            ->when($activeSemester, function ($q) use ($activeSemester) {
-                $q->where('semester_id', $activeSemester->id);
-            })
+        $availableSubjects = Subject::orderBy('Subject_name');
+        
+        if ($activeSchoolYear) {
+            $availableSubjects->where('school_year_id', $activeSchoolYear->id);
+        }
+        
+        if ($activeSemester) {
+            $availableSubjects->where('semester_id', $activeSemester->id);
+        }
+        
+        $availableSubjects = $availableSubjects
             ->get(['Id', 'Subject_name', 'Subject_code', 'strand_id', 'year_level', 'semester_id', 'Semester', 'school_year_id']);
 
         return Inertia::render('Students/EnrollmentForm', [
@@ -1113,9 +1150,7 @@ class StudentController extends Controller
             'strand_preferences' => 'required|array|min:1|max:3',
             'strand_preferences.*' => 'required|exists:strands,id|distinct',
             
-            // Transferee Information (only if student is transferee)
-            'subjects_for_credit' => 'nullable|array',
-            'subjects_for_credit.*' => 'exists:subjects,Id',
+            // Note: subjects_for_credit removed - transferee subject crediting handled by coordinators/registrars
             
             // Document Uploads
             'psa_birth_certificate_photo' => 'nullable|file|mimes:jpeg,png,jpg,gif,pdf|max:10240',
@@ -1176,12 +1211,15 @@ class StudentController extends Controller
                 ]);
             }
 
-            $activeSemester = $activeSchoolYear->semesters()->where('is_active', true)->first();
+            $activeSemester = $activeSchoolYear ? $activeSchoolYear->semesters()->where('is_active', true)->first() : null;
 
-            $existingEnrollment = Enrollment::where('student_personal_info_id', $studentInfo->id)
-                ->where('school_year_id', $activeSchoolYear->id)
-                ->lockForUpdate()
-                ->first();
+            $existingEnrollment = null;
+            if ($activeSchoolYear) {
+                $existingEnrollment = Enrollment::where('student_personal_info_id', $studentInfo->id)
+                    ->where('school_year_id', $activeSchoolYear->id)
+                    ->lockForUpdate()
+                    ->first();
+            }
 
             if ($existingEnrollment && !$existingEnrollment->isEditable()) {
                 DB::rollBack();
@@ -1206,34 +1244,17 @@ class StudentController extends Controller
                 $existingEnrollment->update($enrollmentData);
                 $enrollment = $existingEnrollment;
             } else {
+                if (!$activeSchoolYear) {
+                    throw new \Exception('No active school year found for enrollment creation');
+                }
                 $enrollment = Enrollment::create(array_merge($enrollmentData, [
                     'student_personal_info_id' => $studentInfo->id,
                     'school_year_id' => $activeSchoolYear->id,
                 ]));
             }
             
-            // Persist subjects for credit if transferee: create placeholder credited_subjects with null grade
-            if ($isTransferee && !empty($validated['subjects_for_credit'])) {
-                $subjectIds = array_unique(array_map('intval', $validated['subjects_for_credit']));
-                
-                foreach ($subjectIds as $subjectId) {
-                    // Create if not exists
-                    \App\Models\CreditedSubject::firstOrCreate(
-                        [
-                            'enrollment_id' => $enrollment->id,
-                            'subject_id' => $subjectId,
-                        ],
-                        [
-                            'student_personal_info_id' => $studentInfo->id,
-                            'previous_school' => $studentInfo->previous_school ?? $studentInfo->last_school_attended ?? null,
-                            'credited_grade' => null,
-                            'remarks' => null,
-                            'credited_by' => null,
-                            'credited_at' => null,
-                        ]
-                    );
-                }
-            }
+            // Note: Subject crediting for transferees is now handled by coordinators/registrars
+            // No automatic subject credit creation during student enrollment
 
             DB::commit();
 

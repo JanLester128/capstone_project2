@@ -343,6 +343,7 @@ export default function Enrollments({
   strands = [],
   sections = [],
   user = null,
+  pendingCount = 0,
 }) {
   const [processing, setProcessing] = useState(null)
   const [filter, setFilter] = useState('all')
@@ -498,65 +499,67 @@ export default function Enrollments({
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50">
       <FacultySidebar user={user} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <Head title="Student Enrollments - Faculty Coordinator" />
 
         {/* Header */}
-        <header className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/faculty/enrollments"
-                className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Back
-              </Link>
-              <h1 className="text-2xl font-semibold text-gray-900">Student Enrollments</h1>
-              {corPanelCollapsed && selectedEnrollmentForCor && (
-                <button
-                  onClick={() => setCorPanelCollapsed(false)}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-500 transition-all"
-                  aria-label="Expand COR panel"
+        <header className="relative overflow-hidden border-b border-gray-200 bg-gradient-to-r from-[#000825] via-[#101b5f] to-[#1f2c6e] px-6 py-6 text-white shadow-sm">
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute -right-16 top-0 h-40 w-40 rounded-full bg-white/20 blur-3xl" />
+            <div className="absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+          </div>
+          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <Link
+                  href="/faculty/enrollments"
+                  className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-white/80 transition hover:bg-white/20"
                 >
-                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0l5 5a1 1 0 0 1 0 1.414l-5 5a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clipRule="evenodd" />
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
-                  Show COR
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1 text-sm text-blue-700">
-                <span className="h-2 w-2 rounded-full bg-blue-500" />
-                Coordinator Mode
+                  Back to Hub
+                </Link>
+                <div className="inline-flex items-center gap-2 rounded-full bg-blue-500/20 px-3 py-1 text-xs font-semibold">
+                  <span className="h-2 w-2 rounded-full bg-blue-300" />
+                  Coordinator Mode
+                </div>
               </div>
-              <div className="rounded-full bg-gray-100 px-4 py-1 text-sm text-gray-600">
-                Total Applications: <span className="font-semibold text-gray-900">{statusCounts.all}</span>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl font-bold tracking-tight">Student Enrollments</h1>
+                {pendingCount > 0 && (
+                  <span className="inline-flex items-center rounded-full bg-red-100/90 px-3 py-1 text-sm font-semibold text-red-800">
+                    {pendingCount} Pending
+                  </span>
+                )}
+                {corPanelCollapsed && selectedEnrollmentForCor && (
+                  <button
+                    onClick={() => setCorPanelCollapsed(false)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white hover:bg-white/25"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0l5 5a1 1 0 0 1 0 1.414l-5 5a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clipRule="evenodd" />
+                    </svg>
+                    Show COR
+                  </button>
+                )}
               </div>
-              {!corPanelCollapsed && (
-                <button
-                  onClick={() => setCorPanelCollapsed(true)}
-                  className="hidden lg:flex items-center justify-center rounded-full border border-gray-300 h-7 w-7 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-all"
-                  aria-label="Collapse COR panel"
-                >
-                  ×
-                </button>
-              )}
+              <p className="text-sm text-white/70 max-w-2xl">
+                Track and manage enrollment requests submitted by students. Filter by status, review requirements, and complete approvals directly from this coordinator workspace.
+              </p>
             </div>
+            <div className="flex-1" />
           </div>
         </header>
 
         {/* Search and Filters */}
-        <div className="border-b border-gray-200 bg-white px-6 py-3">
-          <div className="flex flex-col gap-3">
+        <div className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             {/* Search Bar */}
-            <div className="relative">
+            <div className="relative w-full lg:max-w-md">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                 <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
@@ -564,15 +567,15 @@ export default function Enrollments({
               </div>
               <input
                 type="text"
-                placeholder="Search by LRN or Name..."
+                placeholder="Search by student name, LRN, or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full rounded-lg border-gray-300 pl-10 pr-3 py-2 text-sm placeholder-gray-400 focus:border-indigo-500 focus:ring-indigo-500"
+                className="block w-full rounded-xl border border-gray-200 pl-11 pr-3 py-2.5 text-sm shadow-sm placeholder-gray-400 focus:border-indigo-500 focus:ring-indigo-500"
               />
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {[
                 { key: 'all', label: 'All', count: statusCounts.all },
                 { key: 'pending', label: 'Pending', count: statusCounts.pending },
@@ -582,13 +585,16 @@ export default function Enrollments({
                 <button
                   key={tab.key}
                   onClick={() => setFilter(tab.key)}
-                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition border ${
                     filter === tab.key
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'border-gray-200 text-gray-500 hover:border-indigo-200 hover:text-indigo-600'
                   }`}
                 >
-                  {tab.label} ({tab.count})
+                  {tab.label}
+                  <span className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold">
+                    {tab.count}
+                  </span>
                 </button>
               ))}
             </div>
@@ -598,7 +604,11 @@ export default function Enrollments({
         {/* Content - 2 Column Layout */}
         <main className="flex-1 overflow-hidden flex flex-col lg:flex-row relative">
           {/* Left Column - Student List */}
-          <div className={`transition-all duration-300 flex flex-col overflow-hidden ${corPanelCollapsed ? 'w-full' : 'w-full lg:w-1/2'} ${!corPanelCollapsed ? 'border-r border-gray-200' : ''}`}>
+          <div
+            className={`transition-all duration-300 flex flex-col overflow-hidden ${
+              corPanelCollapsed ? 'w-full' : 'w-full lg:w-1/2'
+            } ${!corPanelCollapsed ? 'border-r border-gray-200' : ''}`}
+          >
             <div className="flex-1 overflow-y-auto p-6">
               {filteredEnrollments.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 p-12 text-center">
@@ -615,8 +625,8 @@ export default function Enrollments({
                   </p>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                  <div className="overflow-x-auto">
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                  <div className="hidden overflow-x-auto lg:block">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
@@ -659,9 +669,21 @@ export default function Enrollments({
                                   {getInitials(enrollment.student?.name)}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="text-sm font-semibold text-gray-900 truncate">
-                                    {enrollment.student?.name}
-                                  </p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-semibold text-gray-900 truncate">
+                                      {enrollment.student?.name}
+                                    </p>
+                                    {enrollment.student_type && (
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                        enrollment.student_type_color === 'blue' ? 'bg-blue-100 text-blue-800' :
+                                        enrollment.student_type_color === 'green' ? 'bg-green-100 text-green-800' :
+                                        enrollment.student_type_color === 'purple' ? 'bg-purple-100 text-purple-800' :
+                                        'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        {enrollment.student_type_label}
+                                      </span>
+                                    )}
+                                  </div>
                                   <p className="text-xs text-gray-500 truncate">
                                     {enrollment.student?.email}
                                   </p>
@@ -739,6 +761,129 @@ export default function Enrollments({
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Mobile Cards */}
+                  <div className="grid gap-4 p-4 lg:hidden">
+                    {filteredEnrollments.map((enrollment) => (
+                      <div
+                        key={enrollment.id}
+                        onClick={() => {
+                          setSelectedEnrollmentForCor(enrollment)
+                          setSelectedEnrollment(null)
+                          setCorPanelCollapsed(false)
+                        }}
+                        className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition ${
+                          selectedEnrollmentForCor?.id === enrollment.id ? 'border-indigo-300 ring-1 ring-indigo-200' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between border-b border-gray-200 p-4">
+                          <div className="flex items-center gap-2">
+                            <div className="h-10 w-10 flex items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700 flex-shrink-0">
+                              {getInitials(enrollment.student?.name)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold text-gray-900 truncate">
+                                  {enrollment.student?.name}
+                                </p>
+                                {enrollment.student_type && (
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    enrollment.student_type_color === 'blue' ? 'bg-blue-100 text-blue-800' :
+                                    enrollment.student_type_color === 'green' ? 'bg-green-100 text-green-800' :
+                                    enrollment.student_type_color === 'purple' ? 'bg-purple-100 text-purple-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {enrollment.student_type_label}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 truncate">
+                                {enrollment.student?.email}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {enrollment.status !== 'enrolled' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  openReviewModal(enrollment)
+                                }}
+                                className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:border-indigo-500 hover:text-indigo-600"
+                              >
+                                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M10 3.5a6.5 6.5 0 0 1 5.184 10.42l1.648 1.647a1 1 0 0 1-1.414 1.415l-1.648-1.648A6.5 6.5 0 1 1 10 3.5Zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z" />
+                                </svg>
+                                Review
+                              </button>
+                            )}
+                            {enrollment.status === 'enrolled' ? (
+                              <Link
+                                href={`/faculty/coordinator-students/${enrollment.student_personal_info_id || enrollment.student?.id}/enrollments`}
+                                className="inline-flex flex-1 items-center justify-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-white shadow-sm bg-blue-600 hover:bg-blue-500"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M4 4a2 2 0 0 1 2-2h6l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" />
+                                </svg>
+                                View
+                              </Link>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedEnrollmentForCor(enrollment)
+                                  setSelectedEnrollment(null)
+                                  setCorPanelCollapsed(false)
+                                }}
+                                className="inline-flex flex-1 items-center justify-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-white shadow-sm bg-indigo-600 hover:bg-indigo-500"
+                              >
+                                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M4 4a2 2 0 0 1 2-2h6l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" />
+                                </svg>
+                                Open COR
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-gray-900">
+                              School Year / Semester
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {enrollment.school_year?.label ?? ''} / {enrollment.semester?.label ?? ''}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-gray-900">
+                              Strand / Section
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {enrollment.assigned_strand?.code
+                                ? `${enrollment.assigned_strand.code} - ${enrollment.assigned_strand.name}`
+                                : enrollment.student?.strand_preferences?.[0]?.strand?.code
+                                ? `Primary: ${enrollment.student.strand_preferences[0].strand.code}`
+                                : 'Not assigned'}
+                              {enrollment.assigned_section && (
+                                <span className="text-xs text-gray-500">
+                                  ({enrollment.assigned_section.name})
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-gray-900">
+                              Status
+                            </p>
+                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[enrollment.status] ?? statusStyles.default}`}>
+                              {enrollment.status_text}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -746,7 +891,10 @@ export default function Enrollments({
 
           {/* Right Column - COR Preview */}
           {!corPanelCollapsed && (
-            <div className="w-full lg:w-7/12 flex flex-col overflow-hidden bg-gray-100" style={{ maxHeight: 'calc(100vh - 112px)' }}>
+            <div
+              className="w-full lg:w-7/12 flex flex-col overflow-hidden bg-gray-100"
+              style={{ maxHeight: 'calc(100vh - 112px)' }}
+            >
               {selectedEnrollmentForCor ? (
                 <div className="flex-1 flex flex-col overflow-hidden">
                   <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
@@ -788,38 +936,35 @@ export default function Enrollments({
                       </button>
                     </div>
                   </div>
-                <div className="flex-1 overflow-hidden bg-gray-50" style={{ minHeight: '100%' }}>
-                  <iframe
-                    ref={corIframeRef}
-                    src={`/enrollments/${selectedEnrollmentForCor.id}/cor?iframe=1`}
-                    className="w-full h-full border-0"
-                    title="Certificate of Registration"
-                    style={{ 
-                      display: 'block',
-                      width: '100%',
-                      height: '100%'
-                    }}
-                    scrolling="yes"
-                  />
+
+                  <div className="flex-1 overflow-hidden bg-gray-50" style={{ minHeight: '100%' }}>
+                    <iframe
+                      ref={corIframeRef}
+                      src={`/enrollments/${selectedEnrollmentForCor.id}/cor?iframe=1`}
+                      className="w-full h-full border-0"
+                      title="Certificate of Registration"
+                      style={{ display: 'block', width: '100%', height: '100%' }}
+                      scrolling="yes"
+                    />
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-center p-12">
-                <div className="text-center">
-                  <svg className="mx-auto h-16 w-16 text-gray-300" viewBox="0 0 24 24" stroke="currentColor" fill="none">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2Z" />
-                  </svg>
-                  <h3 className="mt-4 text-base font-semibold text-gray-900">No COR Selected</h3>
-                  <p className="mt-2 text-sm text-gray-500 max-w-sm">
-                    Select a student from the list on the left to view their Certificate of Registration.
-                    <br />
-                    <span className="text-xs text-gray-400 mt-1 block">
-                      For pre-enrolled or recommended students, you can assign strand/section directly in the COR view.
-                    </span>
-                  </p>
+              ) : (
+                <div className="flex-1 flex items-center justify-center p-12">
+                  <div className="text-center">
+                    <svg className="mx-auto h-16 w-16 text-gray-300" viewBox="0 0 24 24" stroke="currentColor" fill="none">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2Z" />
+                    </svg>
+                    <h3 className="mt-4 text-base font-semibold text-gray-900">No COR Selected</h3>
+                    <p className="mt-2 text-sm text-gray-500 max-w-sm">
+                      Select a student from the list on the left to view their Certificate of Registration.
+                      <br />
+                      <span className="text-xs text-gray-400 mt-1 block">
+                        For pre-enrolled or recommended students, you can assign strand/section directly in the COR view.
+                      </span>
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
             </div>
           )}
         </main>

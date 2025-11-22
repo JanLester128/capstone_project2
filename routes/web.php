@@ -53,9 +53,21 @@ Route::post('/login', function (Request $request) {
     }
 
     // Attempt authentication
-    if (!$user || !Hash::check($password, $user->password)) {
+    if (!$user) {
+        if (is_numeric($loginField) && strlen($loginField) == 12) {
+            return back()->withErrors([
+                'email' => 'LRN not found. Please check your LRN or contact the registrar office.',
+            ])->onlyInput('email');
+        } else {
+            return back()->withErrors([
+                'email' => 'Email address not found. Please check your email or register for an account.',
+            ])->onlyInput('email');
+        }
+    }
+    
+    if (!Hash::check($password, $user->password)) {
         return back()->withErrors([
-            'email' => 'The provided credentials do not match our records.',
+            'email' => 'Incorrect password. Please check your password and try again.',
         ])->onlyInput('email');
     }
 
@@ -73,7 +85,7 @@ Route::post('/login', function (Request $request) {
         if (!$studentInfo || !$studentInfo->is_verified) {
             Auth::logout();
             return back()->withErrors([
-                'email' => 'Your account is pending verification. Please wait for the registrar to verify your account.',
+                'email' => 'Your account is pending verification by the registrar. You will receive an email notification once your account is approved. Please contact the registrar office if you have been waiting for more than 3 business days.',
             ])->onlyInput('email');
         }
     }
@@ -269,12 +281,14 @@ Route::middleware(['auth', 'role:Faculty'])->prefix('faculty')->name('faculty.')
     Route::get('/coordinator-students', [FacultyController::class, 'coordinatorStudents'])->name('coordinator-students');
     Route::get('/coordinator-students/{student}', [FacultyController::class, 'showCoordinatorStudentDetails'])->name('coordinator-students.details');
     Route::get('/coordinator-students/{student}/enrollments', [FacultyController::class, 'coordinatorStudentEnrollments'])->name('coordinator-students.enrollments');
-    
+    Route::get('/students/{student}/enroll', [FacultyController::class, 'showCoordinatorEnrollmentPage'])->name('faculty.students.enroll');
+
     // Semester data access route (for accessing previous semester data)
     Route::get('/semester-data', [FacultyController::class, 'getSemesterData'])->name('semester-data');
     
     // Coordinator credited subjects management (submits for registrar approval)
     Route::get('/credited-subjects', [FacultyController::class, 'creditedSubjects'])->name('credited-subjects');
+    Route::get('/credited-subjects/{enrollment}', [FacultyController::class, 'creditedSubjectsDetail'])->name('credited-subjects.detail');
     Route::post('/credited-subjects', [FacultyController::class, 'storeCoordinatorCredit'])->name('credited-subjects.store');
     Route::put('/credited-subjects/{creditedSubject}', [FacultyController::class, 'updateCoordinatorCredit'])->name('credited-subjects.update');
     

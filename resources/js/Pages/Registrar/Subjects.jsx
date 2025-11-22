@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/react'
 import RegistrarSidebar from '../Auth/Registrar_sidebar'
 import SubjectForm from './Components/SubjectForm'
 import Breadcrumb from './Components/Breadcrumb'
+import Swal from 'sweetalert2'
 
 export default function Subjects({ subjects = [], strands = [], semesters = [], activeSchoolYear, activeSemester, hasActiveStrands = true, flash = {} }) {
   const [showForm, setShowForm] = useState(false)
@@ -30,18 +31,43 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
 
   const handleArchive = (subject) => {
     setOpenMenuId(null)
-    if (window.confirm(`Are you sure you want to archive "${subject.Subject_name}"? This action cannot be undone.`)) {
-      router.delete(`/registrar/subjects/${subject.Id}`, {
-        onSuccess: () => {
-          setArchivingSubject(null)
-        },
-        onError: (errors) => {
-          alert(errors.message || 'Failed to archive subject. It may be assigned to classes.')
-          setArchivingSubject(null)
-        }
-      })
-      setArchivingSubject(subject.Id)
-    }
+    
+    Swal.fire({
+      title: 'Archive Subject?',
+      text: `Are you sure you want to archive "${subject.Subject_name}"? This action cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Archive',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setArchivingSubject(subject.Id)
+        router.delete(`/registrar/subjects/${subject.Id}`, {
+          onSuccess: () => {
+            setArchivingSubject(null)
+            Swal.fire({
+              title: 'Archived!',
+              text: 'Subject has been archived successfully.',
+              icon: 'success',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#10b981'
+            })
+          },
+          onError: (errors) => {
+            Swal.fire({
+              title: 'Archive Failed',
+              text: errors.message || 'Failed to archive subject. It may be assigned to classes.',
+              icon: 'error',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#dc2626'
+            })
+            setArchivingSubject(null)
+          }
+        })
+      }
+    })
   }
 
   const toggleMenu = (subjectId, e) => {
@@ -678,7 +704,13 @@ function BulkCreateSubjectsForm({ strands, activeSemester, hasActiveStrands, onC
     e.preventDefault()
     
     if (!hasActiveStrands) {
-      alert('No active strands. Please activate at least one strand first.')
+      Swal.fire({
+        title: 'No Active Strands',
+        text: 'Please activate at least one strand first.',
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#f59e0b'
+      })
       return
     }
 
@@ -726,7 +758,13 @@ function BulkCreateSubjectsForm({ strands, activeSemester, hasActiveStrands, onC
     }
 
     if (validSubjects.length === 0) {
-      alert('Please fill in at least one subject.')
+      Swal.fire({
+        title: 'No Subjects to Create',
+        text: 'Please fill in at least one subject.',
+        icon: 'info',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#3b82f6'
+      })
       return
     }
 
@@ -959,12 +997,24 @@ function BulkImportModal({ strands, activeSemester, onClose }) {
 
   const handleImport = () => {
     if (!selectedStrand || !selectedYear) {
-      alert('Please select strand and year level')
+      Swal.fire({
+        title: 'Missing Selection',
+        text: 'Please select strand and year level',
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#f59e0b'
+      })
       return
     }
 
     if (!activeSemester) {
-      alert('No active semester. Please activate a semester first.')
+      Swal.fire({
+        title: 'No Active Semester',
+        text: 'Please activate a semester first.',
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#f59e0b'
+      })
       return
     }
 
@@ -977,21 +1027,28 @@ function BulkImportModal({ strands, activeSemester, onClose }) {
     }, {
       onSuccess: (page) => {
         // Check if there's a success message in the response
-        if (page.props.flash?.success) {
-          alert(page.props.flash.success)
-        } else {
-          alert('Subjects imported successfully!')
-        }
-        onClose()
-        window.location.reload() // Refresh to show new subjects
+        const message = page.props.flash?.success || 'Subjects imported successfully!'
+        Swal.fire({
+          title: 'Import Successful!',
+          text: message,
+          icon: 'success',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#10b981'
+        }).then(() => {
+          onClose()
+          window.location.reload() // Refresh to show new subjects
+        })
       },
       onError: (errors) => {
         console.error('Import errors:', errors)
-        if (errors.message) {
-          alert(errors.message)
-        } else {
-          alert('Import failed. Please try again.')
-        }
+        const message = errors.message || 'Import failed. Please try again.'
+        Swal.fire({
+          title: 'Import Failed',
+          text: message,
+          icon: 'error',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#dc2626'
+        })
         setImporting(false)
       },
       onFinish: () => {

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Subject extends Model
@@ -70,6 +71,14 @@ class Subject extends Model
     public function schoolYear(): BelongsTo
     {
         return $this->belongsTo(SchoolYear::class, 'school_year_id');
+    }
+
+    /**
+     * Get the classes that use this subject.
+     */
+    public function classes(): HasMany
+    {
+        return $this->hasMany(ClassModel::class, 'subject_id', 'Id');
     }
 
     /**

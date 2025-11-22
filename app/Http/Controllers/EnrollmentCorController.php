@@ -73,15 +73,10 @@ class EnrollmentCorController extends Controller
                         
                         // Create missing classes using the same logic as reEnrollAuto
                         $registrarController = app(\App\Http\Controllers\RegistrarController::class);
-                        $reflection = new \ReflectionClass($registrarController);
-                        $createMethod = $reflection->getMethod('createClassesForFailedSubjects');
-                        $createMethod->setAccessible(true);
-                        $createMethod->invoke($registrarController, $enrollment, $failedGrades, $user->id);
+                        $registrarController->createFailedSubjectClassesForEnrollment($enrollment, $failedGrades, $user->id);
                         
                         // Then create class details for all classes (including newly created ones)
-                        $createDetailsMethod = $reflection->getMethod('createClassDetailsForEnrollment');
-                        $createDetailsMethod->setAccessible(true);
-                        $createDetailsMethod->invoke($registrarController, $enrollment, $user->id, false, $failedGrades);
+                        $registrarController->createClassDetailsSnapshotForEnrollment($enrollment, $user->id, false, $failedGrades);
                         
                         // Reload enrollment relationships after creating classes
                         $enrollment->refresh();
@@ -165,24 +160,11 @@ class EnrollmentCorController extends Controller
         $isIframe = $request->has('iframe') && $request->query('iframe') == '1';
 
         // Senior High Coordinator name
-        $coordinatorName = 'Anadesi Lopex Buhisan';
+        $coordinatorName = 'Anadesi Lopez Buhisan';
 
-        // Principal name - can be configured later via settings or database
-        $principalName = null; // TODO: Add Principal name from settings or database
-
-        // Get Registrar name (first registrar found)
-        $registrar = User::where('Role', 'Registrar')
-            ->where('is_disabled', false)
-            ->first();
-        $registrarName = null;
-        if ($registrar) {
-            $nameParts = array_filter([
-                $registrar->FirstName ?? '',
-                $registrar->MiddleName ?? '',
-                $registrar->LastName ?? ''
-            ]);
-            $registrarName = trim(implode(' ', $nameParts));
-        }
+        // Principal and registrar names (static until settings are introduced)
+        $principalName = 'Virgilio I. Diaz jr.';
+        $registrarName = 'Michelle N. Delig';
 
         return view('reports.cor', [
             'cor' => $cor,

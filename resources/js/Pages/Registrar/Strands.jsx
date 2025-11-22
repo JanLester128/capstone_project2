@@ -5,6 +5,7 @@ import Breadcrumb from './Components/Breadcrumb'
 import SectionCard from './Components/SectionCard'
 import SectionForm from './Components/SectionForm'
 import ReopenSectionModal from './Components/ReopenSectionModal'
+import Swal from 'sweetalert2'
 
 export default function Strands({ strands = [], sections = [], previousSections = [], users = [], activeSchoolYear, activeSemester, flash = {} }) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -26,6 +27,7 @@ export default function Strands({ strands = [], sections = [], previousSections 
   const [reopeningSection, setReopeningSection] = useState(null)
   const [selectedSections, setSelectedSections] = useState([])
   const [bulkReopenMode, setBulkReopenMode] = useState(false)
+  const [openMenuId, setOpenMenuId] = useState(null)
 
   // HCI Principle 1: Visibility of system status
   const filteredStrands = strands.filter(strand =>
@@ -66,11 +68,35 @@ export default function Strands({ strands = [], sections = [], previousSections 
   }
 
   const handleDisable = (strand) => {
-    // HCI Principle 5: Error prevention
-    const action = strand.Is_active ? 'disable' : 'enable'
-    if (confirm(`Are you sure you want to ${action} ${strand.Strand_name}?`)) {
-      router.put(`/registrar/strands/${strand.id}/toggle`)
-    }
+    // Use the same logic as the button to determine if strand is active
+    const isCurrentlyActive = activeSemester ? strand.is_active_for_semester : strand.is_active_for_year
+    const action = isCurrentlyActive ? 'deactivate' : 'activate'
+    
+    Swal.fire({
+      title: `${action.charAt(0).toUpperCase() + action.slice(1)} Strand?`,
+      text: `Are you sure you want to ${action} ${strand.Strand_name}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: isCurrentlyActive ? '#dc2626' : '#10b981',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: `Yes, ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        router.put(`/registrar/strands/${strand.id}/toggle`, {}, {
+          onSuccess: () => {
+            Swal.fire({
+              title: `${action.charAt(0).toUpperCase() + action.slice(1)}d!`,
+              text: `Strand has been ${action}d successfully.`,
+              icon: 'success',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#10b981',
+              timer: 2000
+            })
+          }
+        })
+      }
+    })
   }
 
   const resetForm = () => {
@@ -115,9 +141,41 @@ export default function Strands({ strands = [], sections = [], previousSections 
   const handleToggleSection = (sectionId) => {
     const section = sections.find(s => s.id === sectionId)
     const action = (section?.is_active !== false) ? 'disable' : 'enable'
-    if (confirm(`Are you sure you want to ${action} this section?`)) {
-      router.put(`/registrar/sections/${sectionId}/toggle`)
-    }
+    
+    Swal.fire({
+      title: `${action.charAt(0).toUpperCase() + action.slice(1)} Section?`,
+      text: `Are you sure you want to ${action} this section?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: (section?.is_active !== false) ? '#dc2626' : '#10b981',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: `Yes, ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        router.put(`/registrar/sections/${sectionId}/toggle`, {}, {
+          onSuccess: () => {
+            Swal.fire({
+              title: `${action.charAt(0).toUpperCase() + action.slice(1)}d!`,
+              text: `Section has been ${action}d successfully.`,
+              icon: 'success',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#10b981',
+              timer: 2000
+            })
+          }
+        })
+      }
+    })
+  }
+
+  const handleSectionSelection = (sectionId) => {
+    setSelectedSections((prev) => {
+      if (prev.includes(sectionId)) {
+        return prev.filter((id) => id !== sectionId)
+      }
+      return [...prev, sectionId]
+    })
   }
 
   const handleSectionFormClose = () => {
@@ -127,9 +185,51 @@ export default function Strands({ strands = [], sections = [], previousSections 
   }
 
   const handleBulkReopen = (strandId) => {
-    const strandSections = selectedSections.filter(id => 
-      previousSections.find(s => s.id === id && s.strand_id === strandId)
+    const strandSelections = selectedSections.filter((id) =>
+      previousSections.some((section) => section.id === id && section.strand_id === strandId)
     )
+
+    if (!strandSelections.length) {
+      Swal.fire({
+        title: 'No sections selected',
+        text: 'Select at least one section from this strand to reopen.',
+        icon: 'info',
+        confirmButtonColor: '#6366f1'
+      })
+      return
+    }
+
+    Swal.fire({
+      title: 'Reopen selected sections?',
+      text: `This will reopen ${strandSelections.length} section${strandSelections.length > 1 ? 's' : ''} for ${activeSchoolYear ? `${activeSchoolYear.School_year_start}-${activeSchoolYear.School_year_end}` : 'the active school year'}.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#16a34a',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, reopen'
+    }).then((result) => {
+      if (!result.isConfirmed) {
+        return
+      }
+
+      router.post('/registrar/sections/reopen-bulk', {
+        section_ids: strandSelections
+      }, {
+        onSuccess: () => {
+          setSelectedSections((prev) => prev.filter((id) => !strandSelections.includes(id)))
+          setBulkReopenMode(false)
+        },
+        onError: (errors) => {
+          const errorMessage = errors?.section_ids || 'Unable to reopen selected sections. Please try again.'
+          Swal.fire({
+            title: 'Reopen failed',
+            text: errorMessage,
+            icon: 'error',
+            confirmButtonColor: '#ef4444'
+          })
+        }
+      })
+    })
   }
 
 
@@ -139,50 +239,54 @@ export default function Strands({ strands = [], sections = [], previousSections 
       <div className="flex-1 flex flex-col">
         <Head title="Registrar • Strands" />
 
-        <header className="bg-white shadow">
-          <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+        {/* Enhanced Header with System Status */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
             <Breadcrumb 
               items={[
                 { label: 'Dashboard', href: '/registrar' },
-                { label: 'Strands & Sections', href: '/registrar/strands', current: true }
+                { label: 'Academic Strands', href: '/registrar/strands', current: true }
               ]} 
             />
-            <div className="flex items-center justify-between mt-4">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Academic Strands & Sections</h1>
-                <p className="text-sm text-gray-600 mt-1">
-                  Manage Senior High School strands and their sections in one place
+            
+            <div className="mt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-2xl font-bold text-gray-900">Academic Strands</h1>
+                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
+                    activeSchoolYear && activeSemester ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full ${
+                      activeSchoolYear && activeSemester ? 'bg-green-500' : 'bg-red-500'
+                    }`}></div>
+                    {activeSchoolYear && activeSemester 
+                      ? `${activeSchoolYear.School_year_start}-${activeSchoolYear.School_year_end} • ${activeSemester.semester_type}`
+                      : 'No Active Period'
+                    }
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Manage Senior High School strands and their sections
                 </p>
-                {activeSchoolYear && (
-                  <div className="mt-2 space-y-1">
-                    <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      Active School Year: {activeSchoolYear.School_year_start}-{activeSchoolYear.School_year_end}
-                    </div>
-                    {activeSemester && (
-                      <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">
-                        Active Semester: {activeSemester.semester_type}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {!activeSchoolYear && (
-                  <div className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                    No active school year
-                  </div>
-                )}
               </div>
-              <button
-                onClick={() => setShowForm(true)}
-                className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              >
-                <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Add Strand
-              </button>
+              
+              <div className="flex items-center gap-3">
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">{filteredStrands.length}</span> of <span className="font-medium">{strands.length}</span> strands
+                </div>
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Add Strand
+                </button>
+              </div>
             </div>
           </div>
-        </header>
+        </div>
 
         {/* HCI Principle 4: Consistency and standards */}
         {flash.success && (
@@ -199,41 +303,64 @@ export default function Strands({ strands = [], sections = [], previousSections 
         )}
 
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 w-full">
-          {/* Search and filters - HCI Principle 7: Flexibility and efficiency */}
-          <div className="mb-6 flex items-center justify-between">
-            <div className="relative max-w-md">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+          {/* Enhanced Search and Controls */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex-1 max-w-md">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search strands..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
-              <input
-                type="text"
-                placeholder="Search strands and sections..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              />
-            </div>
-            <div className="flex items-center gap-4">
-              <p className="text-sm text-gray-600">
-                Showing {filteredStrands.length} of {strands.length} strands
-              </p>
-              {previousSections && previousSections.length > 0 && (
-                <button
-                  onClick={() => setBulkReopenMode(!bulkReopenMode)}
-                  className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md ${
-                    bulkReopenMode 
-                      ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                  }`}
-                >
-                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  {bulkReopenMode ? 'Cancel Bulk Reopen' : 'Bulk Reopen Mode'}
-                </button>
-              )}
+              
+              <div className="flex items-center gap-3">
+                {previousSections && previousSections.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (bulkReopenMode) {
+                        setSelectedSections([])
+                      }
+                      setBulkReopenMode(!bulkReopenMode)
+                    }}
+                    className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      bulkReopenMode 
+                        ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                        : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    {bulkReopenMode ? 'Cancel Bulk Mode' : 'Bulk Reopen'}
+                  </button>
+                )}
+                
+                {searchTerm && (
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">{filteredStrands.length}</span> results
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -245,115 +372,136 @@ export default function Strands({ strands = [], sections = [], previousSections 
               const isExpanded = expandedStrands.has(strand.id)
               
               return (
-                <div key={strand.id} className={`bg-white rounded-xl shadow-sm border-2 transition-all duration-200 min-h-[200px] w-full max-w-full overflow-hidden ${
-                  (activeSemester ? strand.is_active_for_semester : strand.is_active_for_year) ? 'border-green-200' : 'border-gray-200'
-                } ${isExpanded ? 'shadow-lg' : 'hover:shadow-md'}`}>
+                <div key={strand.id} className={`bg-white rounded-lg shadow-sm border transition-all duration-200 hover:shadow-md ${
+                  (activeSemester ? strand.is_active_for_semester : strand.is_active_for_year) ? 'border-green-200 bg-green-50/30' : 'border-gray-200'
+                }`}>
                   
-                  {/* Strand Header - HCI Principle 8: Aesthetic and minimalist design */}
-                  <div className="p-6 w-full border-b border-gray-100">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <button
-                            onClick={() => toggleStrandExpansion(strand.id)}
-                            className="flex items-center gap-2 hover:bg-gray-50 rounded-lg p-2 -m-2 transition-colors"
-                          >
-                            <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                            <h3 className="text-xl font-bold text-gray-900">{strand.Strand_code}</h3>
-                          </button>
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                            (activeSemester ? strand.is_active_for_semester : strand.is_active_for_year)
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
+                  {/* Simplified Strand Header */}
+                  <div className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg ${
+                            (activeSemester ? strand.is_active_for_semester : strand.is_active_for_year) 
+                              ? 'bg-gradient-to-br from-green-500 to-green-600' 
+                              : 'bg-gradient-to-br from-gray-400 to-gray-500'
                           }`}>
-                            {(activeSemester ? strand.is_active_for_semester : strand.is_active_for_year) ? 'Active' : 'Inactive'}
-                            {activeSemester && (
-                              <span className="ml-1 text-xs opacity-75">
-                                (Semester)
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                        <p className="text-gray-600 mb-3">{strand.Strand_name}</p>
-                        
-                        {/* Quick Stats */}
-                        {activeSchoolYear && (
-                          <div className="flex items-center gap-6 text-sm">
-                            <div className="flex items-center gap-2">
-                              <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                              </svg>
-                              <span className="text-gray-600">Sections:</span>
-                              <span className="font-semibold text-blue-600">{strandSections.length}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                              </svg>
-                              <span className="text-gray-600">Subjects:</span>
-                              <span className="font-semibold text-purple-600">{strand.subjects_count || 0}</span>
-                            </div>
-                            {strandPreviousSections.length > 0 && (
-                              <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                                <span className="text-gray-600">Available to reopen:</span>
-                                <span className="font-semibold text-orange-600">{strandPreviousSections.length}</span>
-                              </div>
-                            )}
+                            {strand.Strand_code.substring(0, 2)}
                           </div>
-                        )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="text-lg font-bold text-gray-900 truncate">{strand.Strand_code}</h3>
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                (activeSemester ? strand.is_active_for_semester : strand.is_active_for_year)
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {(activeSemester ? strand.is_active_for_semester : strand.is_active_for_year) ? 'Active' : 'Inactive'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600 truncate">{strand.Strand_name}</p>
+                          </div>
+                        </div>
+                        
+                        {/* Simplified Stats */}
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                            <span className="font-medium text-blue-600">{strandSections.length}</span>
+                            <span>sections</span>
+                          </div>
+                          {strandPreviousSections.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              <span className="font-medium text-orange-600">{strandPreviousSections.length}</span>
+                              <span>to reopen</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       
-                      {/* Strand Actions */}
-                      <div className="flex items-center gap-2">
-                        {(activeSemester ? strand.is_active_for_semester : strand.is_active_for_year) && (
+                      {/* Simplified Actions */}
+                      <div className="flex items-center gap-2 ml-4">
+                        <button
+                          onClick={() => toggleStrandExpansion(strand.id)}
+                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="View sections"
+                        >
+                          <svg className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        
+                        {strand.Is_active && (
                           <button
                             onClick={() => handleAddSection(strand)}
-                            className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
                           >
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                             </svg>
-                            Add Section
+                            Create Section
                           </button>
                         )}
-                        <button
-                          onClick={() => handleEdit(strand)}
-                          className="inline-flex items-center px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
-                        >
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => router.put(`/registrar/strands/${strand.id}/toggle`)}
-                          className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
-                            (activeSemester ? strand.is_active_for_semester : strand.is_active_for_year)
-                              ? 'text-orange-600 bg-orange-50 hover:bg-orange-100 focus:ring-orange-500' 
-                              : 'text-green-600 bg-green-50 hover:bg-green-100 focus:ring-green-500'
-                          }`}
-                        >
-                          {(activeSemester ? strand.is_active_for_semester : strand.is_active_for_year) ? (
-                            <>
-                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
-                              </svg>
-                              Deactivate
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              Activate
-                            </>
+                        
+                        <div className="relative">
+                          <button
+                            onClick={() => setOpenMenuId(openMenuId === strand.id ? null : strand.id)}
+                            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                            </svg>
+                          </button>
+                          
+                          {openMenuId === strand.id && (
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                              <button
+                                onClick={() => {
+                                  handleEdit(strand)
+                                  setOpenMenuId(null)
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                              >
+                                <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                Edit Strand
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleDisable(strand)
+                                  setOpenMenuId(null)
+                                }}
+                                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                                  (activeSemester ? strand.is_active_for_semester : strand.is_active_for_year)
+                                    ? 'text-orange-600' 
+                                    : 'text-green-600'
+                                }`}
+                              >
+                                {(activeSemester ? strand.is_active_for_semester : strand.is_active_for_year) ? (
+                                  <>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
+                                    </svg>
+                                    Deactivate
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Activate
+                                  </>
+                                )}
+                              </button>
+                            </div>
                           )}
-                        </button>
+                        </div>
                       </div>
                     </div>
                   </div>
