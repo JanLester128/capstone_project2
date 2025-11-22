@@ -1,18 +1,28 @@
 import { useState } from 'react'
 import { Link, router, usePage } from '@inertiajs/react'
 import { facultyNav, coordinatorNav } from '../Faculty/navConfig'
-import sessionManager from '../../utils/sessionManager'
 import { useSidebar } from '../../contexts/SidebarContext'
 
 export default function FacultySidebar({ user }) {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const { url } = usePage()
   const { isCollapsed, toggleSidebar } = useSidebar()
+  const palette = {
+    navy: '#182978',
+    teal: '#6688cc',
+    sand: '#acbfe6'
+  }
+  const sidebarWidthClass = isCollapsed ? 'w-20 md:w-16' : 'w-64'
 
   // Combine regular faculty nav with coordinator nav if user is coordinator
   const nav = user?.is_coordinator ? [...facultyNav, ...coordinatorNav] : facultyNav
+
+  const handleNavClick = () => {
+    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches) {
+      return
+    }
+    setMobileOpen(false)
+  }
 
   function isActive(href) {
     if (!url) return false
@@ -20,24 +30,6 @@ export default function FacultySidebar({ user }) {
       return url === '/faculty'
     }
     return url.startsWith(href)
-  }
-
-  function onLogout(e) {
-    e.preventDefault()
-    setShowLogoutConfirm(true)
-  }
-
-  function confirmLogout() {
-    setIsLoggingOut(true)
-    sessionManager.handleUserLogout()
-    router.post('/logout', {}, {
-      onFinish: () => setIsLoggingOut(false)
-    })
-  }
-
-  function cancelLogout() {
-    setShowLogoutConfirm(false)
-    setIsLoggingOut(false)
   }
 
   // Get icon component based on icon type
@@ -123,13 +115,9 @@ export default function FacultySidebar({ user }) {
         <div key={item.href} className="relative group">
           <Link
             href={item.href}
-            className={
-              (active
-                ? 'text-white'
-                : `${categoryColor} hover:bg-gray-50`) +
-              ' flex items-center justify-center px-2 py-1.5 text-sm transition-colors rounded-md'
-            }
-            style={active ? { backgroundColor: '#000825' } : {}}
+            onClick={handleNavClick}
+            className={`${active ? '' : 'text-white/80 hover:bg-white/10'} flex items-center justify-center rounded-md p-2 text-sm transition`}
+            style={active ? { backgroundColor: palette.sand, color: palette.navy } : {}}
             aria-current={active ? 'page' : undefined}
             title={item.label}
           >
@@ -139,9 +127,8 @@ export default function FacultySidebar({ user }) {
               </span>
             )}
           </Link>
-          {/* Tooltip */}
           <div className="absolute left-full ml-2 top-0 z-50 hidden group-hover:block pointer-events-none">
-            <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap shadow-lg">
+            <div className="bg-black/80 text-white text-xs rounded py-1 px-2 whitespace-nowrap shadow-lg">
               {item.label}
             </div>
           </div>
@@ -153,16 +140,12 @@ export default function FacultySidebar({ user }) {
       <Link
         key={item.href}
         href={item.href}
-        className={
-          (active
-            ? 'text-white font-semibold'
-            : 'text-gray-900 hover:bg-gray-50') +
-          ' flex items-center gap-2 px-2 py-1.5 text-sm transition-colors rounded-md'
-        }
-        style={active ? { backgroundColor: '#000825' } : {}}
+        onClick={handleNavClick}
+        className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${active ? 'font-semibold' : 'text-white/80 hover:bg-white/5'}`}
+        style={active ? { backgroundColor: palette.sand, color: palette.navy } : {}}
         aria-current={active ? 'page' : undefined}
       >
-        {item.icon && <span className="text-gray-600">{getIcon(item.icon, "w-4 h-4")}</span>}
+        {item.icon && <span className="text-white/70">{getIcon(item.icon, "w-4 h-4")}</span>}
         <span>{item.label}</span>
       </Link>
     )
@@ -188,7 +171,7 @@ export default function FacultySidebar({ user }) {
     // Expanded view - always show items (no dropdown)
     return (
       <div key={categoryItem.category} className="mb-2">
-        <div className={`px-2 py-1 text-xs font-semibold ${categoryColor} uppercase tracking-wider`}>
+        <div className="px-2 py-1 text-xs font-semibold text-white/60 uppercase tracking-wider">
           {categoryItem.categoryLabel}
         </div>
         <div className="mt-0.5 space-y-0.5">
@@ -202,226 +185,91 @@ export default function FacultySidebar({ user }) {
   const filteredNav = nav.filter(Boolean)
 
   return (
-    <aside className={`bg-white border-r border-gray-200 shadow-sm transition-all duration-300 flex-shrink-0 relative ${
-      isCollapsed ? 'w-16' : 'w-64'
-    }`} style={{ overflowX: 'visible' }}>
-      {/* Mobile header */}
-      <div className="md:hidden flex items-center justify-between px-3 py-2 border-b bg-[#000825] relative overflow-hidden">
-        {/* Decorative Translucent White Circles */}
-        <div className="absolute top-0 left-0 w-32 h-32 bg-white/20 rounded-full blur-2xl -translate-x-1/4 -translate-y-1/4"></div>
-        <div className="absolute bottom-0 right-0 w-24 h-24 bg-white/20 rounded-full blur-2xl translate-x-1/4 translate-y-1/4"></div>
-        <div className="flex items-center gap-2 relative z-10">
-          <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center shadow-md p-1">
-            <img
-              src="/onsts.png"
-              alt="ONSTS Logo"
-              className="h-full w-full object-contain"
-            />
-          </div>
-          <div>
-            <span className="font-bold text-white text-xs">ONSTS</span>
-            <p className="text-[10px] text-white/90">Faculty Portal</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          aria-expanded={mobileOpen}
-          onClick={() => setMobileOpen((o) => !o)}
-          className="inline-flex items-center rounded-lg text-white px-3 py-1.5 text-xs font-medium relative z-10"
-          style={{ backgroundColor: '#1a1f3a' }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2a2f4a'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1a1f3a'}
-        >
-          {mobileOpen ? 'Close' : 'Menu'}
-        </button>
-      </div>
+    <>
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed top-4 left-4 z-40 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-lg"
+        style={{ backgroundColor: palette.teal }}
+      >
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+        Menu
+      </button>
 
-      {/* Desktop nav */}
-      <nav className={`hidden md:flex flex-col h-screen sticky top-0 z-10 ${
-        isCollapsed ? 'w-16' : 'w-64'
-      }`}>
-        {/* Logo and School Info */}
-        <div className="p-3 text-white flex-shrink-0 relative" style={{ backgroundColor: '#000825' }}>
-          {/* Decorative Translucent White Circles */}
-          <div className="absolute top-0 left-0 w-64 h-64 bg-white/20 rounded-full blur-3xl -translate-x-1/4 -translate-y-1/4 pointer-events-none"></div>
-          <div className="absolute bottom-0 right-0 w-48 h-48 bg-white/20 rounded-full blur-3xl translate-x-1/4 translate-y-1/4 pointer-events-none"></div>
-          <div className="absolute top-1/2 left-1/4 w-40 h-40 bg-white/15 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
-          <div className="absolute bottom-1/4 left-0 w-32 h-32 bg-white/18 rounded-full blur-2xl -translate-x-1/3 pointer-events-none"></div>
-          <div className="absolute top-1/3 right-1/3 w-24 h-24 bg-white/12 rounded-full blur-xl translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
-          <div className="absolute bottom-1/3 left-1/3 w-28 h-28 bg-white/10 rounded-full blur-xl -translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
-          
-          <div className="flex items-center gap-2 pr-8 relative z-10">
-            <div className="h-10 w-10 rounded-full bg-white flex items-center justify-center shadow-lg p-1.5 flex-shrink-0">
-              <img
-                src="/onsts.png"
-                alt="ONSTS Logo"
-                className="h-full w-full object-contain"
-              />
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/60 z-30"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:z-auto md:static`}
+      >
+        <div
+          className={`flex h-full flex-col shadow-2xl ${sidebarWidthClass}`}
+          style={{ backgroundColor: palette.navy }}
+        >
+          <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10 relative">
+            <div className="h-10 w-10 rounded-full bg-white flex items-center justify-center shadow shrink-0" aria-hidden>
+              <img src="/onsts.png" alt="ONSTS Logo" className="h-8 w-8 object-contain" />
             </div>
             {!isCollapsed && (
-              <div className="flex-1 min-w-0">
-                <h2 className="text-[10px] font-bold leading-tight">
-                  OPOL NATIONAL SECONDARY TECHNICAL SCHOOL
-                </h2>
-                <p className="text-[9px] text-white/90">Student Management System</p>
+              <div className="flex-1 text-white">
+                <p className="text-xs uppercase tracking-[0.2em] text-white/70">ONSTS</p>
+                <p className="text-sm font-semibold">Faculty Portal</p>
                 {user?.is_coordinator && (
-                  <div className="mt-0.5 flex items-center gap-1">
-                    <div className="h-1 w-1 bg-white rounded-full"></div>
-                    <span className="text-[8px] text-white/90">Coordinator</span>
-                  </div>
+                  <span className="text-[10px] uppercase tracking-wide text-white/60">Coordinator</span>
                 )}
               </div>
             )}
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="hidden md:inline-flex items-center justify-center rounded-full border border-white/30 bg-white/10 p-2 text-white hover:bg-white/15 absolute right-3 top-1/2 -translate-y-1/2 shadow"
+            >
+              {isCollapsed ? (
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              )}
+            </button>
+            <button
+              type="button"
+              className="md:hidden inline-flex items-center justify-center rounded-full border border-white/20 p-2 text-white/80 hover:bg-white/10"
+              onClick={() => setMobileOpen(false)}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          
-          {/* Collapse Toggle Button - Top Right, White Hamburger Menu Style */}
-          <button
-            onClick={toggleSidebar}
-            className={`absolute w-8 h-8 flex items-center justify-center transition-all duration-300 z-[9999] group hover:bg-white/10 rounded ${
-              isCollapsed ? 'bottom-3 left-1/2 -translate-x-1/2' : 'top-3 right-3'
-            }`}
-            title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-          >
-            {/* Red vertical line indicator */}
-            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-red-600"></div>
-            
-            {/* Hamburger menu icon - White */}
-            <div className="flex flex-col gap-1 items-center">
-              <div className="flex items-center gap-1">
-                <div className="w-1 h-1 rounded-full bg-white"></div>
-                <div className="w-3 h-0.5 bg-white rounded"></div>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-1 h-1 rounded-full bg-white"></div>
-                <div className="w-3 h-0.5 bg-white rounded"></div>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-1 h-1 rounded-full bg-white"></div>
-                <div className="w-3 h-0.5 bg-white rounded"></div>
-              </div>
-            </div>
-          </button>
-        </div>
 
-        {/* Navigation Items - Compact spacing to fit all items */}
-        <div className="flex-1 p-2 space-y-0.5 overflow-y-auto sidebar-nav" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-          {filteredNav.map((item) => {
-            // Handle main dashboard item
-            if (item.category === 'main') {
-              return renderNavItem(item, isCollapsed, null)
-            }
-            // Handle category sections
-            if (item.category && item.items) {
-              return renderCategory(item, isCollapsed)
-            }
-            return null
-          })}
-        </div>
-
-      </nav>
-
-      {/* Mobile flyout */}
-      {mobileOpen && (
-        <nav id="faculty-mobile-nav" className="md:hidden bg-white border-b shadow-lg">
-          <div className="p-3 space-y-2 max-h-[80vh] overflow-y-auto">
+          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {filteredNav.map((item) => {
               if (item.category === 'main') {
-                const active = isActive(item.href)
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    className={
-                      (active 
-                        ? 'text-white shadow-md' 
-                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100') +
-                      ' flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all'
-                    }
-                    style={active ? { backgroundColor: '#000825' } : {}}
-                  >
-                    <span>{item.label}</span>
-                  </Link>
-                )
+                return renderNavItem(item, isCollapsed, null)
               }
-              
               if (item.category && item.items) {
-                return (
-                  <div key={item.category} className="space-y-1.5">
-                    <div className="text-xs font-bold text-gray-500 uppercase tracking-wider px-2">
-                      {item.categoryLabel}
-                    </div>
-                    <div className="pl-4 space-y-1">
-                      {item.items.map((subItem) => {
-                        const active = isActive(subItem.href)
-                        return (
-                          <Link
-                            key={subItem.href}
-                            href={subItem.href}
-                            onClick={() => setMobileOpen(false)}
-                            className={
-                              (active 
-                                ? 'text-white shadow-md' 
-                                : 'bg-gray-50 text-gray-700 hover:bg-gray-100') +
-                              ' flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-all'
-                            }
-                            style={active ? { backgroundColor: '#000825' } : {}}
-                          >
-                            <span>{subItem.label}</span>
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
+                return renderCategory(item, isCollapsed)
               }
               return null
             })}
-            
           </div>
-        </nav>
-      )}
 
-      {/* Logout Confirmation Modal */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="flex-shrink-0 w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Confirm Logout</h3>
-                <p className="text-sm text-gray-600 mt-1">Are you sure you want to logout?</p>
-              </div>
-            </div>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={cancelLogout}
-                disabled={isLoggingOut}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmLogout}
-                disabled={isLoggingOut}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isLoggingOut && (
-                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                  </svg>
-                )}
-                {isLoggingOut ? 'Logging out...' : 'Logout'}
-              </button>
-            </div>
+          <div className="px-4 py-4 border-t border-white/10 text-xs text-white/60">
+            Need to sign out? Use the profile dropdown on the dashboard header.
           </div>
         </div>
-      )}
-    </aside>
+      </aside>
+
+      {/* Desktop spacer removed; aside switches to relative layout on md+ */}
+    </>
   )
 }

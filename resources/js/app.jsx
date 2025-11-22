@@ -3,7 +3,13 @@ import { createInertiaApp } from '@inertiajs/react'
 import { createRoot } from 'react-dom/client'
 import sessionManager from './utils/sessionManager'
 import { SidebarProvider } from './contexts/SidebarContext'
-import '../css/app.css';
+import '../css/app.css'
+
+const favicon = document.createElement('link')
+favicon.rel = 'icon'
+favicon.type = 'image/png'
+favicon.href = '/onsts.png'
+document.head.appendChild(favicon)
 
 createInertiaApp({
   resolve: name => {

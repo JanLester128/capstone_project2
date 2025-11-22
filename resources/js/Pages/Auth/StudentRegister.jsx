@@ -453,7 +453,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
             
             {/* Title with Gradient */}
             <h1 className="text-3xl font-bold mb-2">
-              <span style={{ color: '#000825' }}>
+              <span style={{ color: '#182978' }}>
                 Opol National Secondary Technical School
               </span>
             </h1>
@@ -482,7 +482,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div 
                     className="h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${(currentStep / totalSteps) * 100}%`, backgroundColor: '#000825' }}
+                    style={{ width: `${(currentStep / totalSteps) * 100}%`, backgroundColor: '#182978' }}
                   ></div>
                 </div>
                 <p className="mt-2 text-sm font-medium text-gray-700">{stepTitles[currentStep - 1]}</p>
@@ -511,10 +511,10 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                     required
                     value={data.first_name}
                     onChange={(e) => setData('first_name', e.target.value)}
-                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#000825]/50 transition-all duration-200 ${
+                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#182978]/50 transition-all duration-200 ${
                       errors.first_name 
                         ? 'border-red-300 bg-red-50 focus:border-red-500' 
-                        : 'border-gray-300 bg-white focus:border-[#000825] hover:border-gray-400'
+                        : 'border-gray-300 bg-white focus:border-[#182978] hover:border-gray-400'
                     }`}
                     placeholder="First name"
                   />
@@ -535,10 +535,10 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                     required
                     value={data.last_name}
                     onChange={(e) => setData('last_name', e.target.value)}
-                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#000825]/50 transition-all duration-200 ${
+                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#182978]/50 transition-all duration-200 ${
                       errors.last_name 
                         ? 'border-red-300 bg-red-50 focus:border-red-500' 
-                        : 'border-gray-300 bg-white focus:border-[#000825] hover:border-gray-400'
+                        : 'border-gray-300 bg-white focus:border-[#182978] hover:border-gray-400'
                     }`}
                     placeholder="Last name"
                   />
@@ -558,10 +558,10 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                     autoComplete="additional-name"
                     value={data.middle_name}
                     onChange={(e) => setData('middle_name', e.target.value)}
-                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#000825]/50 transition-all duration-200 ${
+                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#182978]/50 transition-all duration-200 ${
                       errors.middle_name 
                         ? 'border-red-300 bg-red-50 focus:border-red-500' 
-                        : 'border-gray-300 bg-white focus:border-[#000825] hover:border-gray-400'
+                        : 'border-gray-300 bg-white focus:border-[#182978] hover:border-gray-400'
                     }`}
                     placeholder="Middle name (optional)"
                   />
@@ -579,10 +579,10 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                     name="extension_name"
                     value={data.extension_name}
                     onChange={(e) => setData('extension_name', e.target.value)}
-                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#000825]/50 transition-all duration-200 ${
+                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#182978]/50 transition-all duration-200 ${
                       errors.extension_name 
                         ? 'border-red-300 bg-red-50 focus:border-red-500' 
-                        : 'border-gray-300 bg-white focus:border-[#000825] hover:border-gray-400'
+                        : 'border-gray-300 bg-white focus:border-[#182978] hover:border-gray-400'
                     }`}
                   >
                     <option value="">None</option>
@@ -625,10 +625,10 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                         setData('age', age)
                       }
                     }}
-                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#000825]/50 transition-all duration-200 ${
+                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#182978]/50 transition-all duration-200 ${
                       errors.birthdate 
                         ? 'border-red-300 bg-red-50 focus:border-red-500' 
-                        : 'border-gray-300 bg-white focus:border-[#000825] hover:border-gray-400'
+                        : 'border-gray-300 bg-white focus:border-[#182978] hover:border-gray-400'
                     }`}
                   />
                   {errors.birthdate && (
@@ -708,10 +708,10 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                     required
                     value={data.email}
                     onChange={(e) => setData('email', e.target.value)}
-                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#000825]/50 transition-all duration-200 ${
+                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#182978]/50 transition-all duration-200 ${
                       errors.email 
                         ? 'border-red-300 bg-red-50 focus:border-red-500' 
-                        : 'border-gray-300 bg-white focus:border-[#000825] hover:border-gray-400'
+                        : 'border-gray-300 bg-white focus:border-[#182978] hover:border-gray-400'
                     }`}
                     placeholder="Email address"
                   />
@@ -735,10 +735,10 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                       const value = e.target.value.replace(/\D/g, '').slice(0, 12)
                       setData('lrn', value)
                     }}
-                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#000825]/50 transition-all duration-200 ${
+                    className={`w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#182978]/50 transition-all duration-200 ${
                       errors.lrn 
                         ? 'border-red-300 bg-red-50 focus:border-red-500' 
-                        : 'border-gray-300 bg-white focus:border-[#000825] hover:border-gray-400'
+                        : 'border-gray-300 bg-white focus:border-[#182978] hover:border-gray-400'
                     }`}
                     placeholder="12-digit LRN"
                     maxLength="12"
@@ -767,10 +767,10 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                       required
                       value={data.password}
                       onChange={(e) => setData('password', e.target.value)}
-                      className={`w-full px-3 py-2 pr-10 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#000825]/50 transition-all duration-200 ${
+                      className={`w-full px-3 py-2 pr-10 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#182978]/50 transition-all duration-200 ${
                         errors.password 
                           ? 'border-red-300 bg-red-50 focus:border-red-500' 
-                          : 'border-gray-300 bg-white focus:border-[#000825] hover:border-gray-400'
+                          : 'border-gray-300 bg-white focus:border-[#182978] hover:border-gray-400'
                       }`}
                       placeholder="Create password"
                     />
@@ -809,10 +809,10 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                       required
                       value={data.password_confirmation}
                       onChange={(e) => setData('password_confirmation', e.target.value)}
-                      className={`w-full px-3 py-2 pr-10 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#000825]/50 transition-all duration-200 ${
+                      className={`w-full px-3 py-2 pr-10 rounded border text-sm focus:outline-none focus:ring-1 focus:ring-[#182978]/50 transition-all duration-200 ${
                         errors.password_confirmation 
                           ? 'border-red-300 bg-red-50 focus:border-red-500' 
-                          : 'border-gray-300 bg-white focus:border-[#000825] hover:border-gray-400'
+                          : 'border-gray-300 bg-white focus:border-[#182978] hover:border-gray-400'
                       }`}
                       placeholder="Confirm password"
                     />
@@ -858,7 +858,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                       value={data.place_of_birth}
                       onChange={(e) => setData('place_of_birth', e.target.value)}
                       placeholder="Municipality/City"
-                      className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                      className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                     />
                     {errors.place_of_birth && (
                       <p className="mt-1 text-sm text-red-600">{errors.place_of_birth}</p>
@@ -884,7 +884,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                         setData('student_status', e.target.value)
                       }}
                       required
-                      className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                      className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                     >
                       <option value="new">New Student (incoming Grade 11)</option>
                       <option value="continuing">Continuing (Grade 11 - 2nd Sem / Grade 12)</option>
@@ -907,7 +907,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                         value={data.previous_school}
                         onChange={(e) => setData('previous_school', e.target.value)}
                         placeholder="School name where you previously studied"
-                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                         required
                       />
                       {errors.previous_school && (
@@ -932,7 +932,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                         value={data.current_sitio_street}
                         onChange={(e) => setData('current_sitio_street', e.target.value)}
                         required
-                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                       />
                       {errors.current_sitio_street && (
                         <p className="mt-1 text-sm text-red-600">{errors.current_sitio_street}</p>
@@ -951,7 +951,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                           setData('current_barangay', '')
                           setData('current_zip_code', '')
                         }}
-                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                         required
                       >
                         <option value="">Select Province</option>
@@ -976,7 +976,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                           // Reset barangay when municipality changes
                           setData('current_barangay', '')
                         }}
-                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                         disabled={!data.current_province}
                         required
                       >
@@ -998,7 +998,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                         name="current_barangay"
                         value={data.current_barangay}
                         onChange={(e) => setData('current_barangay', e.target.value)}
-                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                         disabled={!data.current_municipality_city}
                         required
                       >
@@ -1046,7 +1046,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                           onChange={(e) => setData('guardian_name', e.target.value)}
                           required
                           placeholder="Full name of parent or guardian"
-                          className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                          className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                         />
                         {errors.guardian_name && (
                           <p className="mt-1 text-sm text-red-600">{errors.guardian_name}</p>
@@ -1068,7 +1068,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                           placeholder="09XXXXXXXXX"
                           required
                           maxLength={11}
-                          className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                          className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                         />
                         {errors.guardian_contact_number && (
                           <p className="mt-1 text-sm text-red-600">{errors.guardian_contact_number}</p>
@@ -1085,7 +1085,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                           value={data.guardian_relationship}
                           onChange={(e) => setData('guardian_relationship', e.target.value)}
                           required
-                          className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                          className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                         >
                           <option value="">Select relationship</option>
                           {guardianRelationshipOptions.map(({ value, label }) => (
@@ -1111,7 +1111,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                           required
                           rows={3}
                           placeholder="House No., Street, Barangay, City / Municipality, Province"
-                          className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                          className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                         />
                         {errors.guardian_address && (
                           <p className="mt-1 text-sm text-red-600">{errors.guardian_address}</p>
@@ -1137,7 +1137,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                         value={data.last_school_attended}
                         onChange={(e) => setData('last_school_attended', e.target.value)}
                         required
-                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                       />
                       {errors.last_school_attended && (
                         <p className="mt-1 text-sm text-red-600">{errors.last_school_attended}</p>
@@ -1153,7 +1153,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                         onChange={(e) => setData('school_year_last_attended', e.target.value)}
                         placeholder="e.g., 2023-2024"
                         required
-                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                       />
                       {errors.school_year_last_attended && (
                         <p className="mt-1 text-sm text-red-600">{errors.school_year_last_attended}</p>
@@ -1168,7 +1168,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                         value={data.last_school_address}
                         onChange={(e) => setData('last_school_address', e.target.value)}
                         required
-                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                       />
                       {errors.last_school_address && (
                         <p className="mt-1 text-sm text-red-600">{errors.last_school_address}</p>
@@ -1183,7 +1183,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                         onChange={(e) => setData('grade_level_completed', e.target.value)}
                         placeholder="e.g., Grade 10"
                         required
-                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                       />
                       {errors.grade_level_completed && (
                         <p className="mt-1 text-sm text-red-600">{errors.grade_level_completed}</p>
@@ -1197,7 +1197,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                         value={data.last_school_type}
                         onChange={(e) => setData('last_school_type', e.target.value)}
                         required
-                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#000825]/50"
+                        className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#182978]/50"
                       >
                         <option value="">Select school type</option>
                         <option value="Private">Private</option>
@@ -1217,7 +1217,7 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                   type="button"
                   onClick={prevStep}
                   disabled={currentStep === 1}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#000825]/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#182978]/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
@@ -1245,10 +1245,10 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                       e.stopPropagation()
                       nextStep(e)
                     }}
-                    className="px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#000825]/50"
-                  style={{ backgroundColor: '#000825' }}
+                    className="px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#182978]/50"
+                  style={{ backgroundColor: '#182978' }}
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1a1f3a'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#000825'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#182978'}
                   >
                     Next
               </button>
@@ -1263,9 +1263,9 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
                 <Link
                   href="/login"
                   className="inline-flex items-center justify-center font-medium text-xs transition-colors duration-200 hover:underline"
-                  style={{ color: '#000825' }}
+                  style={{ color: '#182978' }}
                   onMouseEnter={(e) => e.currentTarget.style.color = '#1a1f3a'}
-                  onMouseLeave={(e) => e.currentTarget.style.color = '#000825'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = '#182978'}
                 >
                   <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 0a4 4 0 01-4 4H6a4 4 0 01-4-4V7a4 4 0 014-4h1m5 0a4 4 0 014 4v1" />
@@ -1277,11 +1277,11 @@ export default function StudentRegister({ strands = [], addressData = {} }) {
               {/* Information Notice */}
               <div className="rounded p-3" style={{ backgroundColor: '#f0f0f0', border: '1px solid #e0e0e0' }}>
                 <div className="flex items-start">
-                  <svg className="w-4 h-4 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#000825' }}>
+                  <svg className="w-4 h-4 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#182978' }}>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div>
-                    <h4 className="text-xs font-medium mb-1" style={{ color: '#000825' }}>Account Verification Required</h4>
+                    <h4 className="text-xs font-medium mb-1" style={{ color: '#182978' }}>Account Verification Required</h4>
                     <p className="text-xs leading-relaxed" style={{ color: '#333' }}>
                       After creating your account, please wait for verification from the registrar's office. You will receive an email notification once approved.
                     </p>

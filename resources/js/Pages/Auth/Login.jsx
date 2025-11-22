@@ -8,6 +8,11 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [showNotification, setShowNotification] = useState(false)
   const { auth, flash } = usePage().props
+  const palette = {
+    navy: '#182978',
+    teal: '#6688cc',
+    sand: '#acbfe6'
+  }
 
   const { data, setData, post, processing, errors, reset } = useForm({
     email: '',
@@ -129,12 +134,12 @@ export default function Login() {
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center px-4 py-4" style={{fontFamily: 'Poppins, sans-serif'}}>
+      <div className="min-h-screen bg-gradient-to-br from-[#1829780d] via-[#6688cc14] to-[#acbfe620] flex items-center justify-center px-4 py-4" style={{fontFamily: 'Poppins, sans-serif'}}>
         <div className="w-full max-w-4xl bg-white/95 backdrop-blur-sm shadow-xl rounded-2xl overflow-hidden border border-white/20">
           <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[400px]">
             {/* Left panel: Logo + School name with dark background */}
-            <div className="relative p-6 flex items-center justify-center overflow-hidden" style={{ backgroundColor: '#000825' }}>
-              <div className="absolute inset-0 rounded-l-2xl" style={{ backgroundColor: '#000825' }}></div>
+            <div className="relative p-6 flex items-center justify-center overflow-hidden" style={{ backgroundColor: palette.navy }}>
+              <div className="absolute inset-0 rounded-l-2xl" style={{ backgroundColor: palette.navy }}></div>
               
               {/* Decorative Translucent White Circles */}
               <div className="absolute top-0 left-0 w-64 h-64 bg-white/20 rounded-full blur-3xl -translate-x-1/4 -translate-y-1/4"></div>
@@ -188,14 +193,14 @@ export default function Login() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <div className="flex-1">
-                          <p className="text-xs text-green-800 leading-tight">
+                          <p className="text-xs text-[#182978] leading-tight">
                             {flash.success}
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => setShowNotification(false)}
-                          className="ml-2 text-green-500 hover:text-green-700 focus:outline-none"
+                          className="ml-2 text-[#6688cc] hover:text-[#182978] focus:outline-none"
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -218,10 +223,10 @@ export default function Login() {
                           required
                           value={data.email}
                           onChange={(e) => setData('email', e.target.value)}
-                          className={`w-full px-3 py-2 rounded-lg border-2 transition-all duration-200 font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                          className={`w-full px-3 py-2 rounded-lg border-2 transition-all duration-200 font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6688cc]/25 ${
                             errors.email 
                               ? 'border-red-300 bg-red-50 focus:border-red-500' 
-                              : 'border-gray-200 bg-white focus:border-blue-500 hover:border-gray-300'
+                              : 'border-gray-200 bg-white focus:border-[#6688cc] hover:border-gray-300'
                           }`}
                           placeholder="Enter your email or LRN"
                           aria-invalid={!!errors.email}
@@ -258,10 +263,10 @@ export default function Login() {
                           required
                           value={data.password}
                           onChange={(e) => setData('password', e.target.value)}
-                          className={`w-full px-3 py-2 pr-10 rounded-lg border-2 transition-all duration-200 font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                          className={`w-full px-3 py-2 pr-10 rounded-lg border-2 transition-all duration-200 font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6688cc]/25 ${
                             errors.password 
                               ? 'border-red-300 bg-red-50 focus:border-red-500' 
-                              : 'border-gray-200 bg-white focus:border-blue-500 hover:border-gray-300'
+                              : 'border-gray-200 bg-white focus:border-[#6688cc] hover:border-gray-300'
                           }`}
                           placeholder="••••••••"
                           aria-invalid={!!errors.password}
@@ -301,10 +306,7 @@ export default function Login() {
                     <div className="flex items-center justify-end">
                       <a 
                         href={`/password/forgot${data.email ? `?email=${encodeURIComponent(data.email)}` : ''}`}
-                        className="text-xs font-semibold transition-colors duration-200 hover:underline focus:outline-none focus:ring-1 focus:ring-offset-1 rounded px-1"
-                        style={{ color: '#000825' }}
-                        onMouseEnter={(e) => e.target.style.color = '#1a1f3a'}
-                        onMouseLeave={(e) => e.target.style.color = '#000825'}
+                        className="text-xs font-semibold text-[#6688cc] hover:text-[#182978] transition-colors duration-200 hover:underline focus:outline-none focus:ring-1 focus:ring-offset-1 rounded px-1"
                       >
                         Forgot password?
                       </a>
@@ -313,18 +315,8 @@ export default function Login() {
                     <button
                       type="submit"
                       disabled={processing || isLoading}
-                      className="w-full text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#000825]/50 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
-                      style={{ backgroundColor: '#000825' }}
-                      onMouseEnter={(e) => {
-                        if (!e.currentTarget.disabled) {
-                          e.currentTarget.style.backgroundColor = '#1a1f3a'
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!e.currentTarget.disabled) {
-                          e.currentTarget.style.backgroundColor = '#000825'
-                        }
-                      }}
+                      className="w-full text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#6688cc]/50 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 hover:bg-[#132a6d]"
+                      style={{ backgroundColor: palette.navy }}
                       aria-busy={processing || isLoading}
                     >
                       {(processing || isLoading) && (
@@ -343,14 +335,7 @@ export default function Login() {
                       </p>
                       <a
                         href="/student/register"
-                        className="inline-flex items-center justify-center text-white text-sm font-medium py-1.5 px-3 rounded-md shadow-sm hover:shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#000825]/50"
-                        style={{ backgroundColor: '#000825' }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#1a1f3a'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = '#000825'
-                        }}
+                        className="inline-flex items-center justify-center text-[#182978] text-sm font-semibold py-1.5 px-3 rounded-md shadow-sm hover:shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#6688cc]/40 bg-[#acbfe6] hover:bg-[#c9d7f1]"
                       >
                         <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
