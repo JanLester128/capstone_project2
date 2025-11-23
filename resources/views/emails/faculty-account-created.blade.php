@@ -95,20 +95,13 @@
             color: #6c757d;
             font-size: 14px;
         }
-        .button {
-            display: inline-block;
-            background: linear-gradient(135deg, #dc2626 0%, #9333ea 100%);
-            color: #ffffff !important;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 6px;
-            margin: 15px 0;
+        .login-link {
+            color: #1d4ed8;
             font-weight: bold;
-            text-align: center;
+            text-decoration: none;
         }
-        .button:hover {
-            background: linear-gradient(135deg, #b91c1c 0%, #7e22ce 100%);
-            color: #ffffff !important;
+        .login-link:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -152,9 +145,9 @@
             </ol>
         </div>
 
-        <div style="text-align: center;">
-            <a href="{{ config('app.url') }}/login" class="button">🚀 Login to Your Account</a>
-        </div>
+        <p style="text-align: center; font-size: 16px;">
+            🚀 <a href="https://onsts-shs.site/login" class="login-link">Login to Your Account</a>
+        </p>
 
         <div class="steps-section">
             <h3>💡 Need Help?</h3>
