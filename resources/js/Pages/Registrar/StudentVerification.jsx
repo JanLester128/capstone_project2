@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Head, useForm, router, usePage } from '@inertiajs/react'
+import Swal from 'sweetalert2'
 import { formatDateMedium } from '../../utils/dateFormatter'
 import RegistrarLayout from './Layout'
 

@@ -101,7 +101,7 @@ class SessionManager {
         // If no stored session but user appears to be on protected route
         if (!storedState || !storedState.isAuthenticated) {
             if (this.isProtectedRoute(currentPath)) {
-                window.location.href = 'login';
+                window.location.href = '/login';
             }
         }
         // If stored session exists but user is on login page
@@ -127,7 +127,7 @@ class SessionManager {
      * Check if current route is login
      */
     isLoginRoute(path) {
-        return path === '/' || path === 'login' || path === '/student/register';
+        return path === '/' || path === '/login' || path === '/student/register';
     }
 
     /**
@@ -154,7 +154,7 @@ class SessionManager {
     handleLogout() {
         this.clearSessionState();
         if (this.isProtectedRoute(window.location.pathname)) {
-            window.location.href = 'login';
+            window.location.href = '/login';
         }
     }
 
