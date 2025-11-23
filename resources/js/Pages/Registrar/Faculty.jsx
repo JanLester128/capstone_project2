@@ -20,6 +20,8 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
   const [coordinatorProcessing, setCoordinatorProcessing] = useState(null)
   const [errors, setErrors] = useState({})
 
+  const getAssignedStrand = (member) => member?.assignedStrand ?? member?.assigned_strand ?? null
+
   // Enhanced filtering with strand support
   const filteredFaculty = faculty.filter(member => {
     const matchesSearch = member.FirstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -578,7 +580,10 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
 
               {/* Faculty List Items */}
               <div className="divide-y divide-gray-200">
-                {filteredFaculty.map((member, index) => (
+                {filteredFaculty.map((member) => {
+                  const strandInfo = getAssignedStrand(member)
+
+                  return (
                   <div key={member.id} className="group hover:bg-gray-50 transition-colors duration-150">
                     <div className="px-4 py-4 sm:px-6">
                       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -619,17 +624,17 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                                 </svg>
                                 <span className="truncate max-w-xs" title={member.email}>{member.email}</span>
                               </div>
-                              {member.assigned_strand && (
+                              {strandInfo && (
                                 <div className="flex items-center">
                                   <svg className="w-3 h-3 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                   </svg>
                                   <span className="font-medium text-indigo-600">
-                                    {member.assigned_strand.Strand_code} - {member.assigned_strand.Strand_name}
+                                    {strandInfo.Strand_code} - {strandInfo.Strand_name}
                                   </span>
                                 </div>
                               )}
-                              {!member.assigned_strand && (
+                              {!strandInfo && (
                                 <div className="flex items-center">
                                   <svg className="w-3 h-3 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
@@ -709,7 +714,7 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                       </div>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             </div>
           )}
