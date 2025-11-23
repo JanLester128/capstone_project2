@@ -35,9 +35,7 @@ export default function ClassForm({
     'Tuesday', 
     'Wednesday',
     'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday'
+    'Friday'
   ]
 
   // Time slots (common school hours)

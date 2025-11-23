@@ -88,7 +88,7 @@ export default function Classes({
   ]
 
   // Days of the week options
-  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
 
   // Predefined time slot pairs
   const predefinedTimeSlots = [

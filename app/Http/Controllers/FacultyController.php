@@ -536,7 +536,7 @@ class FacultyController extends Controller
         $user = Auth::user();
         $filters = $this->getActiveFilters();
 
-        $classes = ClassModel::with([
+        $classQuery = ClassModel::with([
                 'section.enrollments' => function ($query) use ($filters) {
                     $query->where('status', Enrollment::STATUS_ENROLLED)
                         ->with([
@@ -569,8 +569,15 @@ class FacultyController extends Controller
             ->when($filters['activeSchoolYear'], fn ($query) => $query->where('school_year_id', $filters['activeSchoolYear']->id))
             ->when($filters['activeSemester'], fn ($query) => $query->where('Semester_id', $filters['activeSemester']->id))
             ->orderBy('day_of_week')
-            ->orderBy('start_time')
-            ->get()
+            ->orderBy('start_time');
+
+        $classModels = $classQuery->get()
+            ->unique(function ($class) {
+                return $this->getClassSubjectSectionKey($class);
+            })
+            ->values();
+
+        $classes = $classModels
             ->map(function (ClassModel $class) {
                 $semesterType = strtolower($class->semester?->semester_type ?? '');
                 $isSummer = str_contains($semesterType, 'summer');
@@ -638,6 +645,16 @@ class FacultyController extends Controller
             'activeSchoolYear' => $filters['activeSchoolYear'],
             'activeSemester' => $filters['activeSemester'],
         ]);
+    }
+
+    /**
+     * Build a unique key for a class based on section and subject.
+     */
+    private function getClassSubjectSectionKey($class): string
+    {
+        $subjectId = $class->subject?->Id ?? $class->subject_id ?? 'subject';
+        $sectionId = $class->section?->id ?? $class->Section_id ?? 'section';
+        return $sectionId . '|' . $subjectId;
     }
 
     /**
@@ -725,6 +742,15 @@ class FacultyController extends Controller
         $sections = $sectionsQuery->get()
             ->map(function ($section) {
                 $sectionArray = $section->toArray();
+                
+                $sectionArray['classes'] = $section->classes
+                    ->unique(function ($class) {
+                        return $this->getClassSubjectSectionKey($class);
+                    })
+                    ->values()
+                    ->map(function ($class) {
+                        return $class->toArray();
+                    });
                 
                 // Transform enrollments to include student data
                 $sectionArray['students'] = $section->enrollments->map(function ($enrollment) {
@@ -904,6 +930,14 @@ class FacultyController extends Controller
 
         // Transform section data for frontend
         $sectionData = $section->toArray();
+        $sectionData['classes'] = $section->classes
+            ->unique(function ($class) {
+                return $this->getClassSubjectSectionKey($class);
+            })
+            ->values()
+            ->map(function ($class) {
+                return $class->toArray();
+            });
         $sectionData['students'] = $section->enrollments->map(function ($enrollment) {
             $studentInfo = $enrollment->studentPersonalInfo;
             $studentUser = $studentInfo?->user;
