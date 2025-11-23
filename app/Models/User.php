@@ -31,6 +31,8 @@ class User extends Authenticatable
         'is_disabled',
         'Role',
         'assigned_strand_id',
+        'last_login_at',
+        'last_seen_at',
     ];
 
     /**
@@ -55,6 +57,8 @@ class User extends Authenticatable
             'is_coordinator' => 'boolean',
             'is_disabled' => 'boolean',
             'password' => 'hashed',
+            'last_login_at' => 'datetime',
+            'last_seen_at' => 'datetime',
         ];
     }
 

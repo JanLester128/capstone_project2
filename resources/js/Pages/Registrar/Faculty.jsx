@@ -1,8 +1,7 @@
-import { useState } from 'react'
-import React from 'react'
+import React, { useState } from 'react'
 import { Head, router } from '@inertiajs/react'
-import RegistrarSidebar from '../Auth/Registrar_sidebar'
 import Breadcrumb from './Components/Breadcrumb'
+import RegistrarLayout from './Layout'
 
 export default function Faculty({ faculty = [], strands = [], flash = {} }) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -141,10 +140,8 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <RegistrarLayout>
       <Head title="Faculty Management" />
-      
-      <RegistrarSidebar />
 
       <div className="flex-1 flex flex-col">
         {/* Flash Messages - HCI Principle 1: Visibility of system status */}
@@ -326,7 +323,9 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                                       {member.FirstName?.charAt(0)}{member.LastName?.charAt(0)}
                                     </span>
                                   </div>
-                                  <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-400 border-2 border-white rounded-full"></div>
+                                  <div
+                                    className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 border-2 border-white rounded-full ${member.is_online ? 'bg-green-400' : 'bg-gray-300'}`}
+                                  ></div>
                                 </div>
 
                                 <div className="flex-1 min-w-0">
@@ -334,11 +333,13 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                                     <h4 className="text-sm font-semibold text-gray-900 truncate">
                                       {member.FirstName} {member.MiddleName ? member.MiddleName + ' ' : ''}{member.LastName}
                                     </h4>
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <span
+                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${member.is_online ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
+                                    >
                                       <svg className="w-2 h-2 mr-1" fill="currentColor" viewBox="0 0 8 8">
                                         <circle cx={4} cy={4} r={3} />
                                       </svg>
-                                      Active
+                                      {member.is_online ? 'Active' : 'Offline'}
                                     </span>
                                     {member.is_coordinator && (
                                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -590,7 +591,9 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                                 {member.FirstName?.charAt(0)}{member.LastName?.charAt(0)}
                               </span>
                             </div>
-                            <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-400 border-2 border-white rounded-full"></div>
+                            <div
+                              className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 border-2 border-white rounded-full ${member.is_online ? 'bg-green-400' : 'bg-gray-300'}`}
+                            ></div>
                           </div>
 
                           <div className="flex-1 min-w-0">
@@ -598,11 +601,13 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
                               <h3 className="text-sm font-semibold text-gray-900 truncate">
                                 {member.FirstName} {member.MiddleName ? member.MiddleName + ' ' : ''}{member.LastName}
                               </h3>
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${member.is_online ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
+                              >
                                 <svg className="w-2 h-2 mr-1" fill="currentColor" viewBox="0 0 8 8">
                                   <circle cx={4} cy={4} r={3} />
                                 </svg>
-                                Active
+                                {member.is_online ? 'Active' : 'Offline'}
                               </span>
                             </div>
                             
@@ -855,6 +860,6 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
           </div>
         </div>
       )}
-    </div>
+    </RegistrarLayout>
   )
 }

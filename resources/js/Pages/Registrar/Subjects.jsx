@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Head, Link, router } from '@inertiajs/react'
-import RegistrarSidebar from '../Auth/Registrar_sidebar'
 import SubjectForm from './Components/SubjectForm'
 import Breadcrumb from './Components/Breadcrumb'
 import Swal from 'sweetalert2'
+import RegistrarLayout from './Layout'
 
 export default function Subjects({ subjects = [], strands = [], semesters = [], activeSchoolYear, activeSemester, hasActiveStrands = true, flash = {} }) {
   const [showForm, setShowForm] = useState(false)
@@ -124,43 +124,41 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
     return groups
   }, {})
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <RegistrarSidebar />
-      <div className="flex-1 flex flex-col">
-        <Head title="Registrar • Subjects" />
+  const breadcrumbItems = [
+    { href: '/registrar', label: 'Dashboard' },
+    { href: '/registrar/subjects', label: 'Subjects' }
+  ]
 
-        <header className="bg-white shadow">
-          <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-            {/* Breadcrumb */}
-            <Breadcrumb 
-              items={[
-                { href: '/registrar', label: 'Dashboard' },
-                { href: '/registrar/subjects', label: 'Subjects' }
-              ]} 
-            />
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900">Subjects</h1>
-                <p className="mt-1 text-sm text-gray-600">Manage curriculum subjects and their details</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/registrar"
-                  className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  Back to Dashboard
-                </Link>
-              </div>
+  return (
+    <RegistrarLayout>
+      <Head title="Registrar • Subjects" />
+
+      <header className="bg-white shadow">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+          {/* Breadcrumb */}
+          <Breadcrumb items={breadcrumbItems} />
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900">Subjects</h1>
+              <p className="mt-1 text-sm text-gray-600">Manage curriculum subjects and their details</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/registrar"
+                className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Dashboard
+              </Link>
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           {/* Flash messages */}
           {flash.success && (
             <div className="mb-6 rounded-md bg-green-50 p-4">
@@ -618,8 +616,7 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
             </div>
           )}
 
-        </main>
-      </div>
+      </main>
 
       {/* Subject Form Modal */}
       {showForm && (
@@ -650,7 +647,7 @@ export default function Subjects({ subjects = [], strands = [], semesters = [], 
           onClose={() => setShowBulkCreate(false)}
         />
       )}
-    </div>
+    </RegistrarLayout>
   )
 }
 
@@ -1135,7 +1132,7 @@ function BulkImportModal({ strands, activeSemester, onClose }) {
                 <button
                   type="button"
                   onClick={onClose}
-                  className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+                  className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 sm:mt-0 sm:w-auto"
                 >
                   Cancel
                 </button>
@@ -1143,7 +1140,7 @@ function BulkImportModal({ strands, activeSemester, onClose }) {
                   type="button"
                   onClick={handleImport}
                   disabled={importing || !selectedStrand || !selectedYear || !activeSemester}
-                  className="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {importing ? 'Importing...' : 'Import Subjects'}
                 </button>
@@ -1155,3 +1152,4 @@ function BulkImportModal({ strands, activeSemester, onClose }) {
     </div>
   )
 }
+

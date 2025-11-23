@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Head, router } from '@inertiajs/react'
-import RegistrarSidebar from '../Auth/Registrar_sidebar'
 import Breadcrumb from './Components/Breadcrumb'
 import SectionCard from './Components/SectionCard'
 import SectionForm from './Components/SectionForm'
 import ReopenSectionModal from './Components/ReopenSectionModal'
 import Swal from 'sweetalert2'
+import RegistrarLayout from './Layout'
 
 export default function Strands({ strands = [], sections = [], previousSections = [], users = [], activeSchoolYear, activeSemester, flash = {} }) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -232,141 +232,132 @@ export default function Strands({ strands = [], sections = [], previousSections 
     })
   }
 
-
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <RegistrarSidebar />
-      <div className="flex-1 flex flex-col">
-        <Head title="Registrar • Strands" />
+    <RegistrarLayout>
+      <Head title="Registrar • Strands" />
 
-        {/* Enhanced Header with System Status */}
-        <div className="bg-white border-b border-gray-200">
-          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-            <Breadcrumb 
-              items={[
-                { label: 'Dashboard', href: '/registrar' },
-                { label: 'Academic Strands', href: '/registrar/strands', current: true }
-              ]} 
-            />
-            
-            <div className="mt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-2xl font-bold text-gray-900">Academic Strands</h1>
-                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
+      <div className="bg-white border-b border-gray-200">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          <Breadcrumb
+            items={[
+              { label: 'Dashboard', href: '/registrar' },
+              { label: 'Academic Strands', href: '/registrar/strands', current: true }
+            ]}
+          />
+
+          <div className="mt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-2xl font-bold text-gray-900">Academic Strands</h1>
+                <div
+                  className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
                     activeSchoolYear && activeSemester ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    <div className={`w-2 h-2 rounded-full ${
-                      activeSchoolYear && activeSemester ? 'bg-green-500' : 'bg-red-500'
-                    }`}></div>
-                    {activeSchoolYear && activeSemester 
-                      ? `${activeSchoolYear.School_year_start}-${activeSchoolYear.School_year_end} • ${activeSemester.semester_type}`
-                      : 'No Active Period'
-                    }
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600">
-                  Manage Senior High School strands and their sections
-                </p>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">{filteredStrands.length}</span> of <span className="font-medium">{strands.length}</span> strands
-                </div>
-                <button
-                  onClick={() => setShowForm(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors shadow-sm"
+                  }`}
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Add Strand
-                </button>
+                  <div className={`w-2 h-2 rounded-full ${activeSchoolYear && activeSemester ? 'bg-green-500' : 'bg-red-500'}`} />
+                  {activeSchoolYear && activeSemester
+                    ? `${activeSchoolYear.School_year_start}-${activeSchoolYear.School_year_end} • ${activeSemester.semester_type}`
+                    : 'No Active Period'}
+                </div>
               </div>
+              <p className="text-sm text-gray-600">Manage Senior High School strands and their sections</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">{filteredStrands.length}</span> of <span className="font-medium">{strands.length}</span> strands
+              </div>
+              <button
+                onClick={() => setShowForm(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add Strand
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {flash.success && (
+        <div className="mx-auto max-w-7xl px-4 py-2 sm:px-6 lg:px-8">
+          <div className="rounded-md bg-green-50 p-4">
+            <div className="flex">
+              <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <p className="ml-3 text-sm font-medium text-green-800">{flash.success}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 w-full">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search strands..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {previousSections && previousSections.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (bulkReopenMode) {
+                      setSelectedSections([])
+                    }
+                    setBulkReopenMode(!bulkReopenMode)
+                  }}
+                  className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    bulkReopenMode
+                      ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {bulkReopenMode ? 'Cancel Bulk Mode' : 'Bulk Reopen'}
+                </button>
+              )}
+
+              {searchTerm && (
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">{filteredStrands.length}</span> results
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* HCI Principle 4: Consistency and standards */}
-        {flash.success && (
-          <div className="mx-auto max-w-7xl px-4 py-2 sm:px-6 lg:px-8">
-            <div className="rounded-md bg-green-50 p-4">
-              <div className="flex">
-                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <p className="ml-3 text-sm font-medium text-green-800">{flash.success}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 w-full">
-          {/* Enhanced Search and Controls */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex-1 max-w-md">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search strands..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  {searchTerm && (
-                    <button
-                      onClick={() => setSearchTerm('')}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                {previousSections && previousSections.length > 0 && (
-                  <button
-                    onClick={() => {
-                      if (bulkReopenMode) {
-                        setSelectedSections([])
-                      }
-                      setBulkReopenMode(!bulkReopenMode)
-                    }}
-                    className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      bulkReopenMode 
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                        : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    {bulkReopenMode ? 'Cancel Bulk Mode' : 'Bulk Reopen'}
-                  </button>
-                )}
-                
-                {searchTerm && (
-                  <div className="text-sm text-gray-600">
-                    <span className="font-medium">{filteredStrands.length}</span> results
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Enhanced Strands with Sections - HCI Principle 6: Recognition rather than recall */}
-          <div className="grid grid-cols-1 gap-6 w-full">
-            {filteredStrands.map((strand) => {
+        {/* Enhanced Strands with Sections - HCI Principle 6: Recognition rather than recall */}
+        <div className="grid grid-cols-1 gap-6 w-full">
+          {filteredStrands.map((strand) => {
               const strandSections = getSectionsForStrand(strand.id)
               const strandPreviousSections = getPreviousSectionsForStrand(strand.id)
               const isExpanded = expandedStrands.has(strand.id)
@@ -628,7 +619,7 @@ export default function Strands({ strands = [], sections = [], previousSections 
                       {strandSections.length === 0 && strandPreviousSections.length === 0 && (
                         <div className="text-center py-8">
                           <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                           </svg>
                           <h3 className="mt-2 text-sm font-medium text-gray-900">No sections yet</h3>
                           <p className="mt-1 text-sm text-gray-500">
@@ -697,9 +688,7 @@ export default function Strands({ strands = [], sections = [], previousSections 
             </div>
           )}
         </main>
-      </div>
 
-      {/* Strand Form Modal - HCI Principle 8: Aesthetic and minimalist design */}
       {showForm && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
@@ -788,18 +777,16 @@ export default function Strands({ strands = [], sections = [], previousSections 
         </div>
       )}
 
-      {/* Section Form Modal */}
       {showSectionForm && selectedStrandForSection && (
         <SectionForm
           section={editingSection}
-          strands={[selectedStrandForSection]} // Only show the selected strand
-          schoolYears={[activeSchoolYear]} // Only show active school year
-          faculty={users} // Pass faculty users for adviser selection
+          strands={[selectedStrandForSection]}
+          schoolYears={[activeSchoolYear]}
+          faculty={users}
           onClose={handleSectionFormClose}
         />
       )}
 
-      {/* Reopen Section Modal */}
       {reopeningSection && activeSchoolYear && (
         <ReopenSectionModal
           section={reopeningSection}
@@ -808,7 +795,6 @@ export default function Strands({ strands = [], sections = [], previousSections 
           onClose={() => setReopeningSection(null)}
         />
       )}
-
-    </div>
+    </RegistrarLayout>
   )
 }

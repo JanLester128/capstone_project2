@@ -1,9 +1,8 @@
 @import 'tailwindcss';
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source '../**/*.blade.php';
-@source '../**/*.js';
+html {
+  overflow-y: scroll; /* Reserve vertical scrollbar to avoid layout shift */
+}
 
 /* Hide scrollbar for sidebar */
 .sidebar-nav {

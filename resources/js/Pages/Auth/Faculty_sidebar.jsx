@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, router, usePage } from '@inertiajs/react'
 import { facultyNav, coordinatorNav } from '../Faculty/navConfig'
 import { useSidebar } from '../../contexts/SidebarContext'
@@ -7,6 +7,7 @@ export default function FacultySidebar({ user }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { url } = usePage()
   const { isCollapsed, toggleSidebar } = useSidebar()
+  const navListRef = useRef(null)
   const palette = {
     navy: '#182978',
     teal: '#6688cc',
@@ -17,11 +18,26 @@ export default function FacultySidebar({ user }) {
   // Combine regular faculty nav with coordinator nav if user is coordinator
   const nav = user?.is_coordinator ? [...facultyNav, ...coordinatorNav] : facultyNav
 
-  const handleNavClick = () => {
-    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches) {
-      return
+  useEffect(() => {
+    if (navListRef.current) {
+      navListRef.current.scrollTop = 0
     }
-    setMobileOpen(false)
+  }, [url])
+
+  const handleNavClick = (event) => {
+    if (typeof window !== 'undefined') {
+      if (!window.matchMedia('(min-width: 768px)').matches) {
+        setMobileOpen(false)
+      }
+
+      window.requestAnimationFrame(() => {
+        if (event?.currentTarget instanceof HTMLElement) {
+          event.currentTarget.blur()
+        } else if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur()
+        }
+      })
+    }
   }
 
   function isActive(href) {
@@ -209,8 +225,8 @@ export default function FacultySidebar({ user }) {
         className={`fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:z-auto md:static`}
       >
         <div
-          className={`flex h-full flex-col shadow-2xl ${sidebarWidthClass}`}
-          style={{ backgroundColor: palette.navy }}
+          className={`grid h-full shadow-2xl ${sidebarWidthClass}`}
+          style={{ backgroundColor: palette.navy, gridTemplateRows: 'auto minmax(0,1fr) auto' }}
         >
           <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10 relative">
             <div className="h-10 w-10 rounded-full bg-white flex items-center justify-center shadow shrink-0" aria-hidden>
@@ -251,7 +267,11 @@ export default function FacultySidebar({ user }) {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div
+            ref={navListRef}
+            className="overflow-y-auto px-3 py-4 pb-4 space-y-2"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
             {filteredNav.map((item) => {
               if (item.category === 'main') {
                 return renderNavItem(item, isCollapsed, null)
@@ -263,9 +283,6 @@ export default function FacultySidebar({ user }) {
             })}
           </div>
 
-          <div className="px-4 py-4 border-t border-white/10 text-xs text-white/60">
-            Need to sign out? Use the profile dropdown on the dashboard header.
-          </div>
         </div>
       </aside>
 

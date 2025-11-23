@@ -22,13 +22,18 @@ Route::get('/', function () {
     return Inertia::render('Auth/Login');
 })->middleware('guest')->name('login');
 
-// Explicit GET route for /login - redirect authenticated users
-Route::get('/login', function () {
+// Explicit GET route for login - redirect authenticated users
+Route::get('login', function () {
     return Inertia::render('Auth/Login');
 })->middleware('guest');
 
+// Support legacy /student/login URL used in some links or bookmarks
+Route::get('student/login', function () {
+    return redirect()->route('login');
+});
+
 // Handle login submission
-Route::post('/login', function (Request $request) {
+Route::post('login', function (Request $request) {
     $credentials = $request->validate([
         'email' => ['required', 'string'],
         'password' => ['required', 'string'],
@@ -77,6 +82,7 @@ Route::post('/login', function (Request $request) {
     $request->session()->regenerate();
 
     // Store session information for authenticated user
+    /** @var \App\Models\User $user */
     $user = Auth::user();
     
     // Check if student is verified
@@ -95,6 +101,12 @@ Route::post('/login', function (Request $request) {
     Session::put('authenticated_user_email', $user->email);
     Session::put('login_timestamp', now());
 
+    // Track presence timestamps
+    $user->forceFill([
+        'last_login_at' => now(),
+        'last_seen_at' => now(),
+    ])->save();
+
     // Redirect based on role if available
     if ($user && $user->Role === 'Registrar') {
         return redirect('/registrar');
@@ -111,6 +123,14 @@ Route::post('/login', function (Request $request) {
 // Logout
 Route::post('/logout', function (Request $request) {
     // Clear all session data related to authentication
+    /** @var \App\Models\User|null $currentUser */
+    $currentUser = Auth::user();
+    if ($currentUser) {
+        $currentUser->update([
+            'last_seen_at' => now(),
+        ]);
+    }
+
     Session::forget('authenticated_user_id');
     Session::forget('authenticated_user_role');
     Session::forget('authenticated_user_email');

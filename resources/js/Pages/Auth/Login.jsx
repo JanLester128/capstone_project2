@@ -66,7 +66,7 @@ export default function Login() {
       return
     }
     
-    post('/login', {
+    post('login', {
       onFinish: () => setIsLoading(false),
       onError: (errors) => {
         // Handle specific login errors with SweetAlert

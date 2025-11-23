@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Head, router } from '@inertiajs/react'
-import RegistrarSidebar from '../Auth/Registrar_sidebar'
 import Breadcrumb from './Components/Breadcrumb'
 import SemesterForm from './Components/SemesterForm'
 import EnrollmentControlModal from './Components/EnrollmentControlModal'
 import { formatDateMedium } from '../../utils/dateFormatter'
 import Swal from 'sweetalert2'
+import RegistrarLayout from './Layout'
 
 export default function SchoolYears({ schoolYears = [], flash = {} }) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -329,22 +329,22 @@ export default function SchoolYears({ schoolYears = [], flash = {} }) {
     })
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <RegistrarSidebar />
-      <div className="flex-1 flex flex-col">
-        <Head title="Registrar • School Years" />
+  const disabledYears = schoolYears.filter(year => year.enabled === false).length
 
-        <header className="bg-gradient-to-r from-white to-gray-50 shadow-sm border-b border-gray-200">
-          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-            <Breadcrumb 
-              items={[
-                { label: 'Dashboard', href: '/registrar' },
-                { label: 'School Years', href: '/registrar/school-years', current: true }
-              ]} 
-            />
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mt-6 gap-5">
-              <div className="flex-1 w-full">
+  return (
+    <RegistrarLayout>
+      <Head title="Registrar • School Years" />
+
+      <header className="bg-gradient-to-r from-white to-gray-50 shadow-sm border-b border-gray-200">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          <Breadcrumb 
+            items={[
+              { label: 'Dashboard', href: '/registrar' },
+              { label: 'School Years', href: '/registrar/school-years', current: true }
+            ]} 
+          />
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mt-6 gap-5">
+            <div className="flex-1 w-full">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="flex items-center justify-center w-10 h-10 bg-indigo-100 rounded-lg">
                     <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -601,7 +601,7 @@ export default function SchoolYears({ schoolYears = [], flash = {} }) {
                               ? 'bg-green-100 text-green-800'
                               : 'bg-red-100 text-red-800'
                           }`}>
-                            <svg className="mr-1 h-2 w-2" fill="currentColor" viewBox="0 0 8 8">
+                            <svg className="w-2 h-2 mr-1" fill="currentColor" viewBox="0 0 8 8">
                               <circle cx={4} cy={4} r={3} />
                             </svg>
                             {year.enrollment_open ? 'Open' : 'Closed'}
@@ -645,43 +645,53 @@ export default function SchoolYears({ schoolYears = [], flash = {} }) {
                                     {semester.semester_type.replace(' Semester', '')}
                                   </span>
                                   <div className="flex items-center gap-1">
-                                    <button
-                                      onClick={() => handleEditSemester(semester, year)}
-                                      disabled={year.enabled === false}
-                                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100 transition-colors duration-200"
-                                      title="Edit semester"
-                                    >
-                                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                      </svg>
-                                      Edit
-                                    </button>
-                                    <button
-                                      onClick={() => handleToggleSemester({ ...semester, schoolYear: year })}
-                                      disabled={year.enabled === false}
-                                      className={`inline-flex items-center px-2 py-1 text-xs font-medium border rounded transition-colors duration-200 ${
-                                        semester.is_active 
-                                          ? 'text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100' 
-                                          : 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'
-                                      }`}
-                                      title={semester.is_active ? 'Deactivate semester' : 'Activate semester'}
-                                    >
-                                      {semester.is_active ? (
+                                    {(() => {
+                                      const semesterActionsDisabled = !year.is_active || year.enabled === false
+                                      const disabledClasses = 'opacity-60 cursor-not-allowed'
+                                      return (
                                         <>
-                                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
-                                          </svg>
-                                          Deactivate
+                                          <button
+                                            onClick={() => handleEditSemester(semester, year)}
+                                            disabled={semesterActionsDisabled}
+                                            className={`inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded transition-colors duration-200 ${
+                                              semesterActionsDisabled ? disabledClasses : 'hover:bg-indigo-100'
+                                            }`}
+                                            title="Edit semester"
+                                          >
+                                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                            Edit
+                                          </button>
+                                          <button
+                                            onClick={() => handleToggleSemester({ ...semester, schoolYear: year })}
+                                            disabled={semesterActionsDisabled}
+                                            className={`inline-flex items-center px-2 py-1 text-xs font-medium border rounded transition-colors duration-200 ${
+                                              semester.is_active 
+                                                ? 'text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100' 
+                                                : 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'
+                                            } ${semesterActionsDisabled ? disabledClasses : ''}`}
+                                            title={semester.is_active ? 'Deactivate semester' : 'Activate semester'}
+                                          >
+                                            {semester.is_active ? (
+                                              <>
+                                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
+                                                </svg>
+                                                Deactivate
+                                              </>
+                                            ) : (
+                                              <>
+                                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                Activate
+                                              </>
+                                            )}
+                                          </button>
                                         </>
-                                      ) : (
-                                        <>
-                                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                          </svg>
-                                          Activate
-                                        </>
-                                      )}
-                                    </button>
+                                      )
+                                    })()}
                                   </div>
                                 </div>
                               ))
@@ -840,22 +850,30 @@ export default function SchoolYears({ schoolYears = [], flash = {} }) {
                             </span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleEditSemester(semester, year)}
-                              disabled={year.enabled === false}
-                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleToggleSemester({ ...semester, schoolYear: year })}
-                              disabled={year.enabled === false}
-                              className={`inline-flex items-center px-2 py-1 text-xs font-medium border rounded ${
-                                semester.is_active ? 'text-orange-700 bg-orange-50 border-orange-200' : 'text-green-700 bg-green-50 border-green-200'
-                              }`}
-                            >
-                              {semester.is_active ? 'Deactivate' : 'Activate'}
-                            </button>
+                            {(() => {
+                              const semesterActionsDisabled = !year.is_active || year.enabled === false
+                              const disabledClasses = 'opacity-60 cursor-not-allowed'
+                              return (
+                                <>
+                                  <button
+                                    onClick={() => handleEditSemester(semester, year)}
+                                    disabled={semesterActionsDisabled}
+                                    className={`inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded ${semesterActionsDisabled ? disabledClasses : ''}`}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleToggleSemester({ ...semester, schoolYear: year })}
+                                    disabled={semesterActionsDisabled}
+                                    className={`inline-flex items-center px-2 py-1 text-xs font-medium border rounded ${
+                                      semester.is_active ? 'text-orange-700 bg-orange-50 border-orange-200' : 'text-green-700 bg-green-50 border-green-200'
+                                    } ${semesterActionsDisabled ? disabledClasses : ''}`}
+                                  >
+                                    {semester.is_active ? 'Deactivate' : 'Activate'}
+                                  </button>
+                                </>
+                              )
+                            })()}
                           </div>
                         </div>
                       ))
@@ -982,7 +1000,6 @@ export default function SchoolYears({ schoolYears = [], flash = {} }) {
             </div>
           )}
         </main>
-      </div>
 
       {/* Modal Form - HCI Principle 8: Aesthetic and minimalist design */}
       {showForm && (
@@ -1114,7 +1131,6 @@ export default function SchoolYears({ schoolYears = [], flash = {} }) {
           }}
         />
       )}
-
-    </div>
+    </RegistrarLayout>
   )
 }

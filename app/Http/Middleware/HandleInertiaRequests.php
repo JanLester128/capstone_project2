@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Inertia\Middleware;
+use App\Support\NotificationCounts;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -37,6 +38,11 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $notifications = NotificationCounts::empty();
+        if (Auth::check() && Auth::user()->Role === 'Registrar') {
+            $notifications = NotificationCounts::forRegistrar();
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
@@ -65,6 +71,7 @@ class HandleInertiaRequests extends Middleware
                 'authenticated_user_id' => Session::get('authenticated_user_id'),
                 'authenticated_user_role' => Session::get('authenticated_user_role'),
             ],
+            'notifications' => $notifications,
         ];
     }
 }

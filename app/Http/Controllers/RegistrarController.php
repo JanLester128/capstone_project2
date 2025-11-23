@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf as PDF;
+use App\Support\NotificationCounts;
 
 class RegistrarController extends Controller
 {
@@ -81,52 +82,7 @@ class RegistrarController extends Controller
             'active_semester' => $activeSemester,
         ];
 
-        // Get notification counts
-        $newEnrollmentsCount = Enrollment::whereIn('status', [Enrollment::STATUS_PRE_ENROLLED, Enrollment::STATUS_RECOMMENDED])
-            ->count();
-        
-        // Re-enrollments: Students who were enrolled in previous semester and need re-enrollment for current semester
-        $reEnrollmentsCount = 0;
-        if ($activeSchoolYear && $activeSemester) {
-            // Find students who were enrolled in previous semester but not yet in current semester
-            $previousSemester = Semester::where('school_year_id', $activeSchoolYear->id)
-                ->where('id', '!=', $activeSemester->id)
-                ->orderBy('semester_type', 'desc')
-                ->first();
-            
-            if ($previousSemester) {
-                $reEnrollmentsCount = Enrollment::where('status', Enrollment::STATUS_ENROLLED)
-                    ->where('school_year_id', $activeSchoolYear->id)
-                    ->where('semester_id', $previousSemester->id)
-                    ->whereDoesntHave('classDetails', function ($query) use ($activeSemester) {
-                        $query->whereHas('class', function ($q) use ($activeSemester) {
-                            $q->where('Semester_id', $activeSemester->id);
-                        });
-                    })
-                    ->count();
-            }
-        }
-        
-        $transfereeCreditsCount = \App\Models\CreditedSubject::whereNull('approved_by')
-            ->whereHas('enrollment', function ($query) {
-                $query->where('is_transferee', true);
-            })
-            ->count();
-        
-        // Count unverified students (students who registered but haven't been verified yet)
-        $unverifiedStudentsCount = StudentPersonalInfo::where('is_verified', false)
-            ->whereHas('user', function ($query) {
-                $query->where('Role', 'Student');
-            })
-            ->count();
-        
-        $notifications = [
-            'new_enrollments' => $newEnrollmentsCount,
-            're_enrollments' => $reEnrollmentsCount,
-            'transferee_credits' => $transfereeCreditsCount,
-            'unverified_students' => $unverifiedStudentsCount,
-            'total' => $newEnrollmentsCount + $reEnrollmentsCount + $transfereeCreditsCount + $unverifiedStudentsCount,
-        ];
+        $notifications = NotificationCounts::forRegistrar();
 
         return Inertia::render('Registrar/Dashboard', [
             'stats' => $stats,
@@ -3642,12 +3598,14 @@ class RegistrarController extends Controller
                 ->with(['assignedStrand' => function ($query) {
                     $query->select('id', 'Strand_code', 'Strand_name', 'Is_active');
                 }])
-                ->select('id', 'FirstName', 'MiddleName', 'LastName', 'email', 'Role', 'assigned_strand_id', 'is_coordinator', 'created_at', 'updated_at')
+                ->select('id', 'FirstName', 'MiddleName', 'LastName', 'email', 'Role', 'assigned_strand_id', 'is_coordinator', 'created_at', 'updated_at', 'last_seen_at', 'last_login_at')
                 ->orderBy('LastName')
                 ->orderBy('FirstName');
 
             $faculty = $facultyQuery->get()->map(function ($user) {
                 try {
+                    $lastSeen = $user->last_seen_at;
+                    $isOnline = $lastSeen instanceof Carbon && $lastSeen->gt(now()->subMinutes(5));
                     $assignedStrand = null;
                     
                     // Safely access the relationship
@@ -3673,6 +3631,9 @@ class RegistrarController extends Controller
                         'is_coordinator' => (bool)($user->is_coordinator ?? false),
                         'created_at' => $user->created_at ? $user->created_at->toDateTimeString() : null,
                         'updated_at' => $user->updated_at ? $user->updated_at->toDateTimeString() : null,
+                        'last_seen_at' => $lastSeen ? $lastSeen->toIso8601String() : null,
+                        'last_login_at' => $user->last_login_at ? $user->last_login_at->toIso8601String() : null,
+                        'is_online' => $isOnline,
                         'assignedStrand' => $assignedStrand,
                     ];
                 } catch (\Exception $e) {

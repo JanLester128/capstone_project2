@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Head, router, useForm } from '@inertiajs/react'
-import RegistrarSidebar from '../Auth/Registrar_sidebar'
+import { Head, router } from '@inertiajs/react'
 import Breadcrumb from './Components/Breadcrumb'
 import Swal from 'sweetalert2'
+import RegistrarLayout from './Layout'
 
 // Function to convert 24-hour time to 12-hour format
 const formatTimeTo12Hour = (time24) => {
@@ -1002,35 +1002,12 @@ export default function Classes({
     return groups
   }, {})
 
-  // Sort sections and classes
-  const sortedGroupedClasses = Object.keys(groupedClasses)
-    .sort()
-    .reduce((sorted, sectionName) => {
-      sorted[sectionName] = groupedClasses[sectionName].sort((a, b) => {
-        const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-        
-        // Get first day for comparison (for consolidated days like "Monday - Friday", use "Monday")
-        const getFirstDay = (dayStr) => {
-          if (!dayStr) return ''
-          if (dayStr.includes(' - ')) {
-            return dayStr.split(' - ')[0].trim()
-          }
-          if (dayStr.includes(',')) {
-            return dayStr.split(',')[0].trim()
-          }
-          return dayStr.trim()
-        }
-        
-        const aFirstDay = getFirstDay(a.day_of_week)
-        const bFirstDay = getFirstDay(b.day_of_week)
-        const dayComparison = dayOrder.indexOf(aFirstDay) - dayOrder.indexOf(bFirstDay)
-        if (dayComparison !== 0) return dayComparison
-        return a.start_time?.localeCompare(b.start_time) || 0
-      })
-      return sorted
-    }, {})
+  const sortedGroupedClasses = Object.fromEntries(
+    Object.entries(groupedClasses).sort(([sectionA], [sectionB]) =>
+      sectionA.localeCompare(sectionB)
+    )
+  )
 
-  // Statistics
   const stats = {
     total: classes.length,
     active: classes.filter(c => c.is_active).length,
@@ -1040,23 +1017,21 @@ export default function Classes({
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <RegistrarSidebar />
-      
-      <div className="flex-1 p-6">
-        <Head title="Classes Management - ONSTS" />
-        
-        <div className="mb-6">
-          <Breadcrumb items={breadcrumbItems} />
-          <div className="mt-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Classes Management</h1>
-              <p className="text-gray-600 mt-1">Manage class schedules and assignments</p>
+    <RegistrarLayout>
+      <Head title="Classes Management - ONSTS" />
+
+      <div className="py-4 lg:py-6">
+        <div className="max-w-full mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
+          <div className="mb-6">
+            <Breadcrumb items={breadcrumbItems} />
+            <div className="mt-4">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Classes Management</h1>
+                <p className="text-gray-600 mt-1">Manage class schedules and assignments</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Flash messages */}
         {flash.success && (
           <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex items-center">
@@ -1235,9 +1210,9 @@ export default function Classes({
                       const sectionName = section.section_name || section.SectionName || 'Unnamed Section'
                       const strandName = section.strand?.Strand_name || section.strand?.Strand_name || 'No Strand'
                       return (
-                    <option key={section.id} value={section.id}>
+                        <option key={section.id} value={section.id}>
                           {sectionName} - {strandName}
-                    </option>
+                        </option>
                       )
                     })
                   ) : (
@@ -1323,9 +1298,9 @@ export default function Classes({
                               const sectionName = section.section_name || section.SectionName || 'Unnamed Section'
                               const strandName = section.strand?.Strand_name || section.strand?.Strand_name || 'No Strand'
                               return (
-                            <option key={section.id} value={section.id}>
+                                <option key={section.id} value={section.id}>
                                   {sectionName} - {strandName}
-                            </option>
+                                </option>
                               )
                             })
                           ) : (
@@ -1344,17 +1319,11 @@ export default function Classes({
                         Faculty
                         {(() => {
                           if (!classData.faculty_id) return ''
-                          // Ensure we check both string and number keys
                           const facultyIdKey = String(classData.faculty_id)
                           const currentLoad = facultyLoads[facultyIdKey] || facultyLoads[classData.faculty_id] || 0
-                          // Count unique sections for this faculty in the form (excluding the current card if it doesn't have a section yet)
                           const formSections = new Set()
-                          bulkClasses.forEach((c, idx) => {
-                            // Only count if faculty matches AND section is selected
-                            // Exclude current card if it doesn't have a section selected yet
+                          bulkClasses.forEach(c => {
                             if (String(c.faculty_id) === facultyIdKey && c.Section_id) {
-                              // If this is the current card and it has a section, count it
-                              // If this is another card, count it
                               formSections.add(c.Section_id)
                             }
                           })
@@ -1372,10 +1341,8 @@ export default function Classes({
                       >
                         <option value="">Select Faculty</option>
                         {faculty.map(f => {
-                          // Ensure we check both string and number keys
                           const facultyIdKey = String(f.id)
                           const currentLoad = facultyLoads[facultyIdKey] || facultyLoads[f.id] || 0
-                          // Count unique sections this faculty has in the current form
                           const formSections = new Set()
                           bulkClasses.forEach(c => {
                             if (String(c.faculty_id) === facultyIdKey && c.Section_id) {
@@ -1393,13 +1360,10 @@ export default function Classes({
                               disabled={isDisabled}
                             >
                               {f.FirstName} {f.LastName} {totalLoad >= 5 ? `(Full - ${totalLoad}/5)` : `(${totalLoad}/5)`}
-                          </option>
+                            </option>
                           )
                         })}
                       </select>
-                      {conflictErrors[`classes.${index}.faculty_id`] && (
-                        <p className="mt-1 text-xs text-red-600">{conflictErrors[`classes.${index}.faculty_id`]}</p>
-                      )}
                     </div>
 
                     {/* Subject */}
@@ -1442,7 +1406,9 @@ export default function Classes({
                         >
                           <option value="">Select Day</option>
                           {daysOfWeek.map(day => (
-                            <option key={day} value={day}>{day}</option>
+                            <option key={day} value={day}>
+                              {day}
+                            </option>
                           ))}
                         </select>
                       )}
@@ -1629,7 +1595,7 @@ export default function Classes({
           <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
+            </svg>
             <h3 className="mt-2 text-sm font-medium text-gray-900">No classes found</h3>
             <p className="mt-1 text-sm text-gray-500">Get started by creating a new class.</p>
           </div>
@@ -1641,109 +1607,119 @@ export default function Classes({
               <div key={sectionName} className="mb-4">
                 <button
                   onClick={() => toggleSection(sectionName)}
-                  className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 rounded-lg px-6 py-4 transition-all duration-200 shadow-md"
+                  className="w-full bg-white border border-gray-200 rounded-2xl px-6 py-4 shadow-sm hover:shadow transition-all duration-200"
                 >
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    {sectionName}
-                      <span className="ml-3 text-sm font-normal bg-white/20 px-3 py-1 rounded-full">
-                        {sectionClasses.length} {sectionClasses.length === 1 ? 'class' : 'classes'}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </div>
+                      <div className="text-left">
+                        <p className="text-base font-semibold text-gray-900">{sectionName}</p>
+                        <p className="text-xs text-gray-500">{sectionClasses.length} {sectionClasses.length === 1 ? 'class' : 'classes'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 font-medium">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {activeSemester?.semester_type || 'Current Semester'}
                       </span>
-                  </h3>
-                    <svg
-                      className={`w-6 h-6 text-white transition-transform duration-200 ${
-                        isExpanded ? 'rotate-180' : ''
-                      }`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                      <svg
+                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                          isExpanded ? 'rotate-180' : ''
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </div>
                 </button>
                 
                 {isExpanded && (
-                  <div className="bg-white rounded-b-lg shadow-sm border mt-1 overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 border-b">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Faculty</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                    {sectionClasses.map(classItem => (
-                          <tr key={classItem.Id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-6 py-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {classItem.subject?.Subject_name || 'N/A'}
+                  <div className="bg-gray-50 border border-gray-200 border-t-0 rounded-b-2xl mt-1">
+                    <div className="divide-y divide-gray-200">
+                      {sectionClasses.map(classItem => (
+                        <div key={classItem.Id} className="px-5 py-4 bg-white hover:bg-indigo-50/40 transition-colors">
+                          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-gray-900">{classItem.subject?.Subject_name || 'N/A'}</p>
+                                  <p className="text-xs uppercase tracking-wide text-gray-500">{classItem.subject?.Subject_code || 'N/A'}</p>
+                                </div>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-indigo-700 bg-indigo-100">
+                                  {classItem.faculty?.FirstName} {classItem.faculty?.LastName || ''}
+                                </span>
                               </div>
-                              <div className="text-xs text-gray-500">
-                                {classItem.subject?.Subject_code || 'N/A'}
+                              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600">
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-100 text-gray-700 font-medium">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 12h18m-7 5h7" />
+                                  </svg>
+                                  {classItem.day_of_week || 'Schedule TBD'}
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-gray-200 font-semibold text-gray-800">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3" />
+                                  </svg>
+                                  {formatTimeTo12Hour(classItem.start_time)} - {formatTimeTo12Hour(classItem.endtime)}
+                                </span>
+                              </div>
                             </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="text-sm text-gray-900">
-                                {classItem.faculty?.FirstName} {classItem.faculty?.LastName}
-                            </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="text-sm text-gray-900">{classItem.day_of_week}</div>
-                              <div className="text-xs text-gray-500">
-                                {formatTimeTo12Hour(classItem.start_time)} - {formatTimeTo12Hour(classItem.endtime)}
-                            </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                classItem.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                                classItem.is_active ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-100 text-gray-600 border border-gray-200'
                               }`}>
+                                <span className={`w-2 h-2 rounded-full mr-1 ${classItem.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></span>
                                 {classItem.is_active ? 'Active' : 'Archived'}
                               </span>
-                            </td>
-                            <td className="px-6 py-4 text-right text-sm font-medium">
-                              <button
-                                onClick={() => handleArchive(classItem.Id, classItem.is_active)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                                  classItem.is_active
-                                    ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200'
-                                    : 'text-green-700 bg-green-50 hover:bg-green-100 border border-green-200'
-                                }`}
-                              >
-                                {classItem.is_active ? (
-                                  <>
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                    </svg>
-                                    Archive
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                    </svg>
-                                    Restore
-                                  </>
-                                )}
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-            </div>
-          )}
-        </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleArchive(classItem.Id, classItem.is_active)}
+                                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${
+                                    classItem.is_active
+                                      ? 'border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100'
+                                      : 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                                  }`}
+                                >
+                                  {classItem.is_active ? (
+                                    <>
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                      </svg>
+                                      Archive
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                      </svg>
+                                      Restore
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )
           })
         )}
+        </div>
       </div>
-    </div>
+    </RegistrarLayout>
   )
 }

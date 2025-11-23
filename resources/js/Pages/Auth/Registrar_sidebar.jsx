@@ -294,9 +294,6 @@ export default function RegistrarSidebar() {
             })}
           </div>
 
-          <div className="px-4 py-4 border-t border-white/10 text-xs text-white/60">
-            Sign out through the profile dropdown in the dashboard header.
-          </div>
         </div>
       </aside>
 

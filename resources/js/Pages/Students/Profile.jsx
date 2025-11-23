@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Head, useForm } from '@inertiajs/react'
 import StudentSidebar from '../Auth/Student_sidebar'
+import Breadcrumb from '../Registrar/Components/Breadcrumb'
+import ProfileChangePasswordCard from '../../Components/ProfileChangePasswordCard'
 
 // Deduplicate subjects that appear on multiple days
 function deduplicateSubjects(schedule) {
@@ -17,7 +19,7 @@ function deduplicateSubjects(schedule) {
   return Object.values(grouped)
 }
 
-export default function Profile({ student, activeSchoolYear, activeSemester, enrollmentStatus }) {
+export default function Profile({ student, activeSchoolYear, activeSemester, enrollmentStatus, flash = {} }) {
   const [isEditing, setIsEditing] = useState(false)
 
   // Deduplicate enrolled subjects
@@ -72,6 +74,13 @@ export default function Profile({ student, activeSchoolYear, activeSemester, enr
   function cancelEdit() {
     reset()
     setIsEditing(false)
+    setData({
+      FirstName: student?.FirstName || '',
+      MiddleName: student?.MiddleName || '',
+      LastName: student?.LastName || '',
+      email: student?.email || '',
+      profile_photo: null,
+    })
   }
 
   const studentId = student?.id ? `2024-${student.id.toString().padStart(4, '0')}` : 'Not Provided'
@@ -84,217 +93,287 @@ export default function Profile({ student, activeSchoolYear, activeSemester, enr
     || student?.assignedStrand?.Strand_name 
     || 'Not Assigned'
 
+  const breadcrumbItems = [
+    { label: 'Dashboard', href: '/student/dashboard' },
+    { label: 'Profile', href: '/student/profile', current: true }
+  ]
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <StudentSidebar enrollmentStatus={enrollmentStatus} />
-      <div className="flex-1 p-6">
+      <div className="flex-1 flex flex-col">
         <Head title="Profile - ONSTS" />
 
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Profile</h1>
-            <p className="text-gray-600 mt-1">Manage your account information</p>
-          </div>
-
-          {isEditing ? (
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={cancelEdit}
-                type="button"
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={processing}
-                type="button"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-              >
-                {processing ? 'Saving…' : 'Save Changes'}
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsEditing(true)}
-              type="button"
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Edit Profile
-            </button>
-          )}
-        </div>
-
-        <div className="bg-white border rounded-lg shadow-sm">
-          <div className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center md:gap-6 gap-4">
-              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-indigo-100 flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-indigo-500 to-indigo-600">
-                {student?.profile_photo ? (
-                  <img
-                    src={`/storage/${student.profile_photo}`}
-                    alt={`${student?.FirstName ?? ''} ${student?.LastName ?? ''}`.trim() || 'Student Avatar'}
-                    className="w-24 h-24 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="text-2xl font-bold text-white">
-                    {student?.FirstName?.[0] || 'S'}{student?.LastName?.[0] || 'T'}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <h2 className="text-2xl font-semibold text-gray-900 truncate">
-                  {student?.FirstName} {student?.MiddleName} {student?.LastName}
-                </h2>
-                <p className="text-sm text-gray-600 mt-1">{student?.email}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
-                    {gradeLabel}
-                  </span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                    {accountStatus}
-                  </span>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                    verificationStatus === 'Enrolled' 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : verificationStatus === 'Verified' 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {verificationStatus}
-                  </span>
-                </div>
+        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1">
+              <Breadcrumb items={breadcrumbItems} />
+              <div className="mt-4">
+                <h1 className="text-2xl font-semibold text-gray-900">Profile</h1>
+                <p className="text-sm text-gray-600 mt-1">Manage your account information</p>
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 border-t border-gray-100 pt-6">
-              <InfoStat label="Student ID" value={studentId} />
-              <InfoStat label="School Year" value={schoolYearLabel} />
-              <InfoStat label="Semester" value={semesterLabel} />
-              <InfoStat label="Strand" value={strandLabel} />
-            </div>
-
-            <div className="mt-8 border-t border-gray-100 pt-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
-
+            <div className="flex items-center gap-3">
               {isEditing ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormInput
-                      id="FirstName"
-                      label="First Name *"
-                      value={data.FirstName}
-                      onChange={(e) => setData('FirstName', e.target.value)}
-                      error={errors.FirstName}
-                      required
-                    />
-                    <FormInput
-                      id="MiddleName"
-                      label="Middle Name"
-                      value={data.MiddleName}
-                      onChange={(e) => setData('MiddleName', e.target.value)}
-                      error={errors.MiddleName}
-                    />
-                    <FormInput
-                      id="LastName"
-                      label="Last Name *"
-                      value={data.LastName}
-                      onChange={(e) => setData('LastName', e.target.value)}
-                      error={errors.LastName}
-                      required
-                    />
-                  </div>
-
-                  <FormInput
-                    id="email"
-                    type="email"
-                    label="Email Address *"
-                    value={data.email}
-                    onChange={(e) => setData('email', e.target.value)}
-                    error={errors.email}
-                    required
-                  />
-
-                  <div>
-                    <label htmlFor="profile_photo" className="block text-sm font-medium text-gray-700 mb-2">
-                      Profile Photo
-                    </label>
-                    <input
-                      id="profile_photo"
-                      type="file"
-                      accept="image/jpeg,image/png,image/jpg,image/gif"
-                      onChange={(e) => setData('profile_photo', e.target.files[0])}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">Maximum file size: 10MB. Supported formats: JPEG, PNG, JPG, GIF.</p>
-                    {errors.profile_photo && (
-                      <p className="mt-1 text-sm text-red-600">{errors.profile_photo}</p>
-                    )}
-                  </div>
-                </div>
+                <button
+                  onClick={cancelEdit}
+                  type="button"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg text-sm font-semibold shadow-sm hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 mb-1">LRN (Learner Reference Number)</p>
-                    <p className="text-sm text-gray-900 whitespace-pre-line">
-                      {(() => {
-                        const lrn = student?.studentPersonalInfo?.lrn || student?.student_personal_info?.lrn;
-                        if (lrn && String(lrn).trim() !== '' && String(lrn).trim().toUpperCase() !== 'N/A') {
-                          return String(lrn).trim();
-                        }
-                        return '';
-                      })()}
-                    </p>
-                  </div>
-                  <DisplayField label="First Name" value={student?.FirstName} />
-                  <DisplayField label="Middle Name" value={student?.MiddleName} />
-                  <DisplayField label="Last Name" value={student?.LastName} />
-                  <DisplayField label="Email" value={student?.email} />
-                  <DisplayField label="Role" value={student?.Role || 'Student'} />
-                  <DisplayField label="Account Status" value={accountStatus} />
-                </div>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  type="button"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold shadow-sm hover:bg-indigo-700"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit Profile
+                </button>
               )}
             </div>
+          </div>
+        </header>
 
-            {/* Academic Information removed per request (LRN moved to Personal Information). */}
-            {/* Latest Enrollment section removed per request. */}
-
-            {/* Enrolled Subjects - from latest enrollment schedule */}
-            {enrolledSubjects.length > 0 && (
-              <div className="mt-8 border-t border-gray-100 pt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Enrolled Subjects</h3>
-                <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide w-12">#</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">Subject</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">Instructor</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-100">
-                      {enrolledSubjects.map((row, idx) => (
-                        <tr key={`${row.id}-${idx}`}>
-                          <td className="px-4 py-3 text-sm text-gray-700">{idx + 1}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {row.subject || ''}
-                            {row.is_credited && (
-                              <span className="ml-1 text-xs font-semibold text-indigo-600">(Credited)</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{row.faculty || ''}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+        <main className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-6xl mx-auto space-y-6">
+            {flash.success && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-800 text-sm">
+                {flash.success}
               </div>
             )}
+
+            {flash.error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800 text-sm">
+                {flash.error}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm xl:col-span-2">
+                <div className="p-6 space-y-8">
+                  <div className="flex flex-col md:flex-row md:items-center md:gap-6 gap-4">
+                    <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-indigo-100 flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-indigo-500 to-indigo-600">
+                      {student?.profile_photo ? (
+                        <img
+                          src={`/storage/${student.profile_photo}`}
+                          alt={`${student?.FirstName ?? ''} ${student?.LastName ?? ''}`.trim() || 'Student Avatar'}
+                          className="w-24 h-24 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-2xl font-bold text-white">
+                          {student?.FirstName?.[0] || 'S'}{student?.LastName?.[0] || 'T'}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-2xl font-semibold text-gray-900 truncate">
+                        {student?.FirstName} {student?.MiddleName} {student?.LastName}
+                      </h2>
+                      <p className="text-sm text-gray-600 mt-1">{student?.email}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                          {gradeLabel}
+                        </span>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          {accountStatus}
+                        </span>
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                            verificationStatus === 'Enrolled'
+                              ? 'bg-blue-100 text-blue-700'
+                              : verificationStatus === 'Verified'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-yellow-100 text-yellow-700'
+                          }`}
+                        >
+                          {verificationStatus}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border-t border-gray-100 pt-6">
+                    <InfoStat label="Student ID" value={studentId} />
+                    <InfoStat label="School Year" value={schoolYearLabel} />
+                    <InfoStat label="Semester" value={semesterLabel} />
+                    <InfoStat label="Strand" value={strandLabel} />
+                  </div>
+
+                  <div className="border-t border-gray-100 pt-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
+
+                    {isEditing ? (
+                      <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormInput
+                            id="FirstName"
+                            label="First Name *"
+                            value={data.FirstName}
+                            onChange={(e) => setData('FirstName', e.target.value)}
+                            error={errors.FirstName}
+                            required
+                          />
+                          <FormInput
+                            id="MiddleName"
+                            label="Middle Name"
+                            value={data.MiddleName}
+                            onChange={(e) => setData('MiddleName', e.target.value)}
+                            error={errors.MiddleName}
+                          />
+                          <FormInput
+                            id="LastName"
+                            label="Last Name *"
+                            value={data.LastName}
+                            onChange={(e) => setData('LastName', e.target.value)}
+                            error={errors.LastName}
+                            required
+                          />
+                        </div>
+
+                        <FormInput
+                          id="email"
+                          type="email"
+                          label="Email Address *"
+                          value={data.email}
+                          onChange={(e) => setData('email', e.target.value)}
+                          error={errors.email}
+                          required
+                        />
+
+                        <div>
+                          <label htmlFor="profile_photo" className="block text-sm font-medium text-gray-700 mb-2">
+                            Profile Photo
+                          </label>
+                          <input
+                            id="profile_photo"
+                            type="file"
+                            accept="image/jpeg,image/png,image/jpg,image/gif"
+                            onChange={(e) => setData('profile_photo', e.target.files[0])}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                          <p className="mt-1 text-xs text-gray-500">Maximum file size: 10MB. Supported formats: JPEG, PNG, JPG, GIF.</p>
+                          {errors.profile_photo && (
+                            <p className="mt-1 text-sm text-red-600">{errors.profile_photo}</p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-end gap-3 pt-6 border-t">
+                          <button
+                            type="button"
+                            onClick={cancelEdit}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={processing}
+                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            {processing && (
+                              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            )}
+                            {processing ? 'Saving…' : 'Save Changes'}
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <p className="text-sm font-medium text-gray-500 mb-1">LRN (Learner Reference Number)</p>
+                          <p className="text-sm text-gray-900 whitespace-pre-line">
+                            {(() => {
+                              const lrn = student?.studentPersonalInfo?.lrn || student?.student_personal_info?.lrn
+                              if (lrn && String(lrn).trim() !== '' && String(lrn).trim().toUpperCase() !== 'N/A') {
+                                return String(lrn).trim()
+                              }
+                              return ''
+                            })()}
+                          </p>
+                        </div>
+                        <DisplayField label="First Name" value={student?.FirstName} />
+                        <DisplayField label="Middle Name" value={student?.MiddleName} />
+                        <DisplayField label="Last Name" value={student?.LastName} />
+                        <DisplayField label="Email" value={student?.email} />
+                        <DisplayField label="Role" value={student?.Role || 'Student'} />
+                        <DisplayField label="Account Status" value={accountStatus} />
+                      </div>
+                    )}
+                  </div>
+
+                  {enrolledSubjects.length > 0 && (
+                    <div className="border-t border-gray-100 pt-6">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Enrolled Subjects</h3>
+                      <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide w-12">#</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">Subject</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">Instructor</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-100">
+                            {enrolledSubjects.map((row, idx) => (
+                              <tr key={`${row.id}-${idx}`}>
+                                <td className="px-4 py-3 text-sm text-gray-700">{idx + 1}</td>
+                                <td className="px-4 py-3 text-sm text-gray-900">
+                                  {row.subject || ''}
+                                  {row.is_credited && (
+                                    <span className="ml-1 text-xs font-semibold text-indigo-600">(Credited)</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700">{row.faculty || ''}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <ProfileChangePasswordCard />
+
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Account Overview</h3>
+                  <div className="space-y-3 text-sm text-gray-700">
+                    <div>
+                      <p className="text-gray-500">Student ID</p>
+                      <p className="font-semibold text-gray-900">{studentId}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">School Year</p>
+                      <p className="font-semibold text-gray-900">{schoolYearLabel}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Semester</p>
+                      <p className="font-semibold text-gray-900">{semesterLabel}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Strand</p>
+                      <p className="font-semibold text-gray-900">{strandLabel}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Verification Status</p>
+                      <p className="font-semibold text-gray-900">{verificationStatus}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   )

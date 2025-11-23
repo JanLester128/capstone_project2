@@ -183,7 +183,7 @@ export default function VerifyOtp() {
 								</Link>
 							</div>
 							<div>
-								<Link href="/login" className="text-xs text-gray-500 hover:text-gray-700 transition-colors">
+								<Link href="login" className="text-xs text-gray-500 hover:text-gray-700 transition-colors">
 									← Back to Login
 								</Link>
 							</div>

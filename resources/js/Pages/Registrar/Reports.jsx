@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Head, router } from '@inertiajs/react'
-import RegistrarSidebar from '../Auth/Registrar_sidebar'
+import RegistrarLayout from './Layout'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -157,35 +157,33 @@ export default function Reports({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <RegistrarSidebar />
-      <div className="flex-1 flex flex-col">
-        <Head title="Registrar • Reports & Analytics" />
+    <RegistrarLayout>
+      <Head title="Registrar • Reports & Analytics" />
 
-        <header className="bg-white shadow">
-          <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900">Reports & Analytics</h1>
-                <p className="text-gray-600 mt-1">Comprehensive insights and statistics with PDF export</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <a
-                  href={`/registrar/reports/analytics/pdf?school_year_id=${selectedSchoolYear || ''}&semester_id=${selectedSemester || ''}`}
-                  target="_blank"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Export All Reports (PDF)
-                </a>
-              </div>
+      <div className="bg-white shadow">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900">Reports & Analytics</h1>
+              <p className="text-gray-600 mt-1">Comprehensive insights and statistics with PDF export</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <a
+                href={`/registrar/reports/analytics/pdf?school_year_id=${selectedSchoolYear || ''}&semester_id=${selectedSemester || ''}`}
+                target="_blank"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export All Reports (PDF)
+              </a>
             </div>
           </div>
-        </header>
+        </div>
+      </div>
 
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 flex-1">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 flex-1">
           {/* Filters */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Filters</h2>
@@ -649,8 +647,7 @@ export default function Reports({
             </div>
           </div>
         </main>
-      </div>
-    </div>
+    </RegistrarLayout>
   )
 }
 

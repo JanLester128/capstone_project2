@@ -1,8 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { Head, Link, router, usePage } from '@inertiajs/react'
-import RegistrarSidebar from '../Auth/Registrar_sidebar'
-import { registrarNav } from './navConfig'
-import sessionManager from '../../utils/sessionManager'
+import { Head, Link } from '@inertiajs/react'
+import RegistrarLayout from './Layout'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -25,15 +22,7 @@ ChartJS.register(
   ArcElement
 )
 
-export default function Dashboard({ stats = {}, registrar = null, analytics = {}, notifications = {} }) {
-  const { auth } = usePage().props
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
-  const [notificationMenuOpen, setNotificationMenuOpen] = useState(false)
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const profileMenuRef = useRef(null)
-  const notificationMenuRef = useRef(null)
-  
+export default function Dashboard({ stats = {}, registrar = null, analytics = {} }) {
   const {
     students = 0,
     faculty = 0,
@@ -42,45 +31,6 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
     strands = 0,
     active_school_year = null,
   } = stats
-
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
-        setProfileMenuOpen(false)
-      }
-      if (notificationMenuRef.current && !notificationMenuRef.current.contains(event.target)) {
-        setNotificationMenuOpen(false)
-      }
-    }
-
-    if (profileMenuOpen || notificationMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [profileMenuOpen, notificationMenuOpen])
-
-  function handleLogout(e) {
-    e.preventDefault()
-    setProfileMenuOpen(false)
-    setShowLogoutConfirm(true)
-  }
-
-  function confirmLogout() {
-    setIsLoggingOut(true)
-    sessionManager.handleUserLogout()
-    router.post('/logout', {}, {
-      onFinish: () => setIsLoggingOut(false)
-    })
-  }
-
-  function cancelLogout() {
-    setShowLogoutConfirm(false)
-    setIsLoggingOut(false)
-  }
 
   // Gender Distribution Chart Data
   const genderChartData = {
@@ -170,198 +120,12 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <RegistrarSidebar />
-      <div className="flex-1 flex flex-col">
+    <RegistrarLayout>
       <Head title="Registrar • Dashboard" />
 
       <header className="bg-white shadow">
-        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Registrar Dashboard</h1>
-          
-          <div className="flex items-center gap-3 sm:gap-4 flex-wrap md:flex-nowrap justify-end">
-            {/* Notification Bell Icon */}
-            <div className="relative" ref={notificationMenuRef}>
-              <button
-                onClick={() => setNotificationMenuOpen(!notificationMenuOpen)}
-                className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                aria-label="Notifications"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {notifications.total > 0 && (
-                  <span className="absolute top-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
-                    {notifications.total > 99 ? '99+' : notifications.total}
-                  </span>
-                )}
-              </button>
-              
-              {/* Notification Dropdown */}
-              {notificationMenuOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto">
-                  <div className="p-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
-                  </div>
-                  <div className="py-2">
-                    {notifications.total === 0 ? (
-                      <div className="px-4 py-8 text-center text-gray-500">
-                        <svg className="w-12 h-12 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                        <p>No new notifications</p>
-                      </div>
-                    ) : (
-                      <>
-                        {notifications.new_enrollments > 0 && (
-                          <Link
-                            href="/registrar/enrollments?status=pre_enrolled,recommended"
-                            onClick={() => setNotificationMenuOpen(false)}
-                            className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
-                          >
-                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                              </svg>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900">New Student Enrollments</p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {notifications.new_enrollments} {notifications.new_enrollments === 1 ? 'student' : 'students'} waiting for review
-                              </p>
-                            </div>
-                            <span className="flex-shrink-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-blue-600 rounded-full">
-                              {notifications.new_enrollments}
-                            </span>
-                          </Link>
-                        )}
-                        {notifications.re_enrollments > 0 && (
-                          <Link
-                            href="/registrar/re-enroll-students"
-                            onClick={() => setNotificationMenuOpen(false)}
-                            className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
-                          >
-                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900">Re-Enrollment Requests</p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {notifications.re_enrollments} {notifications.re_enrollments === 1 ? 'student' : 'students'} need re-enrollment
-                              </p>
-                            </div>
-                            <span className="flex-shrink-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-green-600 rounded-full">
-                              {notifications.re_enrollments}
-                            </span>
-                          </Link>
-                        )}
-                        {notifications.transferee_credits > 0 && (
-                          <Link
-                            href="/registrar/credited-subjects"
-                            onClick={() => setNotificationMenuOpen(false)}
-                            className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
-                          >
-                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-                              <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900">Transferee Credit Subjects</p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {notifications.transferee_credits} {notifications.transferee_credits === 1 ? 'subject' : 'subjects'} pending approval
-                              </p>
-                            </div>
-                            <span className="flex-shrink-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-orange-600 rounded-full">
-                              {notifications.transferee_credits}
-                            </span>
-                          </Link>
-                        )}
-                        {notifications.unverified_students > 0 && (
-                          <Link
-                            href="/registrar/student-verification"
-                            onClick={() => setNotificationMenuOpen(false)}
-                            className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
-                          >
-                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
-                              <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900">Student Account Verification</p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {notifications.unverified_students} {notifications.unverified_students === 1 ? 'student' : 'students'} need account verification
-                              </p>
-                            </div>
-                            <span className="flex-shrink-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-yellow-600 rounded-full">
-                              {notifications.unverified_students}
-                            </span>
-                          </Link>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            {/* Profile Photo with Dropdown */}
-            <div className="relative w-full max-w-xs sm:max-w-none" ref={profileMenuRef}>
-              <button
-                onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                className="flex w-full items-center justify-between sm:justify-start sm:space-x-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg p-2 transition-colors hover:bg-gray-50"
-              >
-                <div className="flex flex-col items-start sm:items-end text-left sm:text-right">
-                  <p className="text-sm font-medium text-gray-900">
-                    {registrar?.FirstName} {registrar?.LastName}
-                  </p>
-                  <p className="text-xs text-gray-500">{registrar?.email}</p>
-                </div>
-                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                  {registrar?.profile_photo ? (
-                    <img
-                      src={`/storage/${registrar.profile_photo}`}
-                      alt="Profile"
-                      className="h-10 w-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <svg className="h-6 w-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  )}
-                </div>
-              </button>
-              
-              {/* Dropdown Menu */}
-              {profileMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                  <Link
-                    href="/registrar/profile"
-                    onClick={() => setProfileMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                  >
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span>Profile</span>
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    disabled={isLoggingOut}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    <span>{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </header>
 
@@ -580,49 +344,7 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
           </div>
         </section>
       </main>
-      </div>
-      
-      {/* Logout Confirmation Modal */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="flex-shrink-0 w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Confirm Logout</h3>
-                <p className="text-sm text-gray-600 mt-1">Are you sure you want to logout?</p>
-              </div>
-            </div>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={cancelLogout}
-                disabled={isLoggingOut}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmLogout}
-                disabled={isLoggingOut}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isLoggingOut && (
-                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                  </svg>
-                )}
-                {isLoggingOut ? 'Logging out...' : 'Logout'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </RegistrarLayout>
   )
 }
 

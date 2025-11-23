@@ -34,8 +34,8 @@ export default function ResetPassword() {
 		if (flash?.success && flash.success.includes('Password has been reset')) {
 			Swal.fire({
 				icon: 'success',
-				title: 'Password Reset Successful!',
-				text: flash.success,
+				title: 'Password Reset Successful',
+				text: 'Your password has been reset successfully. Please login with your new password.',
 				confirmButtonColor: '#10b981',
 				confirmButtonText: 'Go to Login'
 			}).then(() => {
