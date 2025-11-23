@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react'
+import { Head, router, Link } from '@inertiajs/react'
 import { useState, useEffect, useMemo } from 'react'
 import RegistrarSidebar from '../Auth/Registrar_sidebar'
 import { formatDateTimeMedium } from '../../utils/dateFormatter'
@@ -238,6 +238,9 @@ export default function ApprovedGrades({ grades, filters = {}, schoolYears = [],
                       <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Approved By
                       </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -308,6 +311,14 @@ export default function ApprovedGrades({ grades, filters = {}, schoolYears = [],
                               {formatDateTimeMedium(grade.approved_at)}
                             </p>
                           </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Link
+                            href={`/registrar/grades/${grade.id}/edit`}
+                            className="inline-flex items-center px-3 py-1.5 border border-indigo-200 text-indigo-700 text-sm font-medium rounded-md hover:bg-indigo-50 transition-colors"
+                          >
+                            Edit
+                          </Link>
                         </td>
                       </tr>
                     ))}

@@ -198,6 +198,19 @@ class Grade extends Model
     }
 
     /**
+     * Unlock this grade so authorized staff can make adjustments
+     */
+    public function unlock(): void
+    {
+        if ($this->is_locked) {
+            $this->is_locked = false;
+            $this->locked_at = null;
+            $this->locked_by = null;
+            $this->save();
+        }
+    }
+
+    /**
      * Check if grade is immutable (locked or approved)
      */
     public function isImmutable(): bool

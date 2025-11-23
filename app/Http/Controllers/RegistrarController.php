@@ -4985,6 +4985,144 @@ class RegistrarController extends Controller
         ]);
     }
 
+    public function editApprovedGrade(Grade $grade)
+    {
+        if ($grade->status !== Grade::STATUS_APPROVED) {
+            return redirect()->route('grades.approved')
+                ->withErrors(['error' => 'Only approved grades can be edited from this page.']);
+        }
+
+        $grade->load([
+            'student.user',
+            'subject',
+            'classModel.section.strand',
+            'classModel.faculty',
+            'schoolYear',
+            'approvedByUser',
+        ]);
+
+        $studentUser = $grade->student?->user;
+        $class = $grade->classModel;
+
+        $gradeData = [
+            'id' => $grade->id,
+            'student' => [
+                'name' => trim(($studentUser?->FirstName ?? '') . ' ' . ($studentUser?->LastName ?? '')),
+                'lrn' => $grade->student?->lrn,
+                'grade_level' => $grade->student?->grade_level,
+                'email' => $studentUser?->email,
+            ],
+            'subject' => [
+                'name' => $grade->subject?->Subject_name ?? $grade->subject_name_snapshot ?? 'Untitled Subject',
+                'code' => $grade->subject?->Subject_code ?? $grade->subject_code_snapshot,
+            ],
+            'class' => [
+                'section' => $class?->section?->section_name ?? $grade->class_section_snapshot,
+                'strand' => $class?->section?->strand?->Strand_name,
+                'faculty' => $class?->faculty ? trim(($class->faculty->FirstName ?? '') . ' ' . ($class->faculty->LastName ?? '')) : $grade->faculty_name_snapshot,
+            ],
+            'school_year' => $grade->schoolYear?->formatted ?? $grade->school_year_label,
+            'semester' => $grade->semester ?? $grade->semester_label,
+            'first_quarter' => $grade->first_quarter,
+            'second_quarter' => $grade->second_quarter,
+            'third_quarter' => $grade->third_quarter,
+            'fourth_quarter' => $grade->fourth_quarter,
+            'summer_grade' => $grade->summer_grade,
+            'original_failed_grade' => $grade->original_failed_grade,
+            'semester_grade' => $grade->semester_grade,
+            'remarks' => $grade->remarks,
+            'needs_summer_class' => (bool) $grade->needs_summer_class,
+            'is_prerequisite_failed' => (bool) $grade->is_prerequisite_failed,
+            'notes' => $grade->notes,
+            'approved_at' => optional($grade->approved_at)?->toDateTimeString(),
+            'approved_by' => $grade->approvedByUser ? trim(($grade->approvedByUser->FirstName ?? '') . ' ' . ($grade->approvedByUser->LastName ?? '')) : 'System',
+        ];
+
+        return Inertia::render('Registrar/EditApprovedGrade', [
+            'grade' => $gradeData,
+        ]);
+    }
+
+    public function updateApprovedGrade(Request $request, Grade $grade)
+    {
+        if ($grade->status !== Grade::STATUS_APPROVED) {
+            return redirect()->route('grades.approved')
+                ->withErrors(['error' => 'Only approved grades can be edited from this page.']);
+        }
+
+        $validated = $request->validate([
+            'first_quarter' => 'nullable|numeric|min:0|max:100',
+            'second_quarter' => 'nullable|numeric|min:0|max:100',
+            'third_quarter' => 'nullable|numeric|min:0|max:100',
+            'fourth_quarter' => 'nullable|numeric|min:0|max:100',
+            'summer_grade' => 'nullable|numeric|min:0|max:100',
+            'semester_grade' => 'nullable|numeric|min:0|max:100',
+            'needs_summer_class' => 'nullable|boolean',
+            'is_prerequisite_failed' => 'nullable|boolean',
+        ]);
+
+        $gradeService = app(\App\Services\GradeCalculationService::class);
+
+        $grade->unlock();
+
+        $numericFields = [
+            'first_quarter',
+            'second_quarter',
+            'third_quarter',
+            'fourth_quarter',
+            'summer_grade',
+            'semester_grade',
+        ];
+
+        foreach ($numericFields as $field) {
+            if (array_key_exists($field, $validated)) {
+                $grade->{$field} = $this->normalizeGradeInput($validated[$field]);
+            }
+        }
+
+        $needsSummer = $request->boolean('needs_summer_class');
+        $isPrerequisiteFailed = $request->boolean('is_prerequisite_failed');
+
+        $grade->needs_summer_class = $needsSummer;
+        $grade->is_prerequisite_failed = $isPrerequisiteFailed;
+
+        $providedSemesterGrade = $grade->semester_grade;
+        if ($providedSemesterGrade === null) {
+            $grade->semester_grade = $gradeService->calculateSemesterGrade($grade);
+            $grade->auto_calculated = true;
+        } else {
+            $grade->auto_calculated = false;
+        }
+
+        $grade->remarks = $gradeService->determineRemarks($grade->semester_grade ?? 0);
+
+        $grade->approved_by = Auth::id();
+        $grade->approved_at = now();
+        $grade->status = Grade::STATUS_APPROVED;
+
+        $grade->save();
+
+        // Re-evaluate prerequisite flags based on updated grade values
+        $gradeService->checkPrerequisites($grade);
+
+        $grade->lock(Auth::id());
+
+        return redirect()->route('registrar.grades.approved')
+            ->with('success', 'Grade updated successfully.');
+    }
+
+    /**
+     * Normalize numeric grade input into nullable float.
+     */
+    protected function normalizeGradeInput($value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return round((float) $value, 2);
+    }
+
     /**
      * Update enrollment status from registrar side.
      */

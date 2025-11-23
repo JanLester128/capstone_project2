@@ -244,6 +244,8 @@ Route::middleware(['auth', 'role:Registrar'])->prefix('registrar')->name('regist
     Route::put('/grades/{grade}/approval', [RegistrarController::class, 'updateGradeApproval'])->name('grades.update-approval');
     Route::put('/grades/approvals/bulk', [RegistrarController::class, 'bulkUpdateGradeApprovals'])->name('grades.bulk-update');
     Route::get('/grades/approved', [RegistrarController::class, 'approvedGrades'])->name('grades.approved');
+    Route::get('/grades/{grade}/edit', [RegistrarController::class, 'editApprovedGrade'])->name('grades.edit');
+    Route::put('/grades/{grade}', [RegistrarController::class, 'updateApprovedGrade'])->name('grades.update');
     
     // Unified Enrollment hub
     Route::get('/enrollment', [RegistrarController::class, 'enrollmentHub'])->name('enrollment-hub');
