@@ -173,12 +173,12 @@ export default function Login() {
                   <span
                     className="inline-block"
                     style={{
-                      backgroundImage: 'linear-gradient(90deg, #919BFF, #7283E4, #526BCA, #3352AF, #133A94)',
+                      backgroundImage: 'linear-gradient(90deg, #FFFFFF, #D9DDE9, #B2BCD2, #8C9ABC, #6578A5)',
                       backgroundSize: '200% auto',
-                      animation: 'schoolTitleGradient 3s linear infinite',
+                      animation: 'schoolTitleGradient 5s linear infinite',
                       WebkitBackgroundClip: 'text',
                       color: 'transparent',
-                      textShadow: '0 0 12px rgba(17, 58, 148, 0.45)',
+                      textShadow: '0 0 12px rgba(101, 120, 165, 0.45)',
                     }}
                   >
                     OPOL NATIONAL SECONDARY TECHNICAL SCHOOL
