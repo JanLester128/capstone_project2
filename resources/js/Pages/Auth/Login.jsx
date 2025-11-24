@@ -13,6 +13,13 @@ export default function Login() {
     teal: '#6688cc',
     sand: '#acbfe6'
   }
+  const gradientKeyframes = `
+    @keyframes schoolTitleGradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+  `
 
   const { data, setData, post, processing, errors, reset } = useForm({
     email: '',
@@ -132,6 +139,7 @@ export default function Login() {
     <>
       <Head title="Sign in">
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+        <style>{gradientKeyframes}</style>
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-[#1829780d] via-[#6688cc14] to-[#acbfe620] flex items-center justify-center px-4 py-4" style={{fontFamily: 'Poppins, sans-serif'}}>
@@ -161,8 +169,20 @@ export default function Login() {
                   </div>
                 </div>
                 
-                <h1 className="text-lg font-bold tracking-wide leading-tight text-white mb-2">
-                  OPOL NATIONAL SECONDARY TECHNICAL SCHOOL
+                <h1 className="text-lg font-bold tracking-wide leading-tight mb-2">
+                  <span
+                    className="inline-block"
+                    style={{
+                      backgroundImage: 'linear-gradient(90deg, #919BFF, #7283E4, #526BCA, #3352AF, #133A94)',
+                      backgroundSize: '200% auto',
+                      animation: 'schoolTitleGradient 3s linear infinite',
+                      WebkitBackgroundClip: 'text',
+                      color: 'transparent',
+                      textShadow: '0 0 12px rgba(17, 58, 148, 0.45)',
+                    }}
+                  >
+                    OPOL NATIONAL SECONDARY TECHNICAL SCHOOL
+                  </span>
                 </h1>
                 
                 <div className="h-0.5 w-16 bg-white/70 mx-auto rounded-full mb-3"></div>

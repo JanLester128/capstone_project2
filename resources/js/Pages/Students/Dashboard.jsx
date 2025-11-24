@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
+import { gsap } from 'gsap'
+import { TextPlugin } from 'gsap/TextPlugin'
 import { Head, Link, router, usePage } from '@inertiajs/react'
 import StudentSidebar from '../Auth/Student_sidebar'
 import sessionManager from '../../utils/sessionManager'
@@ -42,12 +44,16 @@ export default function StudentDashboard({
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const profileMenuRef = useRef(null)
+  const typedTextRef = useRef(null)
+  const cursorRef = useRef(null)
   const cn = (...classes) => classes.filter(Boolean).join(' ')
   const isReturning = Boolean(previousTerm)
   const stageKey = currentEnrollment?.status ?? (enrollmentStatus?.isOpen ? 'pre_enrolled' : 'pre_enrolled')
   const stageMeta = STATUS_META[stageKey] ?? STATUS_META.pre_enrolled
   const canGenerateCor = Boolean(currentEnrollment?.can_generate_cor)
   const corLink = canGenerateCor && currentEnrollment?.id ? `/enrollments/${currentEnrollment.id}/cor` : null
+  const firstName = auth?.user?.FirstName ?? 'Student'
+  const welcomeMessage = `Welcome ${firstName}`
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -65,6 +71,44 @@ export default function StudentDashboard({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [profileMenuOpen])
+
+  useEffect(() => {
+    if (!typedTextRef.current || !cursorRef.current) return
+
+    gsap.registerPlugin(TextPlugin)
+
+    const typingDuration = welcomeMessage.length * 0.075 // 75ms per character
+    const deletingDuration = welcomeMessage.length * 0.05 // 50ms per character
+    const pauseDuration = 1.5 // seconds
+
+    const tl = gsap.timeline({ repeat: -1 })
+    tl.set(typedTextRef.current, { text: '' })
+      .to(typedTextRef.current, {
+        text: welcomeMessage,
+        duration: typingDuration,
+        ease: 'none',
+      })
+      .to({}, { duration: pauseDuration })
+      .to(typedTextRef.current, {
+        text: '',
+        duration: deletingDuration,
+        ease: 'none',
+      })
+      .to({}, { duration: 0.2 })
+
+    const cursorTween = gsap.to(cursorRef.current, {
+      opacity: 0,
+      duration: 0.25,
+      repeat: -1,
+      yoyo: true,
+      ease: 'none',
+    })
+
+    return () => {
+      tl.kill()
+      cursorTween.kill()
+    }
+  }, [welcomeMessage])
 
   function handleLogout(e) {
     e.preventDefault()
@@ -101,7 +145,16 @@ export default function StudentDashboard({
           <div className="relative max-w-6xl mx-auto px-6 py-8">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-semibold">Welcome {auth?.user?.FirstName ?? 'Student'}</h1>
+                <h1 className="text-2xl font-semibold flex items-center" aria-label={welcomeMessage}>
+                  <span ref={typedTextRef}>{welcomeMessage}</span>
+                  <span
+                    ref={cursorRef}
+                    className="ml-1 text-3xl leading-none text-white"
+                    aria-hidden="true"
+                  >
+                    ·
+                  </span>
+                </h1>
                 <p className="text-sm text-white/85">
                   {stageKey === 'enrolled' 
                     ? 'You are officially enrolled. Welcome back!'
