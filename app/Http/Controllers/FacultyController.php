@@ -613,13 +613,16 @@ class FacultyController extends Controller
                             ->orderByDesc('updated_at')
                             ->first();
 
+                        $isApproved = $grade && $grade->status === Grade::STATUS_APPROVED;
+                        $isLocked = $grade?->is_locked;
+
                         return [
                             'student_personal_info_id' => $studentInfo?->id,
                             'lrn' => $studentInfo?->lrn,
                             'name' => $studentInfo?->full_name,
                             'email' => $studentUser?->email,
                             'grade_level' => $studentInfo?->grade_level,
-                            'can_edit' => !$grade || !in_array($grade->status, [Grade::STATUS_PENDING, Grade::STATUS_APPROVED], true),
+                            'can_edit' => !$grade || (!$isApproved && !$isLocked),
                             'grades' => [
                                 'first_quarter' => $isSummer ? null : $grade?->first_quarter,
                                 'second_quarter' => $isSummer ? null : $grade?->second_quarter,
