@@ -2053,6 +2053,20 @@ class RegistrarController extends Controller
             ]);
         }
 
+        // Prevent overlapping schedules within the same section regardless of subject
+        if ($this->sectionHasScheduleConflict(
+            $validated['Section_id'],
+            $validated['day_of_week'],
+            $validated['start_time'],
+            $validated['endtime'],
+            $validated['school_year_id'],
+            $validated['Semester_id']
+        )) {
+            throw ValidationException::withMessages([
+                'schedule_conflict' => 'This section already has another class scheduled during this time slot.'
+            ]);
+        }
+
         // Check for scheduling conflicts
         if ($this->facultyHasScheduleConflict(
             $validated['faculty_id'],
@@ -2214,6 +2228,19 @@ class RegistrarController extends Controller
                 )) {
                     $subjectName = $subject ? $subject->Subject_name : 'This subject';
                     $errors["classes.{$index}.day_of_week"] = "{$subjectName} is already scheduled on {$classData['day_of_week']} for this section";
+                    continue;
+                }
+
+                // Check section-level schedule conflicts regardless of subject
+                if ($this->sectionHasScheduleConflict(
+                    $classData['Section_id'],
+                    $classData['day_of_week'],
+                    $classData['start_time'],
+                    $classData['endtime'],
+                    $classData['school_year_id'],
+                    $classData['Semester_id']
+                )) {
+                    $errors["classes.{$index}.start_time"] = 'This section already has another class scheduled during this time slot.';
                     continue;
                 }
 
@@ -2398,6 +2425,20 @@ class RegistrarController extends Controller
             ]);
         }
 
+        if ($this->sectionHasScheduleConflict(
+            $validated['Section_id'],
+            $validated['day_of_week'],
+            $validated['start_time'],
+            $validated['endtime'],
+            $validated['school_year_id'],
+            $validated['Semester_id'],
+            $class->Id
+        )) {
+            throw ValidationException::withMessages([
+                'schedule_conflict' => 'This section already has another class scheduled during this time slot.'
+            ]);
+        }
+
         // Check for scheduling conflicts (excluding current class)
         if ($this->facultyHasScheduleConflict(
             $validated['faculty_id'],
@@ -2437,16 +2478,32 @@ class RegistrarController extends Controller
             ->where('Semester_id', $semesterId)
             ->when($ignoreClassId, fn ($query) => $query->where('Id', '!=', $ignoreClassId))
             ->where(function ($query) use ($startTime, $endTime) {
-                $query->whereBetween('start_time', [$startTime, $endTime])
-                    ->orWhereBetween('endtime', [$startTime, $endTime])
-                    ->orWhere(function ($q) use ($startTime, $endTime) {
-                        $q->where('start_time', '<=', $startTime)
-                          ->where('endtime', '>=', $endTime);
-                    })
-                    ->orWhere(function ($q) use ($startTime, $endTime) {
-                        $q->where('start_time', $startTime)
-                          ->where('endtime', $endTime);
-                    });
+                $query->where('start_time', '<', $endTime)
+                    ->where('endtime', '>', $startTime);
+            })
+            ->exists();
+    }
+
+    /**
+     * Determine if a section already has a class scheduled that overlaps the supplied window.
+     */
+    private function sectionHasScheduleConflict(
+        int $sectionId,
+        string $dayOfWeek,
+        string $startTime,
+        string $endTime,
+        int $schoolYearId,
+        int $semesterId,
+        ?int $ignoreClassId = null
+    ): bool {
+        return ClassModel::where('Section_id', $sectionId)
+            ->where('day_of_week', $dayOfWeek)
+            ->where('school_year_id', $schoolYearId)
+            ->where('Semester_id', $semesterId)
+            ->when($ignoreClassId, fn ($query) => $query->where('Id', '!=', $ignoreClassId))
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->where('start_time', '<', $endTime)
+                    ->where('endtime', '>', $startTime);
             })
             ->exists();
     }

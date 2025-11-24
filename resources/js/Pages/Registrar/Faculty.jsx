@@ -736,130 +736,156 @@ export default function Faculty({ faculty = [], strands = [], flash = {} }) {
 
       {/* Faculty Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">
-                {editingFaculty ? 'Edit Faculty Member' : 'Add New Faculty Member'}
-              </h3>
+        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white/95 rounded-2xl shadow-2xl border border-gray-100 max-w-lg w-full">
+            <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-indigo-500 font-semibold">
+                  {editingFaculty ? 'Update Faculty' : 'New Faculty Member'}
+                </p>
+                <h3 className="text-xl font-bold text-gray-900 mt-1">
+                  {editingFaculty ? 'Edit Faculty Member' : 'Add New Faculty Member'}
+                </h3>
+              </div>
               <button
                 onClick={resetForm}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 rounded-full p-1.5 hover:bg-gray-100 transition"
+                aria-label="Close faculty form"
               >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="FirstName" className="block text-sm font-medium text-gray-700">
-                  First Name *
-                </label>
-                <input
-                  type="text"
-                  id="FirstName"
-                  value={formData.FirstName}
-                  onChange={(e) => setFormData({...formData, FirstName: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  required
-                />
-                {errors.FirstName && (
-                  <p className="mt-1 text-sm text-red-600">{errors.FirstName}</p>
-                )}
+            <div className="px-6 pt-5">
+              <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-3 text-sm text-indigo-800 mb-5">
+                Quickly invite new coordinators or faculty members. Emails are sent automatically with their temporary password.
+              </div>
+            </div>
+
+            <form onSubmit={handleFormSubmit} className="px-6 pb-6 space-y-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label htmlFor="FirstName" className="block text-xs font-semibold text-gray-600 tracking-wide">
+                    First Name <span className="text-indigo-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="FirstName"
+                    value={formData.FirstName}
+                    onChange={(e) => setFormData({...formData, FirstName: e.target.value})}
+                    className="mt-1 block w-full rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:bg-white"
+                    required
+                  />
+                  {errors.FirstName && (
+                    <p className="mt-1 text-xs text-red-600">{errors.FirstName}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="LastName" className="block text-xs font-semibold text-gray-600 tracking-wide">
+                    Last Name <span className="text-indigo-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="LastName"
+                    value={formData.LastName}
+                    onChange={(e) => setFormData({...formData, LastName: e.target.value})}
+                    className="mt-1 block w-full rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:bg-white"
+                    required
+                  />
+                  {errors.LastName && (
+                    <p className="mt-1 text-xs text-red-600">{errors.LastName}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label htmlFor="MiddleName" className="block text-xs font-semibold text-gray-600 tracking-wide">
+                    Middle Name
+                  </label>
+                  <input
+                    type="text"
+                    id="MiddleName"
+                    value={formData.MiddleName}
+                    onChange={(e) => setFormData({...formData, MiddleName: e.target.value})}
+                    className="mt-1 block w-full rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:bg-white"
+                  />
+                  {errors.MiddleName && (
+                    <p className="mt-1 text-xs text-red-600">{errors.MiddleName}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="email" className="block text-xs font-semibold text-gray-600 tracking-wide">
+                    Email Address <span className="text-indigo-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    className="mt-1 block w-full rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:bg-white"
+                    required
+                  />
+                  {errors.email && (
+                    <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+                  )}
+                </div>
               </div>
 
               <div>
-                <label htmlFor="MiddleName" className="block text-sm font-medium text-gray-700">
-                  Middle Name
-                </label>
-                <input
-                  type="text"
-                  id="MiddleName"
-                  value={formData.MiddleName}
-                  onChange={(e) => setFormData({...formData, MiddleName: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                />
-                {errors.MiddleName && (
-                  <p className="mt-1 text-sm text-red-600">{errors.MiddleName}</p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="LastName" className="block text-sm font-medium text-gray-700">
-                  Last Name *
-                </label>
-                <input
-                  type="text"
-                  id="LastName"
-                  value={formData.LastName}
-                  onChange={(e) => setFormData({...formData, LastName: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  required
-                />
-                {errors.LastName && (
-                  <p className="mt-1 text-sm text-red-600">{errors.LastName}</p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  required
-                />
-                {errors.email && (
-                  <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="assigned_strand_id" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="assigned_strand_id" className="block text-xs font-semibold text-gray-600 tracking-wide">
                   Assigned Strand
                 </label>
-                <select
-                  id="assigned_strand_id"
-                  value={formData.assigned_strand_id}
-                  onChange={(e) => setFormData({...formData, assigned_strand_id: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                >
-                  <option value="">Select a strand (optional)</option>
-                  {strands.map((strand) => (
-                    <option key={strand.id} value={strand.id}>
-                      {strand.Strand_code} - {strand.Strand_name}
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-1 relative">
+                  <select
+                    id="assigned_strand_id"
+                    value={formData.assigned_strand_id}
+                    onChange={(e) => setFormData({...formData, assigned_strand_id: e.target.value})}
+                    className="block w-full rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:bg-white appearance-none"
+                  >
+                    <option value="">Select a strand (optional)</option>
+                    {strands.map((strand) => (
+                      <option key={strand.id} value={strand.id}>
+                        {strand.Strand_code} - {strand.Strand_name}
+                      </option>
+                    ))}
+                  </select>
+                  <svg className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.094l3.71-3.864a.75.75 0 011.08 1.04l-4.25 4.43a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                  </svg>
+                </div>
                 {errors.assigned_strand_id && (
-                  <p className="mt-1 text-sm text-red-600">{errors.assigned_strand_id}</p>
+                  <p className="mt-1 text-xs text-red-600">{errors.assigned_strand_id}</p>
                 )}
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-gray-500">
                   Assign this faculty member to a specific strand. This is optional and can be changed later.
                 </p>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={processing}
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                >
-                  {processing ? 'Saving...' : (editingFaculty ? 'Update' : 'Create')}
-                </button>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-gray-100">
+                <p className="text-xs text-gray-500">
+                  * Required fields
+                </p>
+                <div className="flex gap-3 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="flex-1 sm:flex-none px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={processing}
+                    className="flex-1 sm:flex-none px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg shadow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 hover:bg-indigo-700 disabled:opacity-60"
+                  >
+                    {processing ? 'Saving...' : (editingFaculty ? 'Update' : 'Create')}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
