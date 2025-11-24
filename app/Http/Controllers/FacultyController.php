@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf as PDF;
 
@@ -657,6 +658,254 @@ class FacultyController extends Controller
         return $sectionId . '|' . $subjectId;
     }
 
+    private const DAY_ORDER = [
+        'monday' => 1,
+        'tuesday' => 2,
+        'wednesday' => 3,
+        'thursday' => 4,
+        'friday' => 5,
+        'saturday' => 6,
+        'sunday' => 7,
+    ];
+
+    private const DAY_NAME_MAP = [
+        'mon' => 'Monday',
+        'monday' => 'Monday',
+        'tue' => 'Tuesday',
+        'tues' => 'Tuesday',
+        'tuesday' => 'Tuesday',
+        'wed' => 'Wednesday',
+        'weds' => 'Wednesday',
+        'wednesday' => 'Wednesday',
+        'thu' => 'Thursday',
+        'thur' => 'Thursday',
+        'thurs' => 'Thursday',
+        'thursday' => 'Thursday',
+        'fri' => 'Friday',
+        'friday' => 'Friday',
+        'sat' => 'Saturday',
+        'saturday' => 'Saturday',
+        'sun' => 'Sunday',
+        'sunday' => 'Sunday',
+    ];
+
+    private function formatClassSchedules(Collection $classes): Collection
+    {
+        $grouped = [];
+
+        foreach ($classes as $class) {
+            $startTime = $this->normalizeTimeValue($class->start_time ?? $class->Start_time ?? null);
+            $endTime = $this->normalizeTimeValue($class->end_time ?? $class->endtime ?? null);
+
+            $keyParts = [
+                $class->Section_id ?? $class->section?->id ?? 'section',
+                $class->subject_id ?? $class->subject?->Id ?? 'subject',
+                $startTime ?? 'start',
+                $endTime ?? 'end',
+                $class->Semester_id ?? $class->semester?->id ?? 'semester',
+                $class->school_year_id ?? $class->schoolYear?->id ?? 'sy',
+            ];
+
+            $key = implode('|', $keyParts);
+
+            if (!isset($grouped[$key])) {
+                $grouped[$key] = [
+                    'id' => $class->Id ?? $class->id,
+                    'subject' => $class->subject?->Subject_name ?? 'Unnamed Subject',
+                    'subject_code' => $class->subject?->Subject_code,
+                    'section' => $class->section?->section_name ?? $class->section?->SectionName,
+                    'strand' => $class->section?->strand?->Strand_name,
+                    'strand_code' => $class->section?->strand?->Strand_code,
+                    'start_time' => $startTime,
+                    'end_time' => $endTime,
+                    'semester' => $class->semester?->semester_type,
+                    'school_year' => $class->schoolYear?->formatted,
+                    'day_tokens' => [],
+                ];
+            }
+
+            $grouped[$key]['day_tokens'] = array_merge(
+                $grouped[$key]['day_tokens'],
+                $this->extractDayTokens($class->day_of_week)
+            );
+        }
+
+        return collect($grouped)->map(function (array $class) {
+            $days = collect($class['day_tokens'])
+                ->map(fn ($day) => $this->normalizeDayToken($day))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            $sortedDays = $this->sortDayTokens($days);
+            $class['day_tokens'] = $sortedDays;
+            $class['day_of_week'] = $this->formatDayLabel($sortedDays);
+
+            return $class;
+        });
+    }
+
+    private function summarizeClassesByDay(Collection $classes): Collection
+    {
+        return $classes
+            ->flatMap(function ($class) {
+                $days = $class['day_tokens'] ?? [];
+                return empty($days) ? ['Unscheduled'] : $days;
+            })
+            ->groupBy(fn ($day) => $day)
+            ->map(fn ($group, $day) => ['day' => $day, 'count' => $group->count()])
+            ->sortByDesc('count');
+    }
+
+    private function extractDayTokens(?string $expression): array
+    {
+        if (!$expression) {
+            return [];
+        }
+
+        $expression = trim($expression);
+        if ($expression === '') {
+            return [];
+        }
+
+        // Handle comma-separated values first
+        if (str_contains($expression, ',')) {
+            return collect(explode(',', $expression))
+                ->map(fn ($part) => trim($part))
+                ->filter()
+                ->flatMap(fn ($part) => $this->extractDayTokens($part))
+                ->values()
+                ->all();
+        }
+
+        // Handle range indicators (e.g., Monday-Friday or Monday - Friday or Monday to Friday)
+        if (preg_match('/\bto\b|-/i', $expression)) {
+            $delimiters = [' to ', '-', ' – '];
+            foreach ($delimiters as $delimiter) {
+                if (stripos($expression, $delimiter) !== false) {
+                    [$start, $end] = array_pad(array_map('trim', explode($delimiter, $expression)), 2, null);
+                    return $this->expandDayRange($start, $end);
+                }
+            }
+        }
+
+        $normalized = $this->normalizeDayToken($expression);
+        return $normalized ? [$normalized] : [];
+    }
+
+    private function expandDayRange(?string $start, ?string $end): array
+    {
+        $startDay = $this->normalizeDayToken($start);
+        $endDay = $this->normalizeDayToken($end);
+
+        if (!$startDay || !$endDay) {
+            return array_filter([$startDay, $endDay]);
+        }
+
+        $startNum = self::DAY_ORDER[strtolower($startDay)] ?? null;
+        $endNum = self::DAY_ORDER[strtolower($endDay)] ?? null;
+
+        if (!$startNum || !$endNum) {
+            return [$startDay, $endDay];
+        }
+
+        $days = [];
+        $current = $startNum;
+        while (true) {
+            $days[] = array_search($current, self::DAY_ORDER, true);
+            if ($current === $endNum) {
+                break;
+            }
+            $current = $current === 7 ? 1 : $current + 1;
+        }
+
+        return collect($days)
+            ->map(fn ($key) => $this->normalizeDayToken($key))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function normalizeDayToken(?string $day): ?string
+    {
+        if (!$day) {
+            return null;
+        }
+
+        $key = strtolower(trim($day));
+        return self::DAY_NAME_MAP[$key] ?? null;
+    }
+
+    private function sortDayTokens(array $days): array
+    {
+        return collect($days)
+            ->unique()
+            ->sortBy(fn ($day) => self::DAY_ORDER[strtolower($day)] ?? 999)
+            ->values()
+            ->all();
+    }
+
+    private function formatDayLabel(array $days): string
+    {
+        if (empty($days)) {
+            return 'Unscheduled';
+        }
+
+        $ordered = $this->sortDayTokens($days);
+        $segments = [];
+        $rangeStart = $ordered[0];
+        $prevDay = $rangeStart;
+
+        $flushRange = function () use (&$segments, &$rangeStart, &$prevDay) {
+            $startNum = self::DAY_ORDER[strtolower($rangeStart)] ?? null;
+            $endNum = self::DAY_ORDER[strtolower($prevDay)] ?? null;
+
+            if ($startNum !== null && $endNum !== null && $endNum > $startNum) {
+                $segments[] = $rangeStart . '-' . $prevDay;
+            } else {
+                $segments[] = $rangeStart;
+            }
+        };
+
+        for ($i = 1, $len = count($ordered); $i < $len; $i++) {
+            $current = $ordered[$i];
+            $prevNum = self::DAY_ORDER[strtolower($prevDay)] ?? null;
+            $currentNum = self::DAY_ORDER[strtolower($current)] ?? null;
+
+            if ($prevNum !== null && $currentNum === $prevNum + 1) {
+                $prevDay = $current;
+                continue;
+            }
+
+            $flushRange();
+            $rangeStart = $current;
+            $prevDay = $current;
+        }
+
+        $flushRange();
+
+        return implode(', ', $segments);
+    }
+
+    private function normalizeTimeValue($value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        if ($value instanceof Carbon) {
+            return $value->format('H:i');
+        }
+
+        $string = trim((string) $value);
+        if ($string === '') {
+            return null;
+        }
+
+        return substr($string, 0, 5);
+    }
+
     /**
      * Display faculty's schedule.
      * Only shows schedule from active school year and active semester.
@@ -804,21 +1053,8 @@ class FacultyController extends Controller
             ->when($filters['activeSemester'], fn ($query) => $query->where('Semester_id', $filters['activeSemester']->id));
 
         $classModels = $classQuery->get();
-
-        $classes = $classModels->map(function ($class) {
-            return [
-                'id' => $class->Id ?? $class->id,
-                'subject' => $class->subject?->Subject_name ?? 'Unnamed Subject',
-                'subject_code' => $class->subject?->Subject_code,
-                'section' => $class->section?->section_name ?? $class->section?->SectionName,
-                'strand' => $class->section?->strand?->Strand_name,
-                'day_of_week' => $class->day_of_week,
-                'start_time' => $class->start_time,
-                'end_time' => $class->end_time ?? $class->endtime,
-                'semester' => $class->semester?->semester_type,
-                'school_year' => $class->schoolYear?->formatted,
-            ];
-        });
+        $classCollection = $this->formatClassSchedules($classModels);
+        $classes = $classCollection->values()->all();
 
         $sectionQuery = Section::with([
             'strand',
@@ -834,6 +1070,18 @@ class FacultyController extends Controller
         $sectionModels = $sectionQuery->get();
 
         $sections = $sectionModels->map(function ($section) {
+            $uniqueSubjects = $section->classes
+                ->filter(fn ($class) => $class->subject)
+                ->unique(function ($class) {
+                    return $class->subject?->Id
+                        ?? $class->subject_id
+                        ?? $class->subject?->Subject_code
+                        ?? $class->subject?->Subject_name
+                        ?? $class->Id;
+                })
+                ->map(fn ($class) => $class->subject?->Subject_name ?? 'Unnamed Subject')
+                ->values();
+
             return [
                 'id' => $section->id,
                 'name' => $section->section_name ?? $section->SectionName,
@@ -842,26 +1090,19 @@ class FacultyController extends Controller
                 'semester' => $section->semester?->semester_type,
                 'student_count' => $section->enrollments->count(),
                 'students' => $section->enrollments->map(fn ($enrollment) => $enrollment->studentPersonalInfo?->full_name)->filter()->values(),
-                'subjects' => $section->classes->map(fn ($class) => $class->subject?->Subject_name ?? 'Unnamed Subject')->filter()->values(),
+                'subjects' => $uniqueSubjects,
             ];
         });
 
-        $classesByDay = $classModels->groupBy(function ($class) {
-            return $class->day_of_week ?: 'Unscheduled';
-        })->map(function ($group, $day) {
-            return [
-                'day' => $day,
-                'count' => $group->count(),
-            ];
-        })->sortByDesc('count')->values();
+        $classesByDay = $this->summarizeClassesByDay($classCollection)->values()->all();
 
         $advisoryStudentTotal = $sectionModels->sum(fn ($section) => $section->enrollments->count());
 
         $reportAnalytics = [
-            'total_classes' => $classModels->count(),
+            'total_classes' => $classCollection->count(),
             'total_sections' => $sectionModels->count(),
             'total_advisee_students' => $advisoryStudentTotal,
-            'unique_strands' => $classModels->pluck('section.strand.Strand_code')->filter()->unique()->count(),
+            'unique_strands' => $classCollection->pluck('strand_code')->filter()->unique()->count(),
             'classes_by_day' => $classesByDay,
         ];
 
@@ -3441,31 +3682,37 @@ class FacultyController extends Controller
         $user = Auth::user();
         $filters = $this->getActiveFilters();
 
-        $classes = ClassModel::with(['section.strand', 'subject', 'semester', 'schoolYear'])
+        $rawClasses = ClassModel::with(['section.strand', 'subject', 'semester', 'schoolYear'])
             ->where('faculty_id', $user->id)
             ->where('is_active', true)
             ->when($filters['activeSchoolYear'], fn ($query) => $query->where('school_year_id', $filters['activeSchoolYear']->id))
             ->when($filters['activeSemester'], fn ($query) => $query->where('Semester_id', $filters['activeSemester']->id))
             ->orderBy('day_of_week')
             ->orderBy('start_time')
-            ->get()
+            ->get();
+
+        $formattedClasses = $this->formatClassSchedules($rawClasses)
             ->map(function ($class) {
+                $formatTime = static fn ($time) => $time ? date('g:i A', strtotime($time)) : '';
+
                 return [
-                    'subject' => $class->subject?->Subject_name ?? 'Unnamed Subject',
-                    'subject_code' => $class->subject?->Subject_code,
-                    'section' => $class->section?->section_name ?? $class->section?->SectionName,
-                    'strand' => $class->section?->strand?->Strand_name,
-                    'day_of_week' => $class->day_of_week,
-                    'start_time' => $class->start_time ? date('g:i A', strtotime($class->start_time)) : '',
-                    'end_time' => $class->end_time ? date('g:i A', strtotime($class->end_time)) : '',
-                    'semester' => $class->semester?->semester_type,
-                    'school_year' => $class->schoolYear?->formatted,
+                    'subject' => $class['subject'] ?? 'Unnamed Subject',
+                    'subject_code' => $class['subject_code'] ?? null,
+                    'section' => $class['section'] ?? null,
+                    'strand' => $class['strand'] ?? null,
+                    'day_of_week' => $class['day_of_week'] ?? 'Unscheduled',
+                    'start_time' => $formatTime($class['start_time'] ?? null),
+                    'end_time' => $formatTime($class['end_time'] ?? null),
+                    'semester' => $class['semester'] ?? null,
+                    'school_year' => $class['school_year'] ?? null,
                 ];
-            });
+            })
+            ->sortBy(['day_of_week', 'start_time'])
+            ->values();
 
         $data = [
             'faculty_name' => $user->FirstName . ' ' . $user->LastName,
-            'classes' => $classes,
+            'classes' => $formattedClasses,
             'school_year' => $filters['activeSchoolYear']?->formatted,
             'semester' => $filters['activeSemester']?->semester_type,
             'generated_at' => now()->format('F d, Y g:i A'),
@@ -3573,12 +3820,20 @@ class FacultyController extends Controller
         ]);
 
         $studentInfoIds = $class->section?->enrollments->pluck('student_personal_info_id')->filter() ?? collect();
-        
-        $grades = Grade::where('class_id', $class->Id)
-            ->whereIn('student_personal_info_id', $studentInfoIds)
+        $semesterCode = $this->normalizeSemesterValue($class->semester?->semester_type);
+
+        $grades = Grade::whereIn('student_personal_info_id', $studentInfoIds)
+            ->where('subject_id', $class->subject_id)
+            ->where('school_year_id', $class->school_year_id)
+            ->when($semesterCode, fn ($query) => $query->where('semester', $semesterCode))
             ->where('status', Grade::STATUS_APPROVED)
+            ->orderByRaw('class_id IS NULL') // prefer grades tied to this class
+            ->orderByDesc('approved_at')
             ->get()
-            ->keyBy('student_personal_info_id');
+            ->groupBy('student_personal_info_id')
+            ->map(function ($gradeGroup) {
+                return $gradeGroup->first();
+            });
 
         $students = $class->section?->enrollments->map(function ($enrollment, $index) use ($grades) {
             $studentInfo = $enrollment->studentPersonalInfo;

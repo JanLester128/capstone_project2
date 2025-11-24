@@ -18,24 +18,24 @@
 
         body {
             margin: 0;
-            padding: {{ isset($isIframe) && $isIframe ? '16px' : '32px' }};
+            padding: var(--body-padding, 32px);
             font-family: "Segoe UI", Arial, sans-serif;
-            background: {{ isset($isIframe) && $isIframe ? '#fff' : '#f3f4f6' }};
+            background: var(--body-bg, #f3f4f6);
             color: var(--text);
         }
 
         .cor-wrapper {
-            max-width: {{ isset($isIframe) && $isIframe ? '100%' : '900px' }};
+            max-width: var(--cor-max-width, 900px);
             margin: 0 auto;
             background: #fff;
-            border: {{ isset($isIframe) && $isIframe ? 'none' : '1px solid var(--border)' }};
-            box-shadow: {{ isset($isIframe) && $isIframe ? 'none' : '0 15px 35px rgba(0, 0, 0, 0.08)' }};
+            border: var(--cor-border, 1px solid var(--border));
+            box-shadow: var(--cor-shadow, 0 15px 35px rgba(0, 0, 0, 0.08));
             position: relative;
             overflow: hidden;
         }
 
         .cor-header {
-            padding: {{ isset($isIframe) && $isIframe ? '20px 24px 16px' : '32px 40px 28px' }};
+            padding: var(--cor-header-padding, 32px 40px 28px);
             border-bottom: 4px solid var(--border);
         }
 
@@ -113,13 +113,13 @@
         }
 
         .cor-body {
-            padding: {{ isset($isIframe) && $isIframe ? '20px 24px 24px' : '32px 40px 40px' }};
+            padding: var(--cor-body-padding, 32px 40px 40px);
         }
 
         .info-block {
             border: 1px solid #d1d5db;
-            padding: {{ isset($isIframe) && $isIframe ? '14px 16px' : '18px 20px' }};
-            margin-bottom: {{ isset($isIframe) && $isIframe ? '16px' : '24px' }};
+            padding: var(--info-block-padding, 18px 20px);
+            margin-bottom: var(--info-block-margin, 24px);
             background: #f9fafb;
         }
 
@@ -175,6 +175,29 @@
             border-collapse: collapse;
         }
 
+        .print-button {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .print-button:hover {
+            background: #1d4ed8;
+        }
+
+        .print-button.full-width {
+            width: 100%;
+        }
+
         th, td {
             border: 1px solid #c8e6c9;
             padding: 10px 12px;
@@ -183,12 +206,45 @@
             text-align: left;
         }
 
+        #schedule td {
+            vertical-align: top;
+        }
+
         th {
             background: var(--accent);
             text-transform: uppercase;
             letter-spacing: 0.08em;
             font-size: 12px;
             color: var(--primary);
+        }
+
+        .schedule-cell {
+            min-height: 70px;
+        }
+
+        .schedule-entry {
+            margin-bottom: 6px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            background: #ffffff;
+            line-height: 1.35;
+            word-break: break-word;
+            hyphens: auto;
+        }
+
+        .schedule-entry:last-child {
+            margin-bottom: 0;
+        }
+
+        .schedule-entry strong {
+            display: block;
+            font-size: 12px;
+        }
+
+        .schedule-entry small {
+            display: block;
+            color: #4b5563;
+            font-size: 11px;
         }
 
         .event-row td {
@@ -287,9 +343,20 @@
     $watermark = $status['watermark'] ?? 'FOR REFERENCE';
     $selectedStrandId = old('assigned_strand_id', $selectedStrandId ?? null);
     $selectedSectionId = old('assigned_section_id', $selectedSectionId ?? null);
+    $printButtonFullWidth = !($showEnrollmentForm ?? false);
+    $strandCodeMap = ($strands ?? collect())->pluck('Strand_code', 'id')->toArray();
+    $corClientConfig = [
+        'strandNames' => $strandCodeMap,
+        'selectedSectionId' => $selectedSectionId ? (int) $selectedSectionId : null,
+        'enrollmentId' => $enrollmentModel->id ?? null,
+    ];
 @endphp
-<body>
-    <div class="cor-wrapper">
+<body @if(isset($isIframe) && $isIframe)
+    style="--body-padding:16px;--body-bg:#fff;"
+@endif>
+    <div class="cor-wrapper" @if(isset($isIframe) && $isIframe)
+        style="--cor-max-width:100%;--cor-border:none;--cor-shadow:none;--cor-header-padding:20px 24px 16px;--cor-body-padding:20px 24px 24px;--info-block-padding:14px 16px;--info-block-margin:16px;"
+    @endif data-cor-config='@json($corClientConfig)'>
         <div class="cor-header">
             <div class="header-grid">
                 <img src="{{ $logoPath }}" alt="School Logo" class="crest">
@@ -455,57 +522,57 @@
                             {{-- Class row with classes organized by day --}}
                             <tr>
                                 <td>{{ $row['time'] ?? '' }}</td>
-                                <td>
+                                <td class="schedule-cell">
                                     @if(isset($row['monday']) && count($row['monday']) > 0)
                                         @foreach($row['monday'] as $class)
-                                            <div style="margin-bottom: 4px;">
-                                                <strong>{{ $class['subject'] ?? '' }}</strong><br>
-                                                <small style="color: #666;">{{ $class['faculty'] ?? '' }}</small><br>
-                                                <small style="color: #666;">{{ $class['section'] ?? '' }}</small>
+                                            <div class="schedule-entry">
+                                                <strong>{{ $class['subject'] ?? '' }}</strong>
+                                                <small>{{ $class['faculty'] ?? '' }}</small>
+                                                <small>{{ $class['section'] ?? '' }}</small>
                                             </div>
                                         @endforeach
                                     @endif
                                 </td>
-                                <td>
+                                <td class="schedule-cell">
                                     @if(isset($row['tuesday']) && count($row['tuesday']) > 0)
                                         @foreach($row['tuesday'] as $class)
-                                            <div style="margin-bottom: 4px;">
-                                                <strong>{{ $class['subject'] ?? '' }}</strong><br>
-                                                <small style="color: #666;">{{ $class['faculty'] ?? '' }}</small><br>
-                                                <small style="color: #666;">{{ $class['section'] ?? '' }}</small>
+                                            <div class="schedule-entry">
+                                                <strong>{{ $class['subject'] ?? '' }}</strong>
+                                                <small>{{ $class['faculty'] ?? '' }}</small>
+                                                <small>{{ $class['section'] ?? '' }}</small>
                                             </div>
                                         @endforeach
                                     @endif
                                 </td>
-                                <td>
+                                <td class="schedule-cell">
                                     @if(isset($row['wednesday']) && count($row['wednesday']) > 0)
                                         @foreach($row['wednesday'] as $class)
-                                            <div style="margin-bottom: 4px;">
-                                                <strong>{{ $class['subject'] ?? '' }}</strong><br>
-                                                <small style="color: #666;">{{ $class['faculty'] ?? '' }}</small><br>
-                                                <small style="color: #666;">{{ $class['section'] ?? '' }}</small>
+                                            <div class="schedule-entry">
+                                                <strong>{{ $class['subject'] ?? '' }}</strong>
+                                                <small>{{ $class['faculty'] ?? '' }}</small>
+                                                <small>{{ $class['section'] ?? '' }}</small>
                                             </div>
                                         @endforeach
                                     @endif
                                 </td>
-                                <td>
+                                <td class="schedule-cell">
                                     @if(isset($row['thursday']) && count($row['thursday']) > 0)
                                         @foreach($row['thursday'] as $class)
-                                            <div style="margin-bottom: 4px;">
-                                                <strong>{{ $class['subject'] ?? '' }}</strong><br>
-                                                <small style="color: #666;">{{ $class['faculty'] ?? '' }}</small><br>
-                                                <small style="color: #666;">{{ $class['section'] ?? '' }}</small>
+                                            <div class="schedule-entry">
+                                                <strong>{{ $class['subject'] ?? '' }}</strong>
+                                                <small>{{ $class['faculty'] ?? '' }}</small>
+                                                <small>{{ $class['section'] ?? '' }}</small>
                                             </div>
                                         @endforeach
                                     @endif
                                 </td>
-                                <td>
+                                <td class="schedule-cell">
                                     @if(isset($row['friday']) && count($row['friday']) > 0)
                                         @foreach($row['friday'] as $class)
-                                            <div style="margin-bottom: 4px;">
-                                                <strong>{{ $class['subject'] ?? '' }}</strong><br>
-                                                <small style="color: #666;">{{ $class['faculty'] ?? '' }}</small><br>
-                                                <small style="color: #666;">{{ $class['section'] ?? '' }}</small>
+                                            <div class="schedule-entry">
+                                                <strong>{{ $class['subject'] ?? '' }}</strong>
+                                                <small>{{ $class['faculty'] ?? '' }}</small>
+                                                <small>{{ $class['section'] ?? '' }}</small>
                                             </div>
                                         @endforeach
                                     @endif
@@ -558,7 +625,7 @@
                 </button>
             </form>
         @endif
-        <button onclick="window.print()" class="no-print" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:12px 16px;font-size:14px;font-weight:600;cursor:pointer;{{ ($showEnrollmentForm ?? false) ? '' : 'width:100%;' }}">
+        <button onclick="window.print()" class="no-print print-button {{ $printButtonFullWidth ? 'full-width' : '' }}">
             Print / Save as PDF
         </button>
     </div>
@@ -585,47 +652,46 @@
                 const headerSectionDisplay = document.getElementById('headerSectionDisplay');
                 const headerStrandDisplay = document.getElementById('headerStrandDisplay');
                 const adviserDisplay = document.getElementById('adviserDisplay');
-                
+
                 if (!strandSelect || !sectionSelect) {
                     return;
                 }
 
-                // Get strand names from options
-                const strandNames = {
-                    @foreach($strands as $strand)
-                    '{{ $strand->id }}': '{{ $strand->Strand_code }}',
-                    @endforeach
-                };
-                
+                const corWrapper = document.querySelector('.cor-wrapper');
+                const config = corWrapper ? JSON.parse(corWrapper.getAttribute('data-cor-config') || '{}') : {};
+
                 const allSectionOptions = Array.from(sectionSelect.options);
 
-                // Sync grade level dropdowns (both use same name so form will get value from either)
                 if (gradeLevelSelect && headerGradeLevelSelect) {
-                    function syncGradeLevel(target, source) {
+                    const syncGradeLevel = (target, source) => {
                         target.value = source.value;
-                    }
+                    };
+
                     gradeLevelSelect.addEventListener('change', () => syncGradeLevel(headerGradeLevelSelect, gradeLevelSelect));
                     headerGradeLevelSelect.addEventListener('change', () => syncGradeLevel(gradeLevelSelect, headerGradeLevelSelect));
-                    
-                    // Initialize header with student info value if available
+
                     if (gradeLevelSelect.value) {
                         headerGradeLevelSelect.value = gradeLevelSelect.value;
                     }
                 }
-                
-                // Initialize header displays with current values
-                if (headerSectionDisplay) {
-                    const currentSection = sectionSelect.options[sectionSelect.selectedIndex];
-                    if (currentSection && currentSection.value) {
-                        headerSectionDisplay.textContent = currentSection.textContent;
-                    }
-                }
-                
-                if (headerStrandDisplay && strandSelect.value) {
-                    headerStrandDisplay.textContent = strandNames[strandSelect.value] || '________';
-                }
 
-                function filterSections() {
+                const updateHeaderStrand = () => {
+                    if (!headerStrandDisplay) {
+                        return;
+                    }
+                    const strandValue = strandSelect.value;
+                    headerStrandDisplay.textContent = strandValue ? (config.strandNames[strandValue] || '________') : '________';
+                };
+
+                const setHeaderSectionFromCurrent = () => {
+                    if (!headerSectionDisplay) {
+                        return;
+                    }
+                    const currentSection = sectionSelect.options[sectionSelect.selectedIndex];
+                    headerSectionDisplay.textContent = currentSection && currentSection.value ? currentSection.textContent : '________';
+                };
+
+                const filterSections = () => {
                     const selectedStrand = strandSelect.value;
                     sectionSelect.innerHTML = '';
 
@@ -644,15 +710,10 @@
                         }
                         if (option.dataset.strand === selectedStrand) {
                             const newOption = option.cloneNode(true);
-                            // Copy all data attributes including adviser
-                            newOption.dataset.strand = option.dataset.strand;
-                            newOption.dataset.adviser = option.dataset.adviser || '';
                             if (sectionSelect.dataset.selected && sectionSelect.dataset.selected === option.value) {
                                 newOption.selected = true;
                                 placeholder.selected = false;
-                                
-                                // Update adviser display when section is auto-selected
-                                if (adviserDisplay && newOption.dataset.adviser) {
+                                if (adviserDisplay) {
                                     adviserDisplay.textContent = newOption.dataset.adviser || '_____________________';
                                 }
                             }
@@ -667,82 +728,74 @@
                             ? 'Pick the specific section for the chosen strand.'
                             : 'No active sections available for the selected strand.';
                     }
-                    
-                    // Update header strand display
-                    if (headerStrandDisplay && selectedStrand) {
-                        headerStrandDisplay.textContent = strandNames[selectedStrand] || '________';
-                    } else if (headerStrandDisplay) {
-                        headerStrandDisplay.textContent = '________';
-                    }
-                }
 
-                // Update header section display and adviser when section changes
-                if (sectionSelect && headerSectionDisplay) {
-                    sectionSelect.addEventListener('change', function() {
-                        const selectedOption = this.options[this.selectedIndex];
-                        if (selectedOption && selectedOption.value) {
-                            headerSectionDisplay.textContent = selectedOption.textContent;
-                            
-                            // Update adviser display
-                            if (adviserDisplay) {
-                                const adviserName = selectedOption.dataset.adviser || '';
-                                adviserDisplay.textContent = adviserName || '_____________________';
+                    updateHeaderStrand();
+                };
+
+                sectionSelect.addEventListener('change', () => {
+                    const selectedOption = sectionSelect.options[sectionSelect.selectedIndex];
+                    if (selectedOption && selectedOption.value) {
+                        setHeaderSectionFromCurrent();
+                        if (adviserDisplay) {
+                            adviserDisplay.textContent = selectedOption.dataset.adviser || '_____________________';
+                        }
+
+                        if (window.parent && window.parent !== window) {
+                            const postPayload = {
+                                type: 'refreshCorIframe',
+                                sectionId: selectedOption.value,
+                                enrollmentId: config.enrollmentId,
+                            };
+                            try {
+                                window.parent.postMessage(postPayload, '*');
+                                return;
+                            } catch (err) {
+                                /* fall through to iframe reload */
                             }
-                            
-                            // Refresh COR iframe to show classes for selected section
-                            // Check if we're in an iframe and have a parent window
-                            if (window.parent && window.parent !== window) {
-                                try {
-                                    // Notify parent window to refresh iframe with new section
-                                    window.parent.postMessage({
-                                        type: 'refreshCorIframe',
-                                        sectionId: selectedOption.value,
-                                        enrollmentId: {{ $enrollmentModel->id ?? 'null' }}
-                                    }, '*');
-                                } catch (e) {
-                                    // Fallback: direct iframe refresh
-                                    try {
-                                        const iframe = window.frameElement;
-                                        if (iframe && iframe.src) {
-                                            const url = new URL(iframe.src);
-                                            url.searchParams.set('section_id', selectedOption.value);
-                                            url.searchParams.set('refresh', Date.now().toString());
-                                            iframe.src = url.toString();
-                                        }
-                                    } catch (e2) {
-                                        console.log('Unable to refresh iframe');
-                                    }
+
+                            try {
+                                const iframe = window.frameElement;
+                                if (iframe && iframe.src) {
+                                    const url = new URL(iframe.src);
+                                    url.searchParams.set('section_id', selectedOption.value);
+                                    url.searchParams.set('refresh', Date.now().toString());
+                                    iframe.src = url.toString();
+                                    return;
                                 }
-                            } else {
-                                // Not in iframe - just reload the page with section parameter
-                                const url = new URL(window.location.href);
-                                url.searchParams.set('section_id', selectedOption.value);
-                                url.searchParams.set('refresh', Date.now().toString());
-                                window.location.href = url.toString();
-                            }
-                        } else {
-                            headerSectionDisplay.textContent = '________';
-                            if (adviserDisplay) {
-                                adviserDisplay.textContent = '_____________________';
+                            } catch (err2) {
+                                console.warn('Unable to reload COR iframe', err2);
                             }
                         }
-                    });
-                }
-                
-                // Initialize adviser display with current section
-                if (sectionSelect && adviserDisplay) {
-                    const currentSection = sectionSelect.options[sectionSelect.selectedIndex];
-                    if (currentSection && currentSection.value && currentSection.dataset.adviser) {
-                        adviserDisplay.textContent = currentSection.dataset.adviser || '_____________________';
+
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('section_id', selectedOption.value);
+                        url.searchParams.set('refresh', Date.now().toString());
+                        window.location.href = url.toString();
+                    } else {
+                        setHeaderSectionFromCurrent();
+                        if (adviserDisplay) {
+                            adviserDisplay.textContent = '_____________________';
+                        }
+                    }
+                });
+
+                if (adviserDisplay) {
+                    const initialSection = sectionSelect.options[sectionSelect.selectedIndex];
+                    if (initialSection && initialSection.value && initialSection.dataset.adviser) {
+                        adviserDisplay.textContent = initialSection.dataset.adviser;
                     }
                 }
 
-                sectionSelect.dataset.selected = '{{ $selectedSectionId }}';
+                sectionSelect.dataset.selected = config.selectedSectionId ? String(config.selectedSectionId) : '';
 
                 strandSelect.addEventListener('change', () => {
                     sectionSelect.dataset.selected = '';
                     filterSections();
+                    setHeaderSectionFromCurrent();
                 });
+
+                setHeaderSectionFromCurrent();
+                updateHeaderStrand();
 
                 if (strandSelect.value) {
                     filterSections();
