@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
-import RegistrarSidebar from '../Auth/Registrar_sidebar'
+import RegistrarLayout from './Layout'
 import axios from 'axios'
 
 // Function to convert 24-hour time to 12-hour format
@@ -47,6 +47,16 @@ export default function EnrollStudent({
     const parsedStrandId = parseInt(formData.assigned_strand_id, 10)
     return sections.filter((section) => section.strand_id === parsedStrandId)
   }, [formData.assigned_strand_id, sections])
+
+  const selectedStrand = useMemo(() => {
+    if (!formData.assigned_strand_id) return null
+    return strands.find((strand) => String(strand.id) === String(formData.assigned_strand_id)) || null
+  }, [formData.assigned_strand_id, strands])
+
+  const selectedSection = useMemo(() => {
+    if (!formData.assigned_section_id) return null
+    return sections.find((section) => String(section.id) === String(formData.assigned_section_id)) || null
+  }, [formData.assigned_section_id, sections])
 
   // Fetch schedule preview when section is selected
   useEffect(() => {
@@ -123,11 +133,9 @@ export default function EnrollStudent({
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Head title={`Enroll ${student.name} - Registrar`} />
-      <RegistrarSidebar />
-
+    <RegistrarLayout>
       <div className="flex flex-1 flex-col overflow-hidden">
+        <Head title={`Enroll ${student.name} - Registrar`} />
         {/* Flash Messages */}
         {(flash?.success || flash?.error) && (
           <div className="px-6 pt-4">
@@ -152,34 +160,43 @@ export default function EnrollStudent({
 
         {/* Header */}
         <header className="border-b border-gray-200 bg-white px-6 py-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3">
-                <a
-                  href="/registrar/re-enroll-students"
-                  className="inline-flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Back to Re-Enroll Students"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </a>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Enroll Student</h1>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Assign strand and section for re-enrollment
-                  </p>
-                </div>
-              </div>
-            </div>
-            {activeSchoolYear && activeSemester && (
-              <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2">
-                <p className="text-xs font-semibold text-indigo-600 uppercase">Target Term</p>
-                <p className="text-sm font-bold text-indigo-900">
-                  {activeSchoolYear.label} • {activeSemester.label}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <a
+                href="/registrar/re-enroll-students"
+                className="inline-flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                title="Back to Re-Enroll Students"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </a>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Enroll Student</h1>
+                <p className="text-sm text-gray-600 mt-1">
+                  Assign strand and section for re-enrollment
                 </p>
               </div>
-            )}
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {latestEnrollment && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2">
+                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Previous Term (Completed)</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {latestEnrollment.school_year.label} • {latestEnrollment.semester.label}
+                  </p>
+                </div>
+              )}
+              {activeSchoolYear && activeSemester && (
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2">
+                  <p className="text-[11px] font-semibold text-indigo-600 uppercase tracking-wide">Target Term (Next Enrollment)</p>
+                  <p className="text-sm font-bold text-indigo-900">
+                    {activeSchoolYear.label} • {activeSemester.label}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -255,6 +272,44 @@ export default function EnrollStudent({
                   </>
                 )}
               </div>
+            </div>
+
+            {/* Current Selection Summary */}
+            <div className="bg-white rounded-xl border border-indigo-100 shadow-sm p-6">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h2 className="text-lg font-bold text-gray-900">Current Assignment</h2>
+                <span className="text-xs font-semibold uppercase px-3 py-1 rounded-full bg-indigo-50 text-indigo-700">
+                  Pending Selection
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase">Strand for Target Term</p>
+                  {selectedStrand ? (
+                    <p className="mt-1 text-sm font-medium text-indigo-900">
+                      {selectedStrand.Strand_code} - {selectedStrand.Strand_name}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-sm text-gray-500">Select a strand to assign for the next term.</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase">Section for Target Term</p>
+                  {selectedSection ? (
+                    <p className="mt-1 text-sm font-medium text-indigo-900">
+                      {selectedSection.section_name}
+                      {selectedSection.year_level ? ` (Grade ${selectedSection.year_level})` : ''}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-sm text-gray-500">Choose a section after selecting a strand.</p>
+                  )}
+                </div>
+              </div>
+              {latestEnrollment && (
+                <p className="mt-4 text-xs text-gray-500">
+                  Showing selections for <strong>{activeSchoolYear?.label}</strong>. Previous term assignments remain visible above for reference.
+                </p>
+              )}
             </div>
 
             {/* Warnings */}
@@ -530,7 +585,7 @@ export default function EnrollStudent({
                         <h3 className="text-base font-semibold text-gray-700 mb-2">No Schedule Yet</h3>
                         <p className="text-sm text-gray-500 max-w-md mx-auto">
                           {formData.assigned_section_id 
-                            ? 'No classes have been scheduled for this section yet.'
+                            ? `No classes have been scheduled for ${selectedSection?.section_name ?? 'this section'} in ${activeSchoolYear?.label} • ${activeSemester?.label}. Once the registrar creates classes, the preview will appear here.`
                             : 'Select a strand and section to preview the class schedule.'}
                         </p>
                       </div>
@@ -542,7 +597,7 @@ export default function EnrollStudent({
           </div>
         </main>
       </div>
-    </div>
+    </RegistrarLayout>
   )
 }
 

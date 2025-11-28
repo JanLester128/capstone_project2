@@ -129,9 +129,9 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl w-full px-3 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl w-full px-3 py-8 sm:px-6 lg:px-8 space-y-8">
         {/* Status & visibility of system state */}
-        <div className="mb-6 rounded-md bg-indigo-50 p-4 text-sm text-indigo-900">
+        <div className="rounded-md bg-indigo-50 p-4 text-sm text-indigo-900">
           <p>
             Active School Year: <strong>{active_school_year ? `${active_school_year.School_year_start}-${active_school_year.School_year_end}` : 'Not set'}</strong>
           </p>
@@ -192,7 +192,7 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
         </section>
 
         {/* Analytics Snippet Section */}
-        <section className="mt-10">
+        <section>
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Analytics Overview</h2>
@@ -287,62 +287,6 @@ export default function Dashboard({ stats = {}, registrar = null, analytics = {}
           </div>
         </section>
 
-        {/* Quick actions */}
-        <section className="mt-10">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Quick Actions</h2>
-            <p className="text-sm text-gray-500 mt-1">Common tasks and shortcuts</p>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              { 
-                href: '/registrar/users?role=Student', 
-                title: 'Add Student', 
-                desc: 'Create a new student account',
-                icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
-                gradient: 'from-blue-500 to-blue-600'
-              },
-              { 
-                href: '/registrar/users?role=Faculty', 
-                title: 'Add Faculty', 
-                desc: 'Create a new faculty account',
-                icon: 'M21 13.255A23.931 23.931 0 0112 15c-2.91 0-5.63-.392-8.36-1.245M21 13.255v-2.51A23.93 23.93 0 0012 8c-2.91 0-5.63.392-8.36 1.245m0 0A23.998 23.998 0 003 12c0 2.22.892 4.207 2.34 5.709M3 13.255A23.93 23.93 0 0112 15c2.91 0 5.63-.392 8.36-1.245M15 10a3 3 0 11-6 0 3 3 0 016 0z',
-                gradient: 'from-green-500 to-green-600'
-              },
-              { 
-                href: '/registrar/sections', 
-                title: 'Create Section', 
-                desc: 'Open sections manager',
-                icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4',
-                gradient: 'from-purple-500 to-purple-600'
-              },
-              { 
-                href: '/registrar/subjects', 
-                title: 'Add Subject', 
-                desc: 'Manage subjects list',
-                icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
-                gradient: 'from-orange-500 to-orange-600'
-              },
-            ].map((a) => (
-              <Link 
-                key={a.title} 
-                href={a.href} 
-                className="group relative overflow-hidden rounded-xl bg-white p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100"
-              >
-                <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${a.gradient} rounded-full -mr-12 -mt-12 opacity-10 group-hover:opacity-20 transition-opacity`}></div>
-                <div className="relative">
-                  <div className={`inline-flex p-3 rounded-lg bg-gradient-to-br ${a.gradient} mb-4 group-hover:scale-110 transition-transform`}>
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={a.icon} />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-indigo-600 transition-colors">{a.title}</h3>
-                  <p className="text-sm text-gray-600">{a.desc}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
       </main>
     </RegistrarLayout>
   )

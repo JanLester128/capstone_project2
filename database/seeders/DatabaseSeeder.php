@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -30,32 +29,9 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // Seed Strands
+        // Seed other required data (dynamic data such as school years will be created via UI)
         $this->call([
             StrandsSeeder::class,
-        ]);
-
-        // Note: School Years should be created manually through the web interface
-        // Subjects should be added manually or via bulk import after creating a school year
-        
-        // Seed all subject seeders to populate subjects with prerequisites
-        $this->call([
-            STEMGrade11FirstSemSeeder::class,
-            STEMGrade11SecondSemSeeder::class,
-            STEMGrade12FirstSemSeeder::class,
-            STEMGrade12SecondSemSeeder::class,
-            TVLGrade11FirstSemSeeder::class,
-            TVLGrade11SecondSemSeeder::class,
-            TVLGrade12FirstSemSeeder::class,
-            TVLGrade12SecondSemSeeder::class,
-            HUMSSGrade11FirstSemSeeder::class,
-            HUMSSGrade11SecondSemSeeder::class,
-            HUMSSGrade12FirstSemSeeder::class,
-            HUMSSGrade12SecondSemSeeder::class,
-            ABMGrade11FirstSemSeeder::class,
-            ABMGrade11SecondSemSeeder::class,
-            ABMGrade12FirstSemSeeder::class,
-            ABMGrade12SecondSemSeeder::class,
         ]);
     }
 }

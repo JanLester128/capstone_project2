@@ -1,6 +1,6 @@
 import { Head, router, Link } from '@inertiajs/react'
 import { useState, useEffect, useMemo } from 'react'
-import RegistrarSidebar from '../Auth/Registrar_sidebar'
+import RegistrarLayout from './Layout'
 import { formatDateTimeMedium } from '../../utils/dateFormatter'
 
 export default function ApprovedGrades({ grades, filters = {}, schoolYears = [], subjects = [], strands = [] }) {
@@ -50,18 +50,6 @@ export default function ApprovedGrades({ grades, filters = {}, schoolYears = [],
     router.get('/registrar/grades/approved')
   }
 
-  // Determine which quarters to show based on semester
-  const shouldShowQuarter = (quarter, semester) => {
-    if (!semester) return true // Show all if no semester filter
-    const sem = String(semester).toLowerCase()
-    if (sem === '1st' || sem === '1') {
-      return quarter === 'Q1' || quarter === 'Q2'
-    } else if (sem === '2nd' || sem === '2') {
-      return quarter === 'Q3' || quarter === 'Q4'
-    }
-    return true // Show all for Summer or other
-  }
-
   const getStatusBadge = (remarks) => {
     if (remarks === 'Passed') {
       return 'bg-green-50 text-green-700 border border-green-200'
@@ -79,120 +67,112 @@ export default function ApprovedGrades({ grades, filters = {}, schoolYears = [],
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <RegistrarLayout>
       <Head title="Approved Grades - Registrar" />
-      <RegistrarSidebar />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 shadow-sm px-6 py-4">
-          <div className="flex items-center justify-between flex-wrap gap-4">
+
+      <div className="py-6">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
+          <header className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <a
+              <Link
                 href="/registrar/grades/approvals"
-                className="inline-flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-                title="Back to Grade Approvals"
+                className="inline-flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                <span className="text-sm font-medium">Back</span>
-              </a>
-              <div className="border-l border-gray-300 h-8"></div>
+                Back to Approvals
+              </Link>
+              <div className="border-l border-gray-300 h-8" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Student Grades</h1>
-                <p className="text-sm text-gray-600 mt-1">
-                  View all approved grades • {grades.total} total records
-                </p>
+                <p className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Registrar • Grades</p>
+                <h1 className="text-2xl font-bold text-gray-900">Approved Grades</h1>
+                <p className="text-sm text-gray-600">{grades.total} total records</p>
               </div>
             </div>
+          </header>
+
+          <div className="rounded-lg border border-gray-200 bg-white p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
+              {/* Search */}
+              <input
+                type="text"
+                placeholder="Search by student name or LRN..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+
+              {/* School Year Filter */}
+              <select
+                value={selectedSchoolYear}
+                onChange={(e) => setSelectedSchoolYear(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="">All School Years</option>
+                {schoolYears.map((sy) => (
+                  <option key={sy.id} value={sy.id}>
+                    {sy.School_year_start}-{sy.School_year_end}
+                  </option>
+                ))}
+              </select>
+
+              {/* Semester Filter */}
+              <select
+                value={selectedSemester}
+                onChange={(e) => setSelectedSemester(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="">All Semesters</option>
+                <option value="1st">1st Semester</option>
+                <option value="2nd">2nd Semester</option>
+                <option value="Summer">Summer</option>
+              </select>
+
+              {/* Strand Filter */}
+              <select
+                value={selectedStrand}
+                onChange={(e) => setSelectedStrand(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="">All Strands</option>
+                {strands.map((strand) => (
+                  <option key={strand.id} value={strand.id}>
+                    {strand.Strand_name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Subject Filter */}
+              <select
+                value={selectedSubject}
+                onChange={(e) => setSelectedSubject(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="">All Subjects</option>
+                {uniqueSubjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.Subject_code} - {subject.Subject_name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Clear Button */}
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
           </div>
-        </header>
 
-        {/* Filters */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
-            {/* Search */}
-            <input
-              type="text"
-              placeholder="Search by student name or LRN..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            />
-
-            {/* School Year Filter */}
-            <select
-              value={selectedSchoolYear}
-              onChange={(e) => setSelectedSchoolYear(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">All School Years</option>
-              {schoolYears.map((sy) => (
-                <option key={sy.id} value={sy.id}>
-                  {sy.School_year_start}-{sy.School_year_end}
-                </option>
-              ))}
-            </select>
-
-            {/* Semester Filter */}
-            <select
-              value={selectedSemester}
-              onChange={(e) => setSelectedSemester(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">All Semesters</option>
-              <option value="1st">1st Semester</option>
-              <option value="2nd">2nd Semester</option>
-              <option value="Summer">Summer</option>
-            </select>
-
-            {/* Strand Filter */}
-            <select
-              value={selectedStrand}
-              onChange={(e) => setSelectedStrand(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">All Strands</option>
-              {strands.map((strand) => (
-                <option key={strand.id} value={strand.id}>
-                  {strand.Strand_name}
-                </option>
-              ))}
-            </select>
-
-            {/* Subject Filter */}
-            <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">All Subjects</option>
-              {uniqueSubjects.map((subject) => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.Subject_code} - {subject.Subject_name}
-                </option>
-              ))}
-            </select>
-
-            {/* Clear Button */}
-            <button
-              onClick={clearFilters}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-
-        {/* Grades Table */}
-        <main className="flex-1 overflow-y-auto p-6">
           {grades.data.length === 0 ? (
-            <div className="bg-white border border-gray-200 rounded-lg p-10 text-center text-gray-500">
+            <div className="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500">
               No approved grades found.
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+            <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -209,26 +189,18 @@ export default function ApprovedGrades({ grades, filters = {}, schoolYears = [],
                       <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Term
                       </th>
-                      {shouldShowQuarter('Q1', selectedSemester) && (
-                        <th scope="col" className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                          Q1
-                        </th>
-                      )}
-                      {shouldShowQuarter('Q2', selectedSemester) && (
-                        <th scope="col" className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                          Q2
-                        </th>
-                      )}
-                      {shouldShowQuarter('Q3', selectedSemester) && (
-                        <th scope="col" className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                          Q3
-                        </th>
-                      )}
-                      {shouldShowQuarter('Q4', selectedSemester) && (
-                        <th scope="col" className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                          Q4
-                        </th>
-                      )}
+                      <th scope="col" className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Q1
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Q2
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Q3
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Q4
+                      </th>
                       <th scope="col" className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Final
                       </th>
@@ -274,26 +246,18 @@ export default function ApprovedGrades({ grades, filters = {}, schoolYears = [],
                             <p className="text-xs text-gray-500">{grade.semester} Semester</p>
                           </div>
                         </td>
-                        {shouldShowQuarter('Q1', selectedSemester) && (
-                          <td className="px-4 py-3 text-center text-sm text-gray-900">
-                            {formatGrade(grade.first_quarter)}
-                          </td>
-                        )}
-                        {shouldShowQuarter('Q2', selectedSemester) && (
-                          <td className="px-4 py-3 text-center text-sm text-gray-900">
-                            {formatGrade(grade.second_quarter)}
-                          </td>
-                        )}
-                        {shouldShowQuarter('Q3', selectedSemester) && (
-                          <td className="px-4 py-3 text-center text-sm text-gray-900">
-                            {formatGrade(grade.third_quarter)}
-                          </td>
-                        )}
-                        {shouldShowQuarter('Q4', selectedSemester) && (
-                          <td className="px-4 py-3 text-center text-sm text-gray-900">
-                            {formatGrade(grade.fourth_quarter)}
-                          </td>
-                        )}
+                        <td className="px-4 py-3 text-center text-sm text-gray-900">
+                          {formatGrade(grade.first_quarter)}
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-900">
+                          {formatGrade(grade.second_quarter)}
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-900">
+                          {formatGrade(grade.third_quarter)}
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-900">
+                          {formatGrade(grade.fourth_quarter)}
+                        </td>
                         <td className="px-4 py-3 text-center">
                           <span className="text-sm font-semibold text-gray-900">
                             {formatGrade(grade.semester_grade)}
@@ -379,9 +343,9 @@ export default function ApprovedGrades({ grades, filters = {}, schoolYears = [],
               )}
             </div>
           )}
-        </main>
+        </div>
       </div>
-    </div>
+    </RegistrarLayout>
   )
 }
 

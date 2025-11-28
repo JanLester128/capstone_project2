@@ -180,11 +180,15 @@ Route::middleware(['auth', 'role:Registrar'])->prefix('registrar')->name('regist
     Route::put('/sections/{section}', [RegistrarController::class, 'updateSection'])->name('sections.update');
     Route::put('/sections/{section}/toggle', [RegistrarController::class, 'toggleSection'])->name('sections.toggle');
     Route::put('/sections/{section}/adviser', [RegistrarController::class, 'updateSectionAdviser'])->name('sections.update-adviser');
-    Route::get('/subjects', [RegistrarController::class, 'subjects'])->name('subjects');
-    Route::post('/subjects/bulk-import', [RegistrarController::class, 'bulkImportSubjects'])->name('subjects.bulk-import');
     Route::post('/subjects', [RegistrarController::class, 'storeSubject'])->name('subjects.store');
     Route::put('/subjects/{subject}', [RegistrarController::class, 'updateSubject'])->name('subjects.update');
     Route::delete('/subjects/{subject}', [RegistrarController::class, 'destroySubject'])->name('subjects.destroy');
+
+    // Curriculum management
+    Route::get('/curriculums', [RegistrarController::class, 'curriculums'])->name('curriculums');
+    Route::post('/curriculums', [RegistrarController::class, 'storeCurriculum'])->name('curriculums.store');
+    Route::put('/curriculums/{curriculum}', [RegistrarController::class, 'updateCurriculum'])->name('curriculums.update');
+    Route::put('/curriculums/{curriculum}/toggle', [RegistrarController::class, 'toggleCurriculum'])->name('curriculums.toggle');
     
     Route::get('/strands', [RegistrarController::class, 'strands'])->name('strands');
     Route::post('/strands', [RegistrarController::class, 'storeStrand'])->name('strands.store');
@@ -340,6 +344,7 @@ Route::prefix('student')->name('student.')->middleware(['auth', 'role:Student'])
     Route::get('/classes', [StudentController::class, 'classes'])->name('classes');
     Route::get('/schedule', [StudentController::class, 'schedule'])->name('schedule');
     Route::get('/grades', [StudentController::class, 'grades'])->name('grades');
+    Route::get('/academic-record', [StudentController::class, 'academicRecord'])->name('academic-record');
     Route::get('/profile', [StudentController::class, 'profile'])->name('profile');
     Route::put('/profile', [StudentController::class, 'updateProfile'])->name('profile.update');
     Route::post('/profile', [StudentController::class, 'updateProfile'])->name('profile.update.post');

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react'
 import { Head, useForm, usePage } from '@inertiajs/react'
 import sessionManager from '../../utils/sessionManager'

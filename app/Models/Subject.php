@@ -31,6 +31,7 @@ class Subject extends Model
         'semester_id',
         'year_level',
         'strand_id',
+        'curriculum_id',
         'school_year_id',
         'PREREQUISITES',
         'CO-REQUISITES',
@@ -63,6 +64,11 @@ class Subject extends Model
     public function strand(): BelongsTo
     {
         return $this->belongsTo(Strand::class, 'strand_id');
+    }
+
+    public function curriculum(): BelongsTo
+    {
+        return $this->belongsTo(Curriculum::class, 'curriculum_id');
     }
 
     /**

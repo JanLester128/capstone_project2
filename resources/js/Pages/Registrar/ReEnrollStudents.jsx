@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { Head, router, usePage, Link } from '@inertiajs/react'
-import RegistrarSidebar from '../Auth/Registrar_sidebar'
+import RegistrarLayout from './Layout'
 import { formatDateMedium } from '../../utils/dateFormatter'
 
 export default function ReEnrollStudents({
@@ -140,9 +140,8 @@ export default function ReEnrollStudents({
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <RegistrarLayout>
       <Head title="Re-Enroll Students - Registrar" />
-      <RegistrarSidebar />
 
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Flash Messages */}
@@ -514,6 +513,6 @@ export default function ReEnrollStudents({
           )}
         </main>
       </div>
-    </div>
+    </RegistrarLayout>
   )
 }

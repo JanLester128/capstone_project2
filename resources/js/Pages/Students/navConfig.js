@@ -33,6 +33,7 @@ export const getStudentNav = (enrollmentStatus) => {
     { href: '/student/classes', label: 'My Classes', icon: 'classes' },
     { href: '/student/schedule', label: 'Class', icon: 'schedule' },
     { href: '/student/grades', label: 'Grades', icon: 'grades' },
+    { href: '/student/academic-record', label: 'Academic Record', icon: 'grades' },
     {
       href: '/student/enrollment',
       label: enrollmentLabel,
@@ -52,5 +53,6 @@ export const studentNav = [
   { href: '/student/classes', label: 'My Classes', icon: 'classes' },
   { href: '/student/schedule', label: 'Class', icon: 'schedule' },
   { href: '/student/grades', label: 'Grades', icon: 'grades' },
+  { href: '/student/academic-record', label: 'Academic Record', icon: 'grades' },
   { href: '/student/enrollment', label: 'Enroll', icon: 'enrollment' },
 ]

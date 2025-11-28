@@ -3,15 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Curriculum;
 use App\Models\Section;
-use App\Models\Subject;
-use App\Models\Strand;
 use App\Models\SchoolYear;
 use App\Models\Semester;
+use App\Models\Strand;
+use App\Models\StudentPersonalInfo;
+use App\Models\StudentStrandPreference;
+use App\Models\Subject;
 use App\Models\ClassModel;
 use App\Models\ClassDetail;
 use App\Models\CreditedSubject;
-use App\Models\StudentPersonalInfo;
 use App\Models\Enrollment;
 use App\Models\Grade;
 use App\Mail\FacultyAccountCreated;
@@ -669,7 +671,7 @@ class RegistrarController extends Controller
         
         // Only return subjects for the active school year and semester
         try {
-            $subjects = Subject::with(['strand', 'schoolYear', 'semester'])
+            $subjects = Subject::with(['strand', 'schoolYear', 'semester', 'curriculum'])
                 ->where('school_year_id', $activeSchoolYear->id)
                 ->when($activeSemester, function ($query) use ($activeSemester) {
                     return $query->where('semester_id', $activeSemester->id);
@@ -681,7 +683,7 @@ class RegistrarController extends Controller
         } catch (\Exception $e) {
             // Fallback if semester_id column doesn't exist yet
             if (str_contains($e->getMessage(), 'Unknown column') || str_contains($e->getMessage(), 'Column not found')) {
-                $subjects = Subject::with(['strand', 'schoolYear'])
+                $subjects = Subject::with(['strand', 'schoolYear', 'curriculum'])
                     ->where('school_year_id', $activeSchoolYear->id)
                     ->orderBy('year_level')
                     ->orderBy('Semester')
@@ -691,7 +693,82 @@ class RegistrarController extends Controller
                 throw $e;
             }
         }
+
+        $activeSchoolYear = SchoolYear::where('is_active', true)->first();
+        $activeSemester = $activeSchoolYear ?
+            Semester::where('school_year_id', $activeSchoolYear->id)
+                ->where('is_active', true)
+                ->first() : null;
+
+        $curriculums = Curriculum::with([
+                'strand',
+                'subjects' => function ($query) {
+                    $query->withTrashed()->with(['strand', 'semester']);
+                }
+            ])
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($curriculum) {
+                $grouped = [];
+
+                foreach ($curriculum->subjects as $subject) {
+                    $strandKey = $subject->strand?->Strand_name ?? 'Unassigned Strand';
+                    $yearKey = (string)($subject->year_level ?? 'Unknown');
+                    $semesterKey = $subject->Semester ?? ($subject->semester?->semester_type === '1st Semester' ? '1' : ($subject->semester?->semester_type === '2nd Semester' ? '2' : 'Summer'));
+
+                    if (!isset($grouped[$strandKey])) {
+                        $grouped[$strandKey] = [];
+                    }
+
+                    if (!isset($grouped[$strandKey][$yearKey])) {
+                        $grouped[$strandKey][$yearKey] = [];
+                    }
+
+                    if (!isset($grouped[$strandKey][$yearKey][$semesterKey])) {
+                        $grouped[$strandKey][$yearKey][$semesterKey] = [];
+                    }
+
+                    $grouped[$strandKey][$yearKey][$semesterKey][] = [
+                        'id' => $subject->Id,
+                        'name' => $subject->Subject_name,
+                        'code' => $subject->Subject_code,
+                        'prerequisites' => $subject->PREREQUISITES,
+                        'corequisites' => $subject->{'CO-REQUISITES'},
+                        'strand_id' => $subject->strand_id,
+                        'strand_name' => $subject->strand?->Strand_name,
+                        'year_level' => $subject->year_level,
+                        'curriculum_id' => $subject->curriculum_id,
+                        'semester_id' => $subject->semester_id,
+                        'semester_type' => $subject->semester?->semester_type,
+                        'Semester' => $subject->Semester,
+                        'school_year_id' => $subject->school_year_id,
+                        'is_archived' => $subject->trashed(),
+                        'payload' => [
+                            'Id' => $subject->Id,
+                            'Subject_name' => $subject->Subject_name,
+                            'Subject_code' => $subject->Subject_code,
+                            'Semester' => $subject->Semester,
+                            'year_level' => $subject->year_level,
+                            'strand_id' => $subject->strand_id,
+                            'curriculum_id' => $subject->curriculum_id,
+                            'semester_id' => $subject->semester_id,
+                            'PREREQUISITES' => $subject->PREREQUISITES,
+                            'CO-REQUISITES' => $subject->{'CO-REQUISITES'},
+                        ],
+                    ];
+                }
+
+                $curriculum->subjects_grouped = $grouped;
+                $curriculum->setRelation('subjects', collect());
+
+                return $curriculum;
+            });
         
+        $semestersList = Semester::where('school_year_id', $activeSchoolYear->id)
+            ->orderBy('semester_type')
+            ->get();
+
         // Get strands that are active - prioritize semester, then school year, then general
         $strands = collect();
         
@@ -721,10 +798,11 @@ class RegistrarController extends Controller
         return Inertia::render('Registrar/Subjects', [
             'subjects' => $subjects,
             'strands' => $strands,
-            'semesters' => [], // Empty array since we're using simple 1/2 values
+            'semesters' => $semestersList,
             'activeSchoolYear' => $activeSchoolYear,
             'activeSemester' => $activeSemester,
             'hasActiveStrands' => $hasActiveStrands,
+            'curriculums' => $curriculums,
         ]);
     }
 
@@ -741,12 +819,12 @@ class RegistrarController extends Controller
                    ->first() : null;
         
         if (!$activeSchoolYear) {
-            return redirect()->route('registrar.subjects')
+            return redirect()->back()
                 ->with('error', 'No active school year. Please activate a school year first.');
         }
         
         if (!$activeSemester) {
-            return redirect()->route('registrar.subjects')
+            return redirect()->back()
                 ->with('error', 'No active semester. Please activate a semester first before adding subjects.');
         }
 
@@ -769,42 +847,52 @@ class RegistrarController extends Controller
         }
 
         if ($activeStrands->isEmpty()) {
-            return redirect()->route('registrar.subjects')
+            return redirect()->back()
                 ->with('error', 'No active strands found. Please activate at least one strand before adding subjects.');
         }
 
         $validated = $request->validate([
             'Subject_name' => 'required|string|max:255',
             'Subject_code' => 'required|string|max:20',
-            // Removed manual semester selection - will use active semester automatically
             'year_level' => 'required|integer|in:11,12',
             'strand_id' => 'required|integer|exists:strands,id',
+            'curriculum_id' => 'required|integer|exists:curriculums,id',
+            'semester_id' => 'required|integer|exists:semester,id',
             'PREREQUISITES' => 'nullable|string|max:500',
             'CO-REQUISITES' => 'nullable|string|max:500',
         ]);
 
+        $selectedSemester = Semester::find($validated['semester_id']);
+
+        if (!$selectedSemester || $selectedSemester->school_year_id !== $activeSchoolYear->id) {
+            return redirect()->back()
+                ->with('error', 'Selected semester is not part of the active school year.');
+        }
+
+        $semesterValue = $selectedSemester->semester_type === '1st Semester'
+            ? '1'
+            : ($selectedSemester->semester_type === '2nd Semester' ? '2' : '');
+
         // Check uniqueness per school year and semester
         $exists = Subject::where('Subject_code', $validated['Subject_code'])
-            ->where('school_year_id', $activeSchoolYear->id)
-            ->where('semester_id', $activeSemester->id)
+            ->where('school_year_id', $selectedSemester->school_year_id)
+            ->where('semester_id', $selectedSemester->id)
             ->exists();
 
         if ($exists) {
-            return redirect()->route('registrar.subjects')
-                ->with('error', "Subject code already exists for {$activeSemester->semester_type} of {$activeSchoolYear->School_year_start}-{$activeSchoolYear->School_year_end}.");
+            return redirect()->back()
+                ->with('error', "Subject code already exists for {$selectedSemester->semester_type} of {$activeSchoolYear->School_year_start}-{$activeSchoolYear->School_year_end}.");
         }
 
-        // Automatically assign active school year and semester
-        $validated['school_year_id'] = $activeSchoolYear->id;
-        $validated['semester_id'] = $activeSemester->id;
-        
-        // Set semester value based on active semester type for backward compatibility
-        $validated['Semester'] = $activeSemester->semester_type === '1st Semester' ? '1' : '2';
-        
+        // Automatically assign selected school year and semester
+        $validated['school_year_id'] = $selectedSemester->school_year_id;
+        $validated['semester_id'] = $selectedSemester->id;
+        $validated['Semester'] = $semesterValue;
+
         Subject::create($validated);
 
-        return redirect()->route('registrar.subjects')
-            ->with('success', "Subject created successfully for {$activeSemester->semester_type} of {$activeSchoolYear->School_year_start}-{$activeSchoolYear->School_year_end}.");
+        return redirect()->back()
+            ->with('success', "Subject created successfully for {$selectedSemester->semester_type} of {$activeSchoolYear->School_year_start}-{$activeSchoolYear->School_year_end}.");
     }
 
     /**
@@ -916,104 +1004,6 @@ class RegistrarController extends Controller
             ->with('success', "Successfully created {$createdCount} subject(s) for {$activeSemester->semester_type} of {$activeSchoolYear->School_year_start}-{$activeSchoolYear->School_year_end}.");
     }
 
-    /**
-     * Bulk import subjects for a specific strand, year level, and semester.
-     */
-    public function bulkImportSubjects(Request $request)
-    {
-        $activeSchoolYear = SchoolYear::where('is_active', true)->first();
-        $activeSemester = $activeSchoolYear ? 
-            Semester::where('school_year_id', $activeSchoolYear->id)
-                   ->where('is_active', true)
-                   ->first() : null;
-        
-        if (!$activeSchoolYear) {
-            return redirect()->route('registrar.subjects')
-                ->with('error', 'No active school year. Please activate a school year first.');
-        }
-        
-        if (!$activeSemester) {
-            return redirect()->route('registrar.subjects')
-                ->with('error', 'No active semester. Please activate a semester first before bulk importing subjects.');
-        }
-
-        // Check if there are any active strands
-        $activeStrands = collect();
-        $activeStrands = Strand::whereHas('semesters', function ($query) use ($activeSemester) {
-            $query->where('strand_semester.semester_id', $activeSemester->id)
-                  ->where('strand_semester.is_active', true);
-        })->get();
-
-        if ($activeStrands->isEmpty() && $activeSchoolYear) {
-            $activeStrands = Strand::whereHas('schoolYears', function ($query) use ($activeSchoolYear) {
-                $query->where('strand_school_year.school_year_id', $activeSchoolYear->id)
-                      ->where('strand_school_year.is_active', true);
-            })->get();
-        }
-
-        if ($activeStrands->isEmpty()) {
-            $activeStrands = Strand::where('Is_active', true)->get();
-        }
-
-        if ($activeStrands->isEmpty()) {
-            return redirect()->route('registrar.subjects')
-                ->with('error', 'No active strands found. Please activate at least one strand before bulk importing subjects.');
-        }
-
-        $validated = $request->validate([
-            'strand_id' => 'required|integer|exists:strands,id',
-            'year_level' => 'required|integer|in:11,12',
-            // Removed manual semester selection - will use active semester automatically
-        ]);
-
-        $strand = Strand::find($validated['strand_id']);
-        $strandCode = $strand->Strand_code;
-        
-        // Get semester number from active semester for predefined subjects lookup
-        $activeSemesterNumber = $activeSemester->semester_type === '1st Semester' ? 1 : 2;
-        
-        // Get predefined subjects from SubjectForm component logic
-        $subjectsByStrandAndYear = $this->getPredefinedSubjects();
-        
-        if (!isset($subjectsByStrandAndYear[$strandCode][$validated['year_level']][$activeSemesterNumber])) {
-            return redirect()->route('registrar.subjects')
-                ->with('error', "No subjects found for {$strandCode} Grade {$validated['year_level']} in {$activeSemester->semester_type}.");
-        }
-
-        $subjectsToImport = $subjectsByStrandAndYear[$strandCode][$validated['year_level']][$activeSemesterNumber];
-        $importedCount = 0;
-
-        foreach ($subjectsToImport as $subjectData) {
-            // Check if subject already exists for this school year and semester
-            $exists = Subject::where('Subject_code', $subjectData['code'])
-                ->where('school_year_id', $activeSchoolYear->id)
-                ->where('semester_id', $activeSemester->id)
-                ->exists();
-
-            if (!$exists) {
-                try {
-                    Subject::create([
-                        'Subject_name' => $subjectData['name'],
-                        'Subject_code' => $subjectData['code'],
-                        'Semester' => (string)$activeSemesterNumber, // Use active semester number
-                        'year_level' => $validated['year_level'],
-                        'strand_id' => $validated['strand_id'],
-                        'school_year_id' => $activeSchoolYear->id,
-                        'semester_id' => $activeSemester->id,
-                        'PREREQUISITES' => $subjectData['prerequisites'],
-                        'CO-REQUISITES' => $subjectData['corequisites'],
-                    ]);
-                    $importedCount++;
-                } catch (\Illuminate\Database\QueryException $e) {
-                    // Skip duplicates silently (in case of race condition or constraint violation)
-                    continue;
-                }
-            }
-        }
-
-        return redirect()->route('registrar.subjects')
-            ->with('success', "Successfully imported {$importedCount} subjects for {$activeSemester->semester_type} of {$activeSchoolYear->School_year_start}-{$activeSchoolYear->School_year_end}.");
-    }
 
     /**
      * Get predefined subjects array (same as in SubjectForm component).
@@ -1213,27 +1203,41 @@ class RegistrarController extends Controller
         $validated = $request->validate([
             'Subject_name' => 'required|string|max:255',
             'Subject_code' => 'required|string|max:20',
-            'Semester' => 'required|in:1,2',
+            'Semester' => 'nullable|in:1,2',
+            'semester_id' => 'required|integer|exists:semester,id',
             'year_level' => 'required|in:11,12',
             'strand_id' => 'required|exists:strands,id',
+            'curriculum_id' => 'required|exists:curriculums,id',
             'PREREQUISITES' => 'nullable|string|max:500',
             'CO-REQUISITES' => 'nullable|string|max:500',
         ]);
 
+        $selectedSemester = Semester::find($validated['semester_id']);
+
+        if (!$selectedSemester || $selectedSemester->school_year_id !== $subject->school_year_id) {
+            return redirect()->back()
+                ->with('error', 'Selected semester is not valid for this subject.');
+        }
+
+        $validated['Semester'] = $selectedSemester->semester_type === '1st Semester'
+            ? '1'
+            : ($selectedSemester->semester_type === '2nd Semester' ? '2' : '');
+
         // Check uniqueness per school year (excluding current subject)
         $exists = Subject::where('Subject_code', $validated['Subject_code'])
             ->where('school_year_id', $subject->school_year_id)
+            ->where('semester_id', $selectedSemester->id)
             ->where('Id', '!=', $subject->Id)
             ->exists();
 
         if ($exists) {
-            return redirect()->route('registrar.subjects')
+            return redirect()->back()
                 ->with('error', 'Subject code already exists for this school year.');
         }
 
         $subject->update($validated);
 
-        return redirect()->route('registrar.subjects')
+        return redirect()->back()
             ->with('success', 'Subject updated successfully.');
     }
 
@@ -1252,6 +1256,171 @@ class RegistrarController extends Controller
 
         return redirect()->route('registrar.subjects')
             ->with('success', 'Subject deleted successfully.');
+    }
+
+    /**
+     * Display all curriculums for management.
+     */
+    public function curriculums()
+    {
+        $activeSchoolYear = SchoolYear::where('is_active', true)->first();
+        $activeSemester = $activeSchoolYear ?
+            Semester::where('school_year_id', $activeSchoolYear->id)
+                ->where('is_active', true)
+                ->first() : null;
+
+        $curriculums = Curriculum::with([
+                'strand',
+                'subjects' => function ($query) {
+                    $query->withTrashed()->with(['strand', 'semester']);
+                }
+            ])
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($curriculum) {
+                $grouped = [];
+
+                foreach ($curriculum->subjects as $subject) {
+                    $strandKey = $subject->strand?->Strand_name ?? 'Unassigned Strand';
+                    $yearKey = (string)($subject->year_level ?? 'Unknown');
+                    $semesterKey = $subject->Semester ?? ($subject->semester?->semester_type === '1st Semester' ? '1' : ($subject->semester?->semester_type === '2nd Semester' ? '2' : 'Summer'));
+
+                    if (!isset($grouped[$strandKey])) {
+                        $grouped[$strandKey] = [];
+                    }
+
+                    if (!isset($grouped[$strandKey][$yearKey])) {
+                        $grouped[$strandKey][$yearKey] = [];
+                    }
+
+                    if (!isset($grouped[$strandKey][$yearKey][$semesterKey])) {
+                        $grouped[$strandKey][$yearKey][$semesterKey] = [];
+                    }
+
+                    $grouped[$strandKey][$yearKey][$semesterKey][] = [
+                        'id' => $subject->Id,
+                        'name' => $subject->Subject_name,
+                        'code' => $subject->Subject_code,
+                        'prerequisites' => $subject->PREREQUISITES,
+                        'corequisites' => $subject->{'CO-REQUISITES'},
+                        'strand_id' => $subject->strand_id,
+                        'strand_name' => $subject->strand?->Strand_name,
+                        'year_level' => $subject->year_level,
+                        'curriculum_id' => $subject->curriculum_id,
+                        'semester_id' => $subject->semester_id,
+                        'semester_type' => $subject->semester?->semester_type,
+                        'Semester' => $subject->Semester,
+                        'school_year_id' => $subject->school_year_id,
+                    ];
+                }
+
+                $curriculum->subjects_grouped = $grouped;
+                $curriculum->setRelation('subjects', collect());
+
+                return $curriculum;
+            });
+
+        $strands = Strand::orderBy('Strand_name')->get(['id', 'Strand_name', 'Strand_code']);
+        $semestersList = $activeSchoolYear
+            ? Semester::where('school_year_id', $activeSchoolYear->id)
+                ->orderBy('semester_type')
+                ->get()
+            : collect();
+        $hasActiveStrands = Strand::where('Is_active', true)->exists();
+
+        return Inertia::render('Registrar/Curriculums', [
+            'curriculums' => $curriculums,
+            'strands' => $strands,
+            'activeSchoolYear' => $activeSchoolYear,
+            'activeSemester' => $activeSemester,
+            'semesters' => $semestersList,
+            'hasActiveStrands' => $hasActiveStrands,
+        ]);
+    }
+
+    /**
+     * Store a newly created curriculum.
+     */
+    public function storeCurriculum(Request $request)
+    {
+        $validated = $request->validate([
+            'curriculum_code' => 'required|string|max:50|unique:curriculums,curriculum_code',
+            'name' => 'required|string|max:150',
+            'track' => 'nullable|string|max:50',
+            'strand_id' => 'nullable|exists:strands,id',
+            'effective_sy' => ['required', 'regex:/^\d{4}-\d{4}$/'],
+            'is_active' => 'boolean',
+        ]);
+
+        Curriculum::create([
+            'curriculum_code' => $validated['curriculum_code'],
+            'name' => $validated['name'],
+            'track' => $validated['track'] ?? null,
+            'strand_id' => $validated['strand_id'] ?? null,
+            'effective_sy' => $validated['effective_sy'],
+            'is_active' => $request->boolean('is_active', true),
+        ]);
+
+        return redirect()->route('registrar.curriculums')
+            ->with('success', 'Curriculum created successfully.');
+    }
+
+    /**
+     * Update an existing curriculum.
+     */
+    public function updateCurriculum(Request $request, Curriculum $curriculum)
+    {
+        $validated = $request->validate([
+            'curriculum_code' => 'required|string|max:50|unique:curriculums,curriculum_code,' . $curriculum->id,
+            'name' => 'required|string|max:150',
+            'track' => 'nullable|string|max:50',
+            'strand_id' => 'nullable|exists:strands,id',
+            'effective_sy' => ['required', 'regex:/^\d{4}-\d{4}$/'],
+            'is_active' => 'boolean',
+        ]);
+
+        $curriculum->update([
+            'curriculum_code' => $validated['curriculum_code'],
+            'name' => $validated['name'],
+            'track' => $validated['track'] ?? null,
+            'strand_id' => $validated['strand_id'] ?? null,
+            'effective_sy' => $validated['effective_sy'],
+            'is_active' => $request->boolean('is_active', true),
+        ]);
+
+        return redirect()->route('registrar.curriculums')
+            ->with('success', 'Curriculum updated successfully.');
+    }
+
+    /**
+     * Toggle curriculum active status.
+     */
+    public function toggleCurriculum(Curriculum $curriculum)
+    {
+        $newStatus = !$curriculum->is_active;
+        $effectiveSy = $curriculum->effective_sy;
+
+        if ($effectiveSy) {
+            $affected = Curriculum::where('effective_sy', $effectiveSy)
+                ->update([
+                    'is_active' => $newStatus,
+                    'updated_at' => now(),
+                ]);
+        } else {
+            $curriculum->update([
+                'is_active' => $newStatus,
+            ]);
+            $affected = 1;
+        }
+
+        $action = $newStatus ? 'activated' : 'deactivated';
+        $message = $effectiveSy
+            ? "All curriculums for SY {$effectiveSy} have been {$action}."
+            : "Curriculum {$action}.";
+
+        return redirect()->back()
+            ->with('success', $message . " ({$affected} updated)");
     }
 
     /**
@@ -4474,6 +4643,7 @@ class RegistrarController extends Controller
             'enrolledBy',
             'assignedStrand',
             'assignedSection.strand',
+            'curriculum',
             'creditedSubjects.subject',
             'creditedSubjects.creditedBy',
             'approvedBy',
@@ -4499,6 +4669,12 @@ class RegistrarController extends Controller
             
             // Add student_personal_info_id for deduplication
             $reviewArray['student_personal_info_id'] = $enrollment->student_personal_info_id;
+            $reviewArray['curriculum'] = $enrollment->curriculum ? [
+                'id' => $enrollment->curriculum->id,
+                'name' => $enrollment->curriculum->name,
+                'code' => $enrollment->curriculum->curriculum_code,
+                'strand_id' => $enrollment->curriculum->strand_id,
+            ] : null;
             
             // Check if this is a re-enrollment (student has previous enrolled records)
             $hasPreviousEnrollment = Enrollment::where('student_personal_info_id', $enrollment->student_personal_info_id)
@@ -4586,10 +4762,16 @@ class RegistrarController extends Controller
             ->where('is_active', true)
             ->get(['id', 'section_name', 'strand_id', 'school_year_id', 'semester_id', 'adviser_id', 'is_active']);
 
+        $curriculums = Curriculum::with('strand:id,Strand_code,Strand_name')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'curriculum_code', 'name', 'strand_id', 'is_active', 'effective_sy']);
+
         return Inertia::render('Registrar/Enrollments', [
             'enrollments' => $enrollments,
             'strands' => $activeStrands,
             'sections' => $activeSections,
+            'curriculums' => $curriculums,
         ]);
     }
 
@@ -5300,6 +5482,7 @@ class RegistrarController extends Controller
         $validated = $request->validate([
             'assigned_strand_id' => 'required|exists:strands,id',
             'assigned_section_id' => 'required|exists:sections,id',
+            'curriculum_id' => 'required|exists:curriculums,id',
             'grade_level' => 'required|in:11,12',
         ]);
 
@@ -5308,6 +5491,13 @@ class RegistrarController extends Controller
         if ((int) $section->strand_id !== (int) $validated['assigned_strand_id']) {
             throw ValidationException::withMessages([
                 'assigned_section_id' => 'The selected section does not belong to the chosen strand.',
+            ]);
+        }
+
+        $curriculum = Curriculum::findOrFail($validated['curriculum_id']);
+        if ($curriculum->strand_id && (int) $curriculum->strand_id !== (int) $validated['assigned_strand_id']) {
+            throw ValidationException::withMessages([
+                'curriculum_id' => 'The selected curriculum is not aligned with the chosen strand.',
             ]);
         }
 
@@ -5330,6 +5520,7 @@ class RegistrarController extends Controller
             $updateData = [
                 'assigned_strand_id' => $validated['assigned_strand_id'],
                 'assigned_section_id' => $validated['assigned_section_id'],
+                'curriculum_id' => $validated['curriculum_id'],
             ];
 
             if (in_array($enrollment->status, [
@@ -6588,6 +6779,17 @@ class RegistrarController extends Controller
 
         $studentInfo = $enrollment->studentPersonalInfo;
         $studentUser = $studentInfo?->user;
+
+        $enrollment->loadMissing('creditedSubjects');
+        $hasCreditedSubjects = $enrollment->creditedSubjects->isNotEmpty();
+        $allCreditsApproved = $enrollment->allCreditedSubjectsApproved();
+        $statusAllowsEnrollment = in_array($enrollment->status, [
+            Enrollment::STATUS_PRE_ENROLLED,
+            Enrollment::STATUS_RECOMMENDED,
+        ], true);
+        $canProceedToEnroll = $hasCreditedSubjects && $allCreditsApproved && $statusAllowsEnrollment;
+
+        $corUrl = url("/enrollments/{$enrollment->id}/cor");
         
         $enrollmentData = [
             'id' => $enrollment->id,
@@ -6605,6 +6807,11 @@ class RegistrarController extends Controller
             'school_year' => $enrollment->schoolYear?->formatted,
             'semester' => $enrollment->semester?->semester_type,
             'status' => $enrollment->status,
+            'is_transferee' => (bool) $enrollment->is_transferee,
+            'has_credited_subjects' => $hasCreditedSubjects,
+            'all_credits_approved' => $allCreditsApproved,
+            'can_enroll' => $canProceedToEnroll,
+            'cor_url' => $corUrl,
             'credited_subjects' => $enrollment->creditedSubjects->map(function ($credited) {
                 return [
                     'id' => $credited->id,
@@ -6688,32 +6895,34 @@ class RegistrarController extends Controller
             return back()->withErrors(['error' => 'Only transferee students can have credited subjects.']);
         }
 
-        // Auto-populate previous school from student registration data
-        $previousSchool = $enrollment->studentPersonalInfo->last_school_attended ?? $validated['previous_school'] ?? null;
+        $previousSchool = $enrollment->studentPersonalInfo->last_school_attended
+            ?? $validated['previous_school']
+            ?? null;
 
-        // Check if subject already credited
-        $existing = CreditedSubject::where('enrollment_id', $validated['enrollment_id'])
+        $exists = CreditedSubject::where('enrollment_id', $validated['enrollment_id'])
             ->where('subject_id', $validated['subject_id'])
-            ->first();
+            ->exists();
 
-        if ($existing) {
+        if ($exists) {
             return back()->withErrors(['error' => 'This subject has already been credited for this student.']);
         }
 
-        // Compute average if quarters provided
         $avg = null;
-        if (array_key_exists('quarter1', $validated) && array_key_exists('quarter2', $validated)) {
-            $q1 = $validated['quarter1'];
-            $q2 = $validated['quarter2'];
-            if ($q1 !== null && $q2 !== null) {
-                $avg = round(($q1 + $q2) / 2, 2);
-            }
-        }
-        if ($validated['credited_grade'] !== null) {
-            $avg = $validated['credited_grade'];
+        if (($validated['quarter1'] ?? null) !== null && ($validated['quarter2'] ?? null) !== null) {
+            $avg = round((floatval($validated['quarter1']) + floatval($validated['quarter2'])) / 2, 2);
         }
 
-        $credited = CreditedSubject::create([
+        $creditedGrade = $validated['credited_grade'] ?? null;
+        if ($creditedGrade !== null) {
+            $avg = $creditedGrade;
+        }
+
+        $remarks = $validated['remarks'] ?? null;
+        if ($avg !== null && $remarks === null) {
+            $remarks = $avg >= 75 ? 'Passed' : 'Failed';
+        }
+
+        CreditedSubject::create([
             'student_personal_info_id' => $enrollment->student_personal_info_id,
             'enrollment_id' => $validated['enrollment_id'],
             'subject_id' => $validated['subject_id'],
@@ -6721,24 +6930,15 @@ class RegistrarController extends Controller
             'quarter1' => $validated['quarter1'] ?? null,
             'quarter2' => $validated['quarter2'] ?? null,
             'credited_grade' => $avg,
-            'remarks' => null, // auto-set below
-            // Coordinator already stored in credited_by; registrar is the approver
-            'approved_by' => $validated['credited_grade'] !== null ? Auth::id() : null,
-            'credited_at' => $validated['credited_grade'] !== null ? now() : null,
+            'remarks' => $remarks,
+            'credited_by' => Auth::id(),
+            'approved_by' => $avg !== null ? Auth::id() : null,
+            'credited_at' => $avg !== null ? now() : null,
         ]);
-
-        // Auto remarks based on grade if provided
-        if ($credited->credited_grade !== null) {
-            $credited->remarks = $credited->credited_grade >= 75 ? 'Passed' : 'Failed';
-            $credited->save();
-        }
 
         return back()->with('success', 'Subject credited successfully.');
     }
 
-    /**
-     * Update a credited subject (Registrar approval/edit).
-     */
     public function updateCreditedSubject(Request $request, CreditedSubject $creditedSubject)
     {
         Log::info('updateCreditedSubject called', [

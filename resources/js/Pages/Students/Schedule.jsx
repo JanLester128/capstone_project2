@@ -119,9 +119,23 @@ export default function Schedule({ schedule = [], currentEnrollment = null, enro
                         {listSchedule.map((item, idx) => (
                           <tr key={`${item.id}-${idx}`}>
                             <td className="px-6 py-3 text-sm text-gray-900">
-                              {item.subject || ''}
+                              <div className="font-medium text-gray-900">
+                                {item.subject || ''}
+                                {item.is_credited && (
+                                  <span className="ml-1 text-xs font-semibold text-indigo-600">(Credited)</span>
+                                )}
+                              </div>
                               {item.is_credited && (
-                                <span className="ml-1 text-xs font-semibold text-indigo-600">(Credited)</span>
+                                <div className="mt-1 text-xs text-gray-600 space-x-3">
+                                  <span>Q1: {formatGradeValue(item.quarter1)}</span>
+                                  <span>Q2: {formatGradeValue(item.quarter2)}</span>
+                                  <span className="font-semibold text-indigo-700">Final: {formatGradeValue(item.final_grade)}</span>
+                                  {item.remarks && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
+                                      {item.remarks}
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </td>
                             <td className="px-6 py-3 text-sm text-gray-700">{item.day || ''}</td>
@@ -172,6 +186,13 @@ export default function Schedule({ schedule = [], currentEnrollment = null, enro
 }
 
 
+function formatGradeValue(value) {
+  if (value === null || value === undefined || value === '') return '—'
+  const num = Number(value)
+  if (Number.isNaN(num)) return value
+  return Number.isInteger(num) ? num.toString() : num.toFixed(2)
+}
+
 function SummaryItem({ label, value }) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
@@ -199,7 +220,9 @@ function dedupeForList(entries) {
   // Group by subject (using subject_code or subject as key)
   const grouped = {}
   entries.forEach((item) => {
-    const key = item.subject_code || item.subject || item.id
+    const isCredited = !!item.is_credited
+    const baseKey = item.subject_code || item.subject || item.id
+    const key = isCredited ? `credit-${baseKey}` : baseKey
     if (!grouped[key]) {
       grouped[key] = {
         ...item,
@@ -550,8 +573,10 @@ function normalizeTime(value) {
 
 
 function dayPosition(day) {
-  const index = DAY_ORDER.indexOf(day)
-  return index === -1 ? DAY_ORDER.length : index
+  const normalized = (day || '').toLowerCase()
+  const idx = DAY_ORDER.findIndex(d => d.toLowerCase() === normalized)
+  if (idx >= 0) return idx
+  return DAY_ORDER.length + 1
 }
 
 // Component for displaying classmates list

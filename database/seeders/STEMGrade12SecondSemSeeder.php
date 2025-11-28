@@ -23,7 +23,8 @@ class STEMGrade12SecondSemSeeder extends Seeder
                 'Subject_code' => 'MIL',
                 'Semester' => '2',
                 'year_level' => 12,
-                'strand_id' => $stem->id,                'PREREQUISITES' => null,
+                'strand_id' => $stem->id,                
+                'PREREQUISITES' => null,
                 'CO-REQUISITES' => null,
             ],
             [
@@ -31,7 +32,8 @@ class STEMGrade12SecondSemSeeder extends Seeder
                 'Subject_code' => 'CPAR',
                 'Semester' => '2',
                 'year_level' => 12,
-                'strand_id' => $stem->id,                'PREREQUISITES' => null,
+                'strand_id' => $stem->id,                
+                'PREREQUISITES' => null,
                 'CO-REQUISITES' => null,
             ],
             [
@@ -39,7 +41,8 @@ class STEMGrade12SecondSemSeeder extends Seeder
                 'Subject_code' => 'PE_HEALTH_4',
                 'Semester' => '2',
                 'year_level' => 12,
-                'strand_id' => $stem->id,                'PREREQUISITES' => null,
+                'strand_id' => $stem->id,                
+                'PREREQUISITES' => null,
                 'CO-REQUISITES' => null,
             ],
             [
@@ -47,7 +50,8 @@ class STEMGrade12SecondSemSeeder extends Seeder
                 'Subject_code' => 'III',
                 'Semester' => '2',
                 'year_level' => 12,
-                'strand_id' => $stem->id,                'PREREQUISITES' => null,
+                'strand_id' => $stem->id,                
+                'PREREQUISITES' => null,
                 'CO-REQUISITES' => null,
             ],
             [
@@ -55,7 +59,8 @@ class STEMGrade12SecondSemSeeder extends Seeder
                 'Subject_code' => 'ENTREP',
                 'Semester' => '2',
                 'year_level' => 12,
-                'strand_id' => $stem->id,                'PREREQUISITES' => null,
+                'strand_id' => $stem->id,                
+                'PREREQUISITES' => null,
                 'CO-REQUISITES' => null,
             ],
             [
@@ -63,7 +68,8 @@ class STEMGrade12SecondSemSeeder extends Seeder
                 'Subject_code' => 'FIL_LARANG',
                 'Semester' => '2',
                 'year_level' => 12,
-                'strand_id' => $stem->id,                'PREREQUISITES' => null,
+                'strand_id' => $stem->id,                
+                'PREREQUISITES' => null,
                 'CO-REQUISITES' => null,
             ],
             [

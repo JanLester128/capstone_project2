@@ -119,6 +119,7 @@ class EnrollmentCorController extends Controller
             'assignedStrand',
             'assignedSection.adviser',
             'assignedSection.strand',
+            'curriculum',
             'assignedSection.classes' => function ($query) use ($enrollment) {
                 $query->with(['subject', 'section', 'faculty'])
                     ->where('is_active', true)
@@ -142,6 +143,8 @@ class EnrollmentCorController extends Controller
         $strands = collect();
         $sections = collect();
 
+        $curriculums = collect();
+
         if ($showEnrollmentForm) {
             $strands = Strand::where('Is_active', true)
                 ->orderBy('Strand_name')
@@ -155,6 +158,25 @@ class EnrollmentCorController extends Controller
                 ->where('is_active', true)
                 ->orderBy('section_name')
                 ->get(['id', 'section_name', 'strand_id', 'adviser_id']);
+
+            $curriculums = 
+                
+                
+                
+                \App\Models\Curriculum::with('strand:id,Strand_name,Strand_code')
+                ->where(function ($query) use ($enrollment) {
+                    $query->where('is_active', true)
+                        ->orWhere('id', $enrollment->curriculum_id);
+                })
+                ->when($enrollment->assigned_strand_id, function ($query) use ($enrollment) {
+                    $query->where(function ($subQuery) use ($enrollment) {
+                        $subQuery->whereNull('strand_id')
+                            ->orWhere('strand_id', $enrollment->assigned_strand_id);
+                    });
+                })
+                ->orderByDesc('is_active')
+                ->orderBy('name')
+                ->get(['id', 'curriculum_code', 'name', 'strand_id', 'is_active', 'effective_sy']);
         }
 
         $isIframe = $request->has('iframe') && $request->query('iframe') == '1';
@@ -182,6 +204,8 @@ class EnrollmentCorController extends Controller
             'selectedStrandId' => $enrollment->assigned_strand_id,
             'selectedSectionId' => $selectedSectionId ?? $enrollment->assigned_section_id,
             'selectedGradeLevel' => old('grade_level', $enrollment->studentPersonalInfo?->grade_level),
+            'curriculums' => $curriculums,
+            'selectedCurriculumId' => $enrollment->curriculum_id,
             'isIframe' => $isIframe,
             'principalName' => $principalName,
             'coordinatorName' => $coordinatorName,

@@ -132,7 +132,6 @@ export default function FacultyGrades({ user = {}, classes = [], gradeStatuses =
     }
 
     const nextForm = {}
-    const nextSelected = {}
     selectedClass.students.forEach((student) => {
       nextForm[student.student_personal_info_id] = {
         student_personal_info_id: student.student_personal_info_id,
@@ -144,12 +143,17 @@ export default function FacultyGrades({ user = {}, classes = [], gradeStatuses =
         semester_grade: formatNumberValue(student.grades?.semester_grade),
         remarks: student.grades?.remarks || '',
       }
-      if (student.can_edit !== false) {
-        nextSelected[student.student_personal_info_id] = true
-      }
     })
     setGradeForm(nextForm)
-    setSelectedStudents(nextSelected)
+    setSelectedStudents((prev) => {
+      const updated = {}
+      selectedClass.students.forEach((student) => {
+        if (student.can_edit !== false && prev[student.student_personal_info_id]) {
+          updated[student.student_personal_info_id] = true
+        }
+      })
+      return updated
+    })
   }, [selectedClass])
 
   const filteredStudents = useMemo(() => {
@@ -157,7 +161,7 @@ export default function FacultyGrades({ user = {}, classes = [], gradeStatuses =
     if (statusFilter === 'all') return selectedClass.students
 
     return selectedClass.students.filter((student) => {
-      const currentStatus = student.grades?.status || 'Draft'
+      const currentStatus = student.grades?.status_display || student.grades?.status || 'Draft'
       return currentStatus === statusFilter
     })
   }, [selectedClass, statusFilter])
@@ -448,8 +452,9 @@ export default function FacultyGrades({ user = {}, classes = [], gradeStatuses =
                         const studentGrade = gradeForm[student.student_personal_info_id] || {
                           student_personal_info_id: student.student_personal_info_id,
                         }
-                        const currentStatus = student.grades?.status || 'Draft'
+                        const currentStatus = student.grades?.status_display || student.grades?.status || 'Draft'
                         const canEdit = student.can_edit !== false
+                        const isCredited = student.grades?.is_credited
                         const statusColor =
                           currentStatus === 'Approved'
                             ? 'bg-green-50 text-green-700 border-green-200'
@@ -474,6 +479,11 @@ export default function FacultyGrades({ user = {}, classes = [], gradeStatuses =
                               <div className="text-xs text-gray-500">
                                 LRN: {student.lrn || ''} • Grade {student.grade_level || ''}
                               </div>
+                              {isCredited && (
+                                <div className="mt-1 inline-flex items-center text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-2 py-0.5">
+                                  Credited Subject
+                                </div>
+                              )}
                             </td>
                             {selectedClass.is_summer ? (
                               <>
@@ -610,6 +620,9 @@ export default function FacultyGrades({ user = {}, classes = [], gradeStatuses =
                                 <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full border ${statusColor}`}>
                                   {currentStatus}
                                 </span>
+                                {isCredited && (
+                                  <span className="text-xs text-indigo-600 font-medium">Credited grade • not editable</span>
+                                )}
                                 {student.grades?.approval_notes && (
                                   <p className="text-xs text-gray-500">{student.grades.approval_notes}</p>
                                 )}

@@ -144,24 +144,31 @@ export default function StudentDashboard({
           </div>
           <div className="relative max-w-6xl mx-auto px-6 py-8">
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-semibold flex items-center" aria-label={welcomeMessage}>
-                  <span ref={typedTextRef}>{welcomeMessage}</span>
-                  <span
-                    ref={cursorRef}
-                    className="ml-1 text-3xl leading-none text-white"
-                    aria-hidden="true"
-                  >
-                    ·
-                  </span>
-                </h1>
-                <p className="text-sm text-white/85">
-                  {stageKey === 'enrolled' 
-                    ? 'You are officially enrolled. Welcome back!'
-                    : isReturning 
-                      ? 'Returning student — see your previous term summary below.' 
-                      : 'New student — complete and submit your enrollment form.'}
-                </p>
+              <div className="flex items-start gap-4">
+                <img
+                  src="/icon1.png"
+                  alt="School emblem"
+                  className="w-14 h-14 rounded-full border-2 border-white/40 shadow-lg object-contain bg-white/10"
+                />
+                <div>
+                  <h1 className="text-2xl font-semibold flex items-center" aria-label={welcomeMessage}>
+                    <span ref={typedTextRef}>{welcomeMessage}</span>
+                    <span
+                      ref={cursorRef}
+                      className="ml-1 text-3xl leading-none text-white"
+                      aria-hidden="true"
+                    >
+                      ·
+                    </span>
+                  </h1>
+                  <p className="text-sm text-white/85">
+                    {stageKey === 'enrolled' 
+                      ? 'You are officially enrolled. Welcome back!'
+                      : isReturning 
+                        ? 'Returning student — see your previous term summary below.' 
+                        : 'New student — complete and submit your enrollment form.'}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <span className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold', stageMeta.badge)}>

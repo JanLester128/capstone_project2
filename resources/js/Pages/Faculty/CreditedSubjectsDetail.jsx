@@ -260,8 +260,8 @@ function CreditRow({ credit }) {
 			<td className="px-3 py-2 text-gray-600 text-sm">
 				{isApproved ? (
 					<div className="text-xs flex flex-col">
-						<span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700 border border-green-200">
-							Approved by Registrar
+						<span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 border border-indigo-200">
+							Submitted
 						</span>
 						{credit.credited_at && (
 							<span className="mt-0.5 text-[10px] text-gray-500">on {credit.credited_at}</span>
@@ -269,8 +269,8 @@ function CreditRow({ credit }) {
 					</div>
 				) : hasCoordinatorSubmission ? (
 					<div className="text-xs">
-						<span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 border border-amber-200">
-							Pending Registrar Approval
+						<span className="inline-flex items-center rounded-full bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-600 border border-gray-200">
+							Draft
 						</span>
 					</div>
 				) : (

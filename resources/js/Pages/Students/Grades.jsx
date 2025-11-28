@@ -1,6 +1,32 @@
 import { Head } from '@inertiajs/react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import StudentSidebar from '../Auth/Student_sidebar'
+
+function SummaryCard({ label, value, iconColor = 'gray', iconPath, emphasize = false }) {
+  const colorMap = {
+    blue: 'bg-blue-100 text-blue-600 border-blue-50',
+    indigo: 'bg-indigo-100 text-indigo-600 border-indigo-50',
+    green: 'bg-green-100 text-green-600 border-green-50',
+    red: 'bg-red-100 text-red-600 border-red-50',
+    gray: 'bg-gray-100 text-gray-600 border-gray-50',
+  }
+
+  return (
+    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 ${emphasize ? 'ring-2 ring-indigo-100' : ''}`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-medium text-gray-600">{label}</p>
+          <p className={`text-2xl font-bold mt-1 ${emphasize ? 'text-indigo-700' : 'text-gray-900'}`}>{value}</p>
+        </div>
+        <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${colorMap[iconColor]}`}>
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconPath} />
+          </svg>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function Grades({ 
   grades = [], 
@@ -11,15 +37,44 @@ export default function Grades({
   activeSchoolYear = null,
   activeSemester = null
 }) {
+  const effectiveGrouped = useMemo(() => {
+    if (groupedGrades?.length) {
+      return groupedGrades
+    }
+
+    if (!grades?.length) {
+      return []
+    }
+
+    const map = {}
+    grades.forEach((grade) => {
+      const semesterLabel = grade.semester_display
+        || (grade.semester === 'Summer'
+          ? 'Summer'
+          : grade.semester === '2nd'
+            ? '2nd Semester'
+            : '1st Semester')
+      const label = `${grade.school_year || 'School Year'} - ${semesterLabel}`
+      if (!map[label]) {
+        map[label] = []
+      }
+      map[label].push(grade)
+    })
+
+    return Object.entries(map).map(([label, groupGrades]) => ({
+      label,
+      grades: groupGrades,
+    }))
+  }, [grades, groupedGrades])
+
   // Default to active semester if available, otherwise first grouped grade or 'All'
   const getDefaultSemester = () => {
     if (activeSemester && activeSchoolYear) {
       const activeLabel = `${activeSchoolYear.formatted} - ${activeSemester.semester_type}`
-      // Check if this label exists in groupedGrades
-      const exists = groupedGrades.some(g => g.label === activeLabel)
+      const exists = effectiveGrouped.some(g => g.label === activeLabel)
       if (exists) return activeLabel
     }
-    return groupedGrades[0]?.label || 'All'
+    return effectiveGrouped[0]?.label || 'All'
   }
   
   const [selectedSemester, setSelectedSemester] = useState(getDefaultSemester())
@@ -62,12 +117,28 @@ export default function Grades({
     return (sum / validGrades.length).toFixed(2)
   }
 
-  const displayGrades = selectedSemester === 'All' 
-    ? grades 
-    : groupedGrades.find(g => g.label === selectedSemester)?.grades || []
+  const semesterGroups = useMemo(() => {
+    return effectiveGrouped.map((group) => {
+      const gradeList = group.grades || []
+      const regular = gradeList.filter(g => !g.is_credited)
+      const credited = gradeList.filter(g => g.is_credited)
+      return {
+        ...group,
+        grades: gradeList,
+        regular,
+        credited,
+      }
+    })
+  }, [effectiveGrouped])
+
+  const groupsToRender = selectedSemester === 'All'
+    ? semesterGroups
+    : semesterGroups.filter(group => group.label === selectedSemester)
+
+  const visibleGrades = groupsToRender.flatMap(group => group.grades || [])
 
   // Check if a grade is from summer semester
-  const isSummerGrade = (g) => g.semester === 'Summer' || g.semester === 'summer'
+  const isSummerGrade = (g) => g?.semester === 'Summer' || g?.semester === 'summer'
 
   // Quarter helpers based on semester
   const getQ1 = (g) => {
@@ -93,13 +164,114 @@ export default function Grades({
     return g.final_grade ?? null
   }
 
+  const getQuarterLabelsForGroup = (groupLabel) => {
+    const normalized = groupLabel?.toLowerCase() || ''
+    if (normalized.includes('summer')) {
+      return ['Failed Grade', 'Summer Grade']
+    }
+    if (normalized.includes('2nd')) {
+      return ['3rd Quarter', '4th Quarter']
+    }
+    return ['1st Quarter', '2nd Quarter']
+  }
+
+  const renderGradeSection = (gradesList, quarterLabels, isCreditedSection = false) => {
+    if (!gradesList?.length) {
+      return null
+    }
+
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-base font-semibold text-gray-900">
+            {isCreditedSection ? 'Credited Subjects' : 'Regular Subjects'}
+          </h4>
+          {isCreditedSection && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-600 border border-indigo-100">
+              Credited
+            </span>
+          )}
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border border-gray-100">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Subject
+                </th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Teacher
+                </th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {quarterLabels[0]}
+                </th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {quarterLabels[1]}
+                </th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Final Grade
+                </th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Remarks
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {gradesList.map((grade) => {
+                const q1Raw = getQ1(grade)
+                const q2Raw = getQ2(grade)
+                const finalRaw = getCumulative(grade)
+                const q1Value = formatGrade(q1Raw)
+                const q2Value = formatGrade(q2Raw)
+                const finalValue = formatGrade(finalRaw ?? grade.final_grade)
+
+                return (
+                  <tr key={grade.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-4 text-sm">
+                      <div className="font-semibold text-gray-900 flex items-center gap-2">
+                        {grade.subject}
+                        {grade.is_credited && (
+                          <span className="text-xs font-semibold text-indigo-600">(Credited)</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500">{grade.subject_code}</div>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-gray-700">{grade.teacher || 'TBD'}</td>
+                    <td className="px-4 py-4">
+                      <span className={`text-sm font-medium ${getNumberClass(q1Raw, grade.remarks)}`}>
+                        {q1Value}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className={`text-sm font-medium ${getNumberClass(q2Raw, grade.remarks)}`}>
+                        {q2Value}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className={`text-base font-semibold ${getNumberClass(finalRaw, grade.remarks)}`}>
+                        {finalValue}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className={`text-sm ${getRemarksColor(grade.remarks)}`}>{grade.remarks || '—'}</span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
   const currentSemester = selectedSemester !== 'All' 
-    ? groupedGrades.find(g => g.label === selectedSemester)
+    ? semesterGroups.find(g => g.label === selectedSemester)
     : null
 
   const semesterAverage = currentSemester ? calculateSemesterAverage(currentSemester.grades) : null
-  const passedCount = displayGrades.filter(g => g.remarks === 'Passed').length
-  const failedCount = displayGrades.filter(g => g.remarks === 'Failed').length
+  const selectedSemesterLabel = selectedSemester === 'All' ? 'All' : selectedSemester
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -135,9 +307,7 @@ export default function Grades({
               </p>
               <p className="text-gray-700">
                 <span className="font-medium">Semester:</span>{' '}
-                {selectedSemester === 'All'
-                  ? 'All'
-                  : (displayGrades[0]?.semester || '--')}
+                {selectedSemesterLabel}
               </p>
             </div>
           </div>
@@ -183,63 +353,31 @@ export default function Grades({
           {/* Summary Stats */}
           {currentSemester && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-gray-600">Total Subjects</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">{displayGrades.length}</p>
-                  </div>
-                  <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-gray-600">Semester Average</p>
-                    <p className={`text-2xl font-bold mt-1 ${getNumberClass(semesterAverage, parseFloat(semesterAverage) < 75 ? 'Failed' : 'Passed')}`}>
-                      {semesterAverage || '--'}
-                    </p>
-                  </div>
-                  <div className="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                    <svg className="h-5 w-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-gray-600">Passed</p>
-                    <p className="text-2xl font-bold text-green-600 mt-1">{passedCount}</p>
-                  </div>
-                  <div className="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-gray-600">Failed</p>
-                    <p className="text-2xl font-bold text-red-600 mt-1">{failedCount}</p>
-                  </div>
-                  <div className="h-10 w-10 bg-red-100 rounded-lg flex items-center justify-center">
-                    <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
+              <SummaryCard
+                label="Total Subjects"
+                value={currentSemester.grades.length}
+                iconColor="blue"
+                iconPath="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+              />
+              <SummaryCard
+                label="Semester Average"
+                value={semesterAverage || '--'}
+                iconColor="indigo"
+                iconPath="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                emphasize
+              />
+              <SummaryCard
+                label="Passed"
+                value={currentSemester.grades.filter(g => g.remarks === 'Passed').length}
+                iconColor="green"
+                iconPath="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+              <SummaryCard
+                label="Failed"
+                value={currentSemester.grades.filter(g => g.remarks === 'Failed').length}
+                iconColor="red"
+                iconPath="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </div>
           )}
 
@@ -256,7 +394,7 @@ export default function Grades({
               >
                 All Semesters
               </button>
-              {groupedGrades.map((group) => (
+              {effectiveGrouped.map((group) => (
                 <button
                   key={group.label}
                   onClick={() => setSelectedSemester(group.label)}
@@ -273,7 +411,7 @@ export default function Grades({
           </div>
 
           {/* Grades Table - Report Card Style */}
-          {displayGrades.length === 0 ? (
+          {visibleGrades.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -286,62 +424,39 @@ export default function Grades({
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              {/* Grades Table (simple layout like sample) */}
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Subject Instructor</th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Subject Code</th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Descriptive Title</th>
-                      <th scope="col" className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
-                        {isSummerGrade(displayGrades[0]) 
-                          ? 'Original Failed Grade' 
-                          : (displayGrades[0]?.semester === '2nd' ? '3rd Quarter' : '1st Quarter')}
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
-                        {isSummerGrade(displayGrades[0])
-                          ? 'Summer Grade'
-                          : (displayGrades[0]?.semester === '2nd' ? '4th Quarter' : '2nd Quarter')}
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Final Grade</th>
-                      <th scope="col" className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {displayGrades.map((grade, index) => (
-                      <tr key={grade.id || index} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 text-sm text-gray-900">{grade.teacher || 'TBD'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-700">{grade.subject_code || '--'}</td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">{grade.subject}</td>
-                        <td className={`px-6 py-4 text-center text-sm font-bold ${getNumberClass(getQ1(grade), grade.remarks)}`}>
-                          {formatGrade(getQ1(grade))}
-                        </td>
-                        <td className={`px-6 py-4 text-center text-sm font-bold ${getNumberClass(getQ2(grade), grade.remarks)}`}>
-                          {formatGrade(getQ2(grade))}
-                        </td>
-                        <td className={`px-6 py-4 text-center text-sm font-bold ${getNumberClass(getCumulative(grade), grade.remarks)}`}>
-                          {formatGrade(getCumulative(grade))}
-                        </td>
-                        <td className={`px-6 py-4 text-center text-sm font-semibold ${getRemarksColor(grade.remarks)}`}>
-                          {grade.remarks || '--'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <div className="space-y-8">
+              {groupsToRender.map((group) => {
+                const quarterLabels = getQuarterLabelsForGroup(group.label)
 
-              {/* Additional Notes */}
-              {displayGrades.some(g => g.failed_prerequisites) && (
-                <div className="bg-orange-50 border-t border-orange-200 px-6 py-4">
+                return (
+                  <div key={group.label} className="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{group.label}</h3>
+                        <p className="text-sm text-gray-500">{group.grades.length} subject{group.grades.length === 1 ? '' : 's'} this term</p>
+                      </div>
+                      <div className="text-right text-xs text-gray-500 space-y-0.5">
+                        <p>Regular: {group.regular.length}</p>
+                        <p>Credited: {group.credited.length}</p>
+                      </div>
+                    </div>
+
+                    <div className="px-6 py-6 space-y-8">
+                      {renderGradeSection(group.regular, quarterLabels, false)}
+                      {renderGradeSection(group.credited, quarterLabels, true)}
+                    </div>
+                  </div>
+                )
+              })}
+
+              {visibleGrades.some(g => g.failed_prerequisites) && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg px-6 py-4">
                   <h4 className="text-sm font-semibold text-orange-800 mb-2">⚠️ Prerequisites Notice:</h4>
                   <ul className="text-sm text-orange-700 space-y-1">
-                    {displayGrades
+                    {visibleGrades
                       .filter(g => g.failed_prerequisites)
                       .map((g, i) => (
-                        <li key={i}>
+                        <li key={`${g.id}-prereq-${i}`}>
                           <span className="font-medium">{g.subject}</span> failure blocks: {g.failed_prerequisites}
                         </li>
                       ))
@@ -350,15 +465,14 @@ export default function Grades({
                 </div>
               )}
 
-              {/* Summer Grade Notes */}
-              {displayGrades.some(g => isSummerGrade(g) && g.notes) && (
-                <div className="bg-blue-50 border-t border-blue-200 px-6 py-4">
+              {visibleGrades.some(g => isSummerGrade(g) && g.notes) && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg px-6 py-4">
                   <h4 className="text-sm font-semibold text-blue-800 mb-2">📝 Summer Class Notes:</h4>
                   <ul className="text-sm text-blue-700 space-y-2">
-                    {displayGrades
+                    {visibleGrades
                       .filter(g => isSummerGrade(g) && g.notes)
                       .map((g, i) => (
-                        <li key={i}>
+                        <li key={`${g.id}-summer-${i}`}>
                           <span className="font-medium">{g.subject}:</span> {g.notes}
                         </li>
                       ))

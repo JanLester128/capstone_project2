@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
-import { Head, router, useForm, Link } from '@inertiajs/react'
-import RegistrarSidebar from '../Auth/Registrar_sidebar'
+import { Head, router, Link } from '@inertiajs/react'
+import RegistrarLayout from './Layout'
 import { formatDateMedium, formatDateTimeMedium } from '../../utils/dateFormatter'
 
 const STATUS_META = {
@@ -51,6 +51,8 @@ function EnrollmentDetailModal({
   if (!enrollment) return null
 
   const { student } = enrollment
+  const needsTransfereeCredits = enrollment.is_transferee && !enrollment.all_credits_approved
+  const creditedSubjectsUrl = `/registrar/credited-subjects/${enrollment.id}`
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
@@ -182,16 +184,8 @@ function EnrollmentDetailModal({
         {/* Transferee Credited Subjects (inline) */}
         {enrollment.is_transferee && (
           <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3">
               <h3 className="text-sm font-semibold text-amber-900">Credited Subjects (Transferee)</h3>
-              <a
-                href="/registrar/credited-subjects"
-                className="inline-flex items-center rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-800 shadow-sm hover:bg-amber-50"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                View / Edit in Credited Subjects
-              </a>
             </div>
 
             {/* Workflow Steps */}
@@ -247,46 +241,64 @@ function EnrollmentDetailModal({
               </div>
             )}
             <p className="mt-3 text-xs text-amber-700 font-medium">
-              {enrollment.all_credits_approved 
-                ? '✓ All credited subjects are approved. Student can now be enrolled.'
-                : enrollment.has_pending_credits
-                  ? '⚠ Cannot enroll yet. Please complete and approve all credited subjects first.'
-                  : 'Note: Credit Subject FIRST → THEN Enroll → THEN Print COR'}
+              {needsTransfereeCredits
+                ? '⚠ Cannot enroll yet. Please complete and approve all credited subjects first.'
+                : '✓ All credited subjects are approved. Student can now be enrolled.'}
             </p>
           </section>
         )}
 
         {/* Documents */}
-          <section>
-            <h3 className="text-sm font-semibold text-gray-900">Submitted Documents</h3>
-            <div className="mt-3 grid gap-4 md:grid-cols-2">
-              <DocumentCard
-                title="PSA Birth Certificate"
-                url={student?.psa_url}
-                placeholder="No PSA birth certificate uploaded."
-              />
-              <DocumentCard
-                title="Report Card"
-                url={student?.report_card_url}
-                placeholder="No report card uploaded."
-              />
-            </div>
-          </section>
+        <section>
+          <h3 className="text-sm font-semibold text-gray-900">Submitted Documents</h3>
+          <div className="mt-3 grid gap-4 md:grid-cols-2">
+            <DocumentCard
+              title="PSA Birth Certificate"
+              url={student?.psa_url}
+              placeholder="No PSA birth certificate uploaded."
+            />
+            <DocumentCard
+              title="Report Card"
+              url={student?.report_card_url}
+              placeholder="No report card uploaded."
+            />
+          </div>
+        </section>
 
-          {['pre_enrolled', 'recommended'].includes(enrollment.status) && (
-            <section className="border-t border-gray-200 pt-6">
-              <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3">
-                <p className="text-sm text-indigo-800">
-                  ✓ All credited subjects are approved. Student can now be enrolled.
+        {['pre_enrolled', 'recommended'].includes(enrollment.status) && (
+          <section className="border-t border-gray-200 pt-6">
+            {enrollment.is_transferee && (
+              <div className={`rounded-lg border px-4 py-3 ${needsTransfereeCredits ? 'border-amber-200 bg-amber-50' : 'border-indigo-200 bg-indigo-50'}`}>
+                <p className={`text-sm ${needsTransfereeCredits ? 'text-amber-900' : 'text-indigo-800'}`}>
+                  {needsTransfereeCredits
+                    ? 'Complete and approve all credited subjects before enrolling this transferee.'
+                    : 'All credited subjects are approved. You may proceed to enrollment.'}
+                </p>
+                <p className="mt-1 text-xs text-gray-600">
+                  Use the Credit Subject action below to open the transferee workflow. The Proceed to Enroll button now lives inside the credited-subject detail page once everything is approved.
                 </p>
               </div>
-              <div className="mt-4 flex justify-end gap-3">
-                <button
-                  onClick={onClose}
-                  className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            )}
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                onClick={onClose}
+                className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400"
+              >
+                Close
+              </button>
+              {enrollment.is_transferee ? (
+                <a
+                  href={creditedSubjectsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-800 shadow-sm hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
                 >
-                  Close
-                </button>
+                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 3.5a6.5 6.5 0 1 1-5.184 10.42l-1.648 1.647a1 1 0 0 1-1.414-1.415l1.648-1.648A6.5 6.5 0 0 1 10 3.5Z" />
+                  </svg>
+                  Credit Subjects
+                </a>
+              ) : (
                 <a
                   href={`/enrollments/${enrollment.id}/cor`}
                   target="_blank"
@@ -296,18 +308,19 @@ function EnrollmentDetailModal({
                   <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M4 4a2 2 0 0 1 2-2h6l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" />
                   </svg>
-                  Enroll
+                  Proceed to Enroll
                 </a>
-              </div>
-            </section>
-          )}
-        </div>
+              )}
+            </div>
+          </section>
+        )}
       </div>
     </div>
-  )
+  </div>
+ )
 }
 
-function DocumentCard({ title, url, placeholder }) {
+const DocumentCard = ({ title, url, placeholder }) => {
   if (!url) {
     return (
       <div className="flex h-48 flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 text-center">
@@ -345,11 +358,11 @@ function DocumentCard({ title, url, placeholder }) {
   )
 }
 
-
 export default function Enrollments({ 
   enrollments = [], 
   strands = [], 
   sections = [],
+  curriculums = [],
 }) {
   const [processing, setProcessing] = useState(null)
   const [filter, setFilter] = useState('all')
@@ -360,6 +373,7 @@ export default function Enrollments({
   const [assignmentData, setAssignmentData] = useState({
     assigned_strand_id: '',
     assigned_section_id: '',
+    curriculum_id: '',
   })
   const [assignmentErrors, setAssignmentErrors] = useState({})
   const corIframeRef = useRef(null) // Ref for COR iframe to refresh it when section is selected
@@ -400,6 +414,14 @@ export default function Enrollments({
       (selectedEnrollment.semester?.id ? section.semester_id === selectedEnrollment.semester.id : true)
     )
   }, [assignmentData.assigned_strand_id, sections, selectedEnrollment])
+
+  const availableCurriculums = useMemo(() => {
+    if (!assignmentData.assigned_strand_id) return curriculums
+    return curriculums.filter((curriculum) => {
+      const strandId = curriculum.strand?.id || curriculum.strand_id
+      return !strandId || String(strandId) === assignmentData.assigned_strand_id
+    })
+  }, [assignmentData.assigned_strand_id, curriculums])
 
   const filteredEnrollments = useMemo(() => {
     let filtered = enrollments
@@ -443,6 +465,7 @@ export default function Enrollments({
     setAssignmentData({
       assigned_strand_id: defaultStrandId ? String(defaultStrandId) : '',
       assigned_section_id: enrollment.assigned_section?.id ? String(enrollment.assigned_section.id) : '',
+      curriculum_id: enrollment.curriculum?.id ? String(enrollment.curriculum.id) : '',
     })
   }
 
@@ -458,15 +481,16 @@ export default function Enrollments({
     setAssignmentData({
       assigned_strand_id: defaultStrandId ? String(defaultStrandId) : '',
       assigned_section_id: '',
+      curriculum_id: enrollment.curriculum?.id ? String(enrollment.curriculum.id) : '',
     })
   }
 
   const handleApprovalSubmit = () => {
     if (!selectedEnrollment) return
 
-    if (!assignmentData.assigned_strand_id || !assignmentData.assigned_section_id) {
+    if (!assignmentData.assigned_strand_id || !assignmentData.assigned_section_id || !assignmentData.curriculum_id) {
       setAssignmentErrors({
-        general: 'Please choose both strand and section before approving.',
+        general: 'Please choose strand, section, and curriculum before approving.',
       })
       return
     }
@@ -478,6 +502,7 @@ export default function Enrollments({
         status: 'enrolled',
         assigned_strand_id: assignmentData.assigned_strand_id,
         assigned_section_id: assignmentData.assigned_section_id,
+        curriculum_id: assignmentData.curriculum_id,
       },
       {
         onError: (errors) => {
@@ -487,7 +512,7 @@ export default function Enrollments({
           // Close modal and clear form
           setSelectedEnrollment(null)
           setAssignmentErrors({})
-          setAssignmentData({ assigned_strand_id: '', assigned_section_id: '' })
+          setAssignmentData({ assigned_strand_id: '', assigned_section_id: '', curriculum_id: '' })
         },
         onFinish: () => {
           setProcessing(null)
@@ -505,12 +530,10 @@ export default function Enrollments({
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <RegistrarSidebar />
+    <RegistrarLayout>
+      <Head title="Student Enrollments - Registrar" />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Head title="Student Enrollments - Registrar" />
-
         {/* Header */}
         <header className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
           <div className="flex items-center justify-between">
@@ -732,20 +755,37 @@ export default function Enrollments({
                                     View
                                   </Link>
                                 ) : (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setSelectedEnrollmentForCor(enrollment)
-                                      setSelectedEnrollment(null)
-                                      setCorPanelCollapsed(false)
-                                    }}
-                                    className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-white shadow-sm bg-indigo-600 hover:bg-indigo-500"
-                                  >
-                                    <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                                      <path d="M4 4a2 2 0 0 1 2-2h6l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" />
-                                    </svg>
-                                    Enroll
-                                  </button>
+                                  (
+                                    enrollment.is_transferee ? (
+                                      <a
+                                        href={`/registrar/credited-subjects/${enrollment.id}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-white shadow-sm bg-amber-600 hover:bg-amber-500"
+                                      >
+                                        <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                          <path d="M10 3.5a6.5 6.5 0 1 1-5.184 10.42l-1.648 1.647a1 1 0 0 1-1.414-1.415l1.648-1.648A6.5 6.5 0 0 1 10 3.5Z" />
+                                        </svg>
+                                        Credit Subject
+                                      </a>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setSelectedEnrollmentForCor(enrollment)
+                                          setSelectedEnrollment(null)
+                                          setCorPanelCollapsed(false)
+                                        }}
+                                        className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-white shadow-sm bg-indigo-600 hover:bg-indigo-500"
+                                      >
+                                        <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                          <path d="M4 4a2 2 0 0 1 2-2h6l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" />
+                                        </svg>
+                                        Enroll
+                                      </button>
+                                    )
+                                  )
                                 )}
                               </div>
                             </td>
@@ -846,18 +886,18 @@ export default function Enrollments({
           onClose={() => {
             setSelectedEnrollment(null)
             setAssignmentErrors({})
-            setAssignmentData({ assigned_strand_id: '', assigned_section_id: '' })
+            setAssignmentData({ assigned_strand_id: '', assigned_section_id: '', curriculum_id: '' })
           }}
           strands={strands}
           assignmentData={assignmentData}
           setAssignmentData={setAssignmentData}
           availableSections={availableSections}
+          availableCurriculums={availableCurriculums}
           onApprove={handleApprovalSubmit}
           processing={processing}
           assignmentErrors={assignmentErrors}
         />
       )}
-
-    </div>
+    </RegistrarLayout>
   )
 }

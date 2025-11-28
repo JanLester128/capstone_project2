@@ -1,10 +1,10 @@
 import { Link } from '@inertiajs/react'
 
-export default function Breadcrumb({ items }) {
+export default function Breadcrumb({ links }) {
   return (
     <nav className="flex mb-4" aria-label="Breadcrumb">
       <ol className="inline-flex items-center space-x-1 md:space-x-3">
-        {items.map((item, index) => (
+        {links && links.map((item, index) => (
           <li key={index} className="inline-flex items-center">
             {index === 0 ? (
               // First item (Dashboard) with home icon
@@ -17,7 +17,7 @@ export default function Breadcrumb({ items }) {
                 </svg>
                 {item.label}
               </Link>
-            ) : index === items.length - 1 ? (
+            ) : index === links.length - 1 ? (
               // Last item (current page) - not clickable
               <div className="flex items-center">
                 <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">

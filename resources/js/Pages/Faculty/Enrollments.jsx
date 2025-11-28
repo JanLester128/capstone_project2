@@ -342,6 +342,7 @@ export default function Enrollments({
   enrollments = [],
   strands = [],
   sections = [],
+  curriculums = [],
   user = null,
   pendingCount = 0,
 }) {
@@ -354,6 +355,7 @@ export default function Enrollments({
   const [assignmentData, setAssignmentData] = useState({
     assigned_strand_id: '',
     assigned_section_id: '',
+    curriculum_id: '',
   })
   const [assignmentErrors, setAssignmentErrors] = useState({})
   const corIframeRef = useRef(null) // Ref for COR iframe to refresh it when section is selected
@@ -394,6 +396,14 @@ export default function Enrollments({
       (selectedEnrollment.semester?.id ? section.semester_id === selectedEnrollment.semester.id : true)
     )
   }, [assignmentData.assigned_strand_id, sections, selectedEnrollment])
+
+  const availableCurriculums = useMemo(() => {
+    if (!assignmentData.assigned_strand_id) return curriculums
+    return curriculums.filter((curriculum) => {
+      const strandId = curriculum.strand?.id || curriculum.strand_id
+      return !strandId || String(strandId) === assignmentData.assigned_strand_id
+    })
+  }, [assignmentData.assigned_strand_id, curriculums])
 
   const filteredEnrollments = useMemo(() => {
     let filtered = enrollments
@@ -437,6 +447,7 @@ export default function Enrollments({
     setAssignmentData({
       assigned_strand_id: defaultStrandId ? String(defaultStrandId) : '',
       assigned_section_id: enrollment.assigned_section?.id ? String(enrollment.assigned_section.id) : '',
+      curriculum_id: enrollment.curriculum?.id ? String(enrollment.curriculum.id) : '',
     })
   }
 
@@ -452,15 +463,16 @@ export default function Enrollments({
     setAssignmentData({
       assigned_strand_id: defaultStrandId ? String(defaultStrandId) : '',
       assigned_section_id: '',
+      curriculum_id: enrollment.curriculum?.id ? String(enrollment.curriculum.id) : '',
     })
   }
 
   const handleApprovalSubmit = () => {
     if (!selectedEnrollment) return
 
-    if (!assignmentData.assigned_strand_id || !assignmentData.assigned_section_id) {
+    if (!assignmentData.assigned_strand_id || !assignmentData.assigned_section_id || !assignmentData.curriculum_id) {
       setAssignmentErrors({
-        general: 'Please choose both strand and section before approving.',
+        general: 'Please choose strand, section, and curriculum before approving.',
       })
       return
     }
@@ -472,6 +484,7 @@ export default function Enrollments({
         status: 'enrolled',
         assigned_strand_id: assignmentData.assigned_strand_id,
         assigned_section_id: assignmentData.assigned_section_id,
+        curriculum_id: assignmentData.curriculum_id,
       },
       {
         onError: (errors) => {
@@ -481,7 +494,7 @@ export default function Enrollments({
           // Close modal and clear form
           setSelectedEnrollment(null)
           setAssignmentErrors({})
-          setAssignmentData({ assigned_strand_id: '', assigned_section_id: '' })
+          setAssignmentData({ assigned_strand_id: '', assigned_section_id: '', curriculum_id: '' })
         },
         onFinish: () => {
           setProcessing(null)

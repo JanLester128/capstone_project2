@@ -579,9 +579,13 @@ class FacultyController extends Controller
             ->values();
 
         $classes = $classModels
-            ->map(function (ClassModel $class) {
-                $semesterType = strtolower($class->semester?->semester_type ?? '');
-                $isSummer = str_contains($semesterType, 'summer');
+            ->map(function (ClassModel $class) use ($filters) {
+                $activeSchoolYear = $filters['activeSchoolYear'];
+                $activeSemester = $filters['activeSemester'];
+
+                $isSummer = $class->semester?->semester_type === 'Summer';
+                $semesterLabel = strtolower($class->semester?->semester_type ?? '');
+                $isSecondSemester = str_contains($semesterLabel, '2nd');
 
                 return [
                     'id' => $class->Id ?? $class->id,
@@ -604,7 +608,7 @@ class FacultyController extends Controller
                         'end_time' => $class->end_time ?? $class->endtime,
                     ],
                     'is_summer' => $isSummer,
-                    'students' => $class->section?->enrollments->map(function ($enrollment) use ($class, $isSummer) {
+                    'students' => $class->section?->enrollments->map(function ($enrollment) use ($class, $isSummer, $isSecondSemester) {
                         $studentInfo = $enrollment->studentPersonalInfo;
                         $studentUser = $studentInfo?->user;
 
@@ -613,8 +617,45 @@ class FacultyController extends Controller
                             ->orderByDesc('updated_at')
                             ->first();
 
+                        if (!$grade) {
+                            $grade = Grade::where('is_credited', true)
+                                ->where('subject_id', $class->subject_id)
+                                ->where('student_personal_info_id', $studentInfo?->id)
+                                ->orderByDesc('updated_at')
+                                ->first();
+                        }
+
+                        $isCredited = (bool) ($grade?->is_credited);
+
                         $isApproved = $grade && $grade->status === Grade::STATUS_APPROVED;
                         $isLocked = $grade?->is_locked;
+                        $hasRecordedScores = $grade && (
+                            $grade->first_quarter !== null ||
+                            $grade->second_quarter !== null ||
+                            $grade->third_quarter !== null ||
+                            $grade->fourth_quarter !== null ||
+                            $grade->summer_grade !== null ||
+                            $grade->semester_grade !== null
+                        );
+
+                        $thirdQuarter = $isSummer ? null : $grade?->third_quarter;
+                        $fourthQuarter = $isSummer ? null : $grade?->fourth_quarter;
+
+                        // Backfill credited 2nd semester grades that were stored in Q1/Q2 before sync fix
+                        if ($isCredited && $isSecondSemester && !$isSummer && $grade) {
+                            if ($thirdQuarter === null && $grade->first_quarter !== null) {
+                                $thirdQuarter = $grade->first_quarter;
+                            }
+                            if ($fourthQuarter === null && $grade->second_quarter !== null) {
+                                $fourthQuarter = $grade->second_quarter;
+                            }
+                        }
+
+                        $displayStatus = $grade?->status ?? Grade::STATUS_DRAFT;
+                        if ($isApproved && !$hasRecordedScores) {
+                            $displayStatus = Grade::STATUS_DRAFT;
+                        }
+                        $statusDisplay = $isCredited ? 'Credited' : $displayStatus;
 
                         return [
                             'student_personal_info_id' => $studentInfo?->id,
@@ -622,18 +663,20 @@ class FacultyController extends Controller
                             'name' => $studentInfo?->full_name,
                             'email' => $studentUser?->email,
                             'grade_level' => $studentInfo?->grade_level,
-                            'can_edit' => !$grade || (!$isApproved && !$isLocked),
+                            'can_edit' => $isCredited ? false : (!$grade || (!$isApproved && !$isLocked) || ($isApproved && !$hasRecordedScores)),
                             'grades' => [
                                 'first_quarter' => $isSummer ? null : $grade?->first_quarter,
                                 'second_quarter' => $isSummer ? null : $grade?->second_quarter,
-                                'third_quarter' => $isSummer ? null : $grade?->third_quarter,
-                                'fourth_quarter' => $isSummer ? null : $grade?->fourth_quarter,
+                                'third_quarter' => $thirdQuarter,
+                                'fourth_quarter' => $fourthQuarter,
                                 'semester_grade' => $grade?->semester_grade,
                                 'summer_grade' => $grade?->summer_grade,
                                 'original_failed_grade' => $grade?->original_failed_grade,
                                 'remarks' => $grade?->remarks,
-                                'status' => $grade?->status,
+                                'status' => $displayStatus,
+                                'status_display' => $statusDisplay,
                                 'approval_notes' => $grade?->approval_notes,
+                                'is_credited' => $isCredited,
                             ],
                         ];
                     })->values() ?? collect(),
@@ -1925,7 +1968,7 @@ class FacultyController extends Controller
     }
 
     /**
-     * Coordinator creates a credited subject (pending registrar approval).
+     * Coordinator creates a credited subject (auto-approved, no registrar review).
      */
     public function storeCoordinatorCredit(\Illuminate\Http\Request $request)
     {
@@ -1959,10 +2002,11 @@ class FacultyController extends Controller
         }
 
         $avg = null;
-        if (array_key_exists('quarter1', $validated) && array_key_exists('quarter2', $validated)
-            && $validated['quarter1'] !== null && $validated['quarter2'] !== null) {
-            $avg = round(($validated['quarter1'] + $validated['quarter2']) / 2, 2);
+        if (($validated['quarter1'] ?? null) !== null && ($validated['quarter2'] ?? null) !== null) {
+            $avg = round((floatval($validated['quarter1']) + floatval($validated['quarter2'])) / 2, 2);
         }
+
+        $remarks = $avg !== null ? ($avg >= 75 ? 'Passed' : 'Failed') : null;
 
         \App\Models\CreditedSubject::create([
             'student_personal_info_id' => $enrollment->student_personal_info_id,
@@ -1971,19 +2015,18 @@ class FacultyController extends Controller
             'previous_school' => $previousSchool,
             'quarter1' => $validated['quarter1'] ?? null,
             'quarter2' => $validated['quarter2'] ?? null,
-            'credited_grade' => $avg, // pending until registrar approves (credited_by remains null)
-            'remarks' => $avg !== null ? ($avg >= 75 ? 'Passed' : 'Failed') : null,
-            // Coordinator who first credits the subject
+            'credited_grade' => $avg,
+            'remarks' => $remarks,
             'credited_by' => $user->id,
-            // approved_by remains null until registrar approval
-            'credited_at' => null,
+            'approved_by' => $user->id,
+            'credited_at' => now(),
         ]);
 
-        return back()->with('success', 'Submitted to registrar for approval.');
+        return back()->with('success', 'Subject credited successfully.');
     }
 
     /**
-     * Coordinator updates a credited subject (still pending registrar approval).
+     * Coordinator updates a credited subject (auto-approved on save).
      */
     public function updateCoordinatorCredit(\Illuminate\Http\Request $request, \App\Models\CreditedSubject $creditedSubject)
     {
@@ -1992,49 +2035,29 @@ class FacultyController extends Controller
             abort(403);
         }
 
-        // Prevent editing if already approved by registrar
-        if ($creditedSubject->approved_by !== null) {
-            return back()->withErrors(['error' => 'This credited subject has already been approved by the registrar and cannot be edited.']);
-        }
-
-        // Prevent editing if already submitted (credited_by is set)
-        // Once submitted, it can only be edited by registrar or if rejected
-        if ($creditedSubject->credited_by !== null) {
-            return back()->withErrors(['error' => 'This credited subject has already been submitted and cannot be edited. Please wait for registrar approval or contact the registrar for changes.']);
-        }
-
         $validated = $request->validate([
             'quarter1' => 'nullable|numeric|min:0|max:100',
             'quarter2' => 'nullable|numeric|min:0|max:100',
-            'credited_grade' => 'nullable|numeric|min:0|max:100',
-            'remarks' => 'nullable|string|max:500',
         ]);
 
-        $update = [];
-        if (array_key_exists('quarter1', $validated)) $update['quarter1'] = $validated['quarter1'];
-        if (array_key_exists('quarter2', $validated)) $update['quarter2'] = $validated['quarter2'];
-        if (array_key_exists('credited_grade', $validated)) $update['credited_grade'] = $validated['credited_grade'];
-        if (empty($update['credited_grade']) && isset($validated['quarter1'], $validated['quarter2'])
-            && $validated['quarter1'] !== null && $validated['quarter2'] !== null) {
-            $update['credited_grade'] = round(($validated['quarter1'] + $validated['quarter2']) / 2, 2);
-        }
-        if (array_key_exists('remarks', $validated)) {
-            $update['remarks'] = $validated['remarks'];
-        } elseif (isset($update['credited_grade'])) {
-            $update['remarks'] = $update['credited_grade'] >= 75 ? 'Passed' : 'Failed';
-        }
-        // Ensure it remains pending registrar approval
-        $update['approved_by'] = null;
-        $update['credited_at'] = null;
-
-        // Track coordinator who last edited credit
-        $update['credited_by'] = $user->id;
-
-        if (!empty($update)) {
-            $creditedSubject->update($update);
+        $avg = null;
+        if (($validated['quarter1'] ?? null) !== null && ($validated['quarter2'] ?? null) !== null) {
+            $avg = round((floatval($validated['quarter1']) + floatval($validated['quarter2'])) / 2, 2);
         }
 
-        return back()->with('success', 'Updated and pending registrar approval.');
+        $remarks = $avg !== null ? ($avg >= 75 ? 'Passed' : 'Failed') : null;
+
+        $creditedSubject->update([
+            'quarter1' => $validated['quarter1'] ?? null,
+            'quarter2' => $validated['quarter2'] ?? null,
+            'credited_grade' => $avg,
+            'remarks' => $remarks,
+            'credited_by' => $user->id,
+            'approved_by' => $user->id,
+            'credited_at' => now(),
+        ]);
+
+        return back()->with('success', 'Subject updated successfully.');
     }
 
     /**

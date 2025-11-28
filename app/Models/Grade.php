@@ -42,6 +42,8 @@ class Grade extends Model
         'semester_average',
         'auto_calculated',
         'notes',
+        'is_credited',
+        'credited_subject_id',
         // Snapshot fields for data integrity
         'subject_name_snapshot',
         'subject_code_snapshot',
@@ -70,6 +72,7 @@ class Grade extends Model
         'is_prerequisite_failed' => 'boolean',
         'auto_calculated' => 'boolean',
         'is_locked' => 'boolean',
+        'is_credited' => 'boolean',
     ];
 
     /**
@@ -272,6 +275,11 @@ class Grade extends Model
     public function lockedByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'locked_by');
+    }
+
+    public function creditedSubject(): BelongsTo
+    {
+        return $this->belongsTo(CreditedSubject::class, 'credited_subject_id');
     }
 }
 

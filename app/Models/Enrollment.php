@@ -9,6 +9,18 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use App\Models\ClassModel;
+use App\Models\ClassDetail;
+use App\Models\ClassRecord;
+use App\Models\CreditedSubject;
+use App\Models\Grade;
+use App\Models\SchoolYear;
+use App\Models\Section;
+use App\Models\Semester;
+use App\Models\Strand;
+use App\Models\Subject;
+use App\Models\User;
 
 class Enrollment extends Model
 {
@@ -40,6 +52,7 @@ class Enrollment extends Model
         'processed_at',
         'assigned_strand_id',
         'assigned_section_id',
+        'curriculum_id',
         'approved_by',
         'approved_at',
         'confirmed_at',
@@ -52,6 +65,33 @@ class Enrollment extends Model
         'is_locked',
         'locked_at',
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(function (Enrollment $enrollment) {
+            if (!$enrollment->curriculum_id) {
+                $enrollment->academicRecords()->delete();
+                return;
+            }
+
+            if (!in_array($enrollment->status, [
+                self::STATUS_PRE_ENROLLED,
+                self::STATUS_RECOMMENDED,
+                self::STATUS_ENROLLED,
+            ], true)) {
+                return;
+            }
+
+            $needsRefresh = $enrollment->wasChanged([
+                'curriculum_id',
+                'assigned_strand_id',
+            ]);
+
+            if ($needsRefresh || !$enrollment->academicRecords()->exists()) {
+                $enrollment->syncAcademicRecords();
+            }
+        });
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -130,11 +170,24 @@ class Enrollment extends Model
     }
 
     /**
+     * Get the curriculum linked to this enrollment.
+     */
+    public function curriculum(): BelongsTo
+    {
+        return $this->belongsTo(Curriculum::class, 'curriculum_id');
+    }
+
+    /**
      * Get the class details associated with this enrollment.
      */
     public function classDetails(): HasMany
     {
         return $this->hasMany(ClassDetail::class, 'enrollment_id');
+    }
+
+    public function academicRecords(): HasMany
+    {
+        return $this->hasMany(AcademicRecord::class);
     }
 
     /**
@@ -359,6 +412,58 @@ class Enrollment extends Model
     public function scopeApproved($query)
     {
         return $query->where('status', self::STATUS_ENROLLED);
+    }
+
+    /**
+     * Copy the current curriculum subjects into academic_records for pending/recommended states.
+     */
+    public function syncAcademicRecords(): void
+    {
+        $this->loadMissing(['curriculum', 'assignedSection']);
+
+        if (!$this->curriculum_id || !$this->curriculum) {
+            $this->academicRecords()->delete();
+            return;
+        }
+
+        $strandId = $this->assigned_strand_id
+            ?? $this->assignedSection?->strand_id
+            ?? null;
+
+        $subjectsQuery = Subject::with('semester')
+            ->where('curriculum_id', $this->curriculum_id)
+            ->orderBy('year_level')
+            ->orderBy('Semester')
+            ->orderBy('Subject_name');
+
+        if ($strandId) {
+            $subjectsQuery->where(function ($query) use ($strandId) {
+                $query->where('strand_id', $strandId)
+                    ->orWhereNull('strand_id');
+            });
+        }
+
+        $subjects = $subjectsQuery->get();
+
+        DB::transaction(function () use ($subjects, $strandId) {
+            $this->academicRecords()->delete();
+
+            foreach ($subjects as $index => $subject) {
+                $this->academicRecords()->create([
+                    'curriculum_id' => $this->curriculum_id,
+                    'strand_id' => $strandId,
+                    'subject_id' => $subject->Id,
+                    'subject_name' => $subject->Subject_name,
+                    'subject_code' => $subject->Subject_code,
+                    'year_level' => $subject->year_level,
+                    'semester' => $subject->Semester,
+                    'semester_label' => $subject->semester?->semester_type ?? $subject->Semester,
+                    'prerequisites' => $subject->PREREQUISITES,
+                    'corequisites' => $subject->{'CO-REQUISITES'} ?? $subject->getAttribute('CO-REQUISITES'),
+                    'sort_order' => $index + 1,
+                ]);
+            }
+        });
     }
 
     /**
@@ -854,7 +959,7 @@ class Enrollment extends Model
     private function resolveClasses(): Collection
     {
         // Ensure related models are loaded
-        $this->loadMissing(['assignedSection.strand', 'assignedStrand', 'creditedSubjects']);
+        $this->loadMissing(['assignedSection.strand', 'assignedStrand', 'creditedSubjects', 'studentPersonalInfo']);
         $section = $this->assignedSection;
 
         if (!$section || !$section->id) {
@@ -876,96 +981,102 @@ class Enrollment extends Model
             ->map(fn (ClassDetail $detail) => $detail->class)
             ->filter(fn ($class) => $class !== null);
 
-        // For enrolled students: merge ClassDetails with section classes to ensure new schedules appear
-        // This handles cases where new classes were added after enrollment or ClassDetails are incomplete
+        $classes = collect();
+
         if ($this->status === self::STATUS_ENROLLED) {
-            // Get all active classes for the section matching enrollment's school year and semester
+            // For enrolled students: merge ClassDetails with section classes to ensure new schedules appear
             $sectionClasses = ClassModel::with(['subject', 'section', 'faculty'])
                 ->where('Section_id', $section->id)
                 ->where('is_active', true);
-            
+
             if ($this->school_year_id) {
                 $sectionClasses->where('school_year_id', $this->school_year_id);
             }
-            
+
             if ($this->semester_id) {
                 $sectionClasses->where('Semester_id', $this->semester_id);
             }
-            
+
             $sectionClasses = $sectionClasses->get();
-            
-            // Merge: use ClassDetails as base, but add any section classes not in ClassDetails
+
             $classDetailIds = $classesFromDetails->pluck('Id')->all();
             $newClasses = $sectionClasses->reject(function ($class) use ($classDetailIds) {
                 return in_array($class->Id, $classDetailIds);
             });
-            
-            // Combine: ClassDetails first (authoritative), then new section classes
+
             $classes = $classesFromDetails->merge($newClasses);
-            
-            return $classes->values();
-        }
+        } elseif ($classesFromDetails->isNotEmpty()) {
+            // For non-enrolled students, rely on ClassDetails if already available
+            $classes = $classesFromDetails->values();
+        } else {
+            // If no ClassDetails found yet, get all classes for the assigned section directly
+            $baseQuery = ClassModel::with(['subject', 'section', 'faculty'])
+                ->where('Section_id', $section->id)
+                ->where('is_active', true);
 
-        // For non-enrolled students, use ClassDetails if available
-        if ($classesFromDetails->isNotEmpty()) {
-            return $classesFromDetails->values();
-        }
+            // Strategy 1: Try exact match with school year and semester
+            if ($this->school_year_id && $this->semester_id) {
+                $classes = (clone $baseQuery)
+                    ->where('school_year_id', $this->school_year_id)
+                    ->where('Semester_id', $this->semester_id)
+                    ->get();
+            }
 
-        // If no ClassDetails found, get all classes for the assigned section directly
-        // This is important for previewing classes when section is selected before enrollment is finalized
-        $baseQuery = ClassModel::with(['subject', 'section', 'faculty'])
-            ->where('Section_id', $section->id)
-            ->where('is_active', true);
-        
-        // Initialize classes collection
-        $classes = collect();
-        
-        // Strategy 1: Try exact match with school year and semester
-        if ($this->school_year_id && $this->semester_id) {
-            $classes = (clone $baseQuery)
-                ->where('school_year_id', $this->school_year_id)
-                ->where('Semester_id', $this->semester_id)
-                ->get();
-        }
-        
-        // Strategy 2: Try with just school year
-        if ($classes->isEmpty() && $this->school_year_id) {
-            $classes = (clone $baseQuery)
-                ->where('school_year_id', $this->school_year_id)
-                ->get();
-        }
-        
-        // Strategy 3: Try with just semester
-        if ($classes->isEmpty() && $this->semester_id) {
-            $classes = (clone $baseQuery)
-                ->where('Semester_id', $this->semester_id)
-                ->get();
-        }
-        
-        // Strategy 4: Get all active classes for this section
-        // This ensures classes show when section is selected, even if school year/semester don't match exactly
-        if ($classes->isEmpty()) {
-            $classes = $baseQuery->get();
-        }
+            // Strategy 2: Try with just school year
+            if ($classes->isEmpty() && $this->school_year_id) {
+                $classes = (clone $baseQuery)
+                    ->where('school_year_id', $this->school_year_id)
+                    ->get();
+            }
 
-        // Strategy 5: If still empty, try loading classes from section relationship directly
-        if ($classes->isEmpty()) {
-            $section->load(['classes' => function ($query) {
-                $query->with(['subject', 'section', 'faculty'])
-                    ->where('is_active', true);
-            }]);
-            $classes = $section->classes ?? collect();
+            // Strategy 3: Try with just semester
+            if ($classes->isEmpty() && $this->semester_id) {
+                $classes = (clone $baseQuery)
+                    ->where('Semester_id', $this->semester_id)
+                    ->get();
+            }
+
+            // Strategy 4: Get all active classes for this section
+            if ($classes->isEmpty()) {
+                $classes = $baseQuery->get();
+            }
+
+            // Strategy 5: If still empty, try loading classes from section relationship directly
+            if ($classes->isEmpty()) {
+                $section->load(['classes' => function ($query) {
+                    $query->with(['subject', 'section', 'faculty'])
+                        ->where('is_active', true);
+                }]);
+                $classes = $section->classes ?? collect();
+            }
         }
 
         // Determine current strand for filtering (section strand takes precedence)
         $currentStrandId = $section?->strand_id ?? $this->assigned_strand_id;
 
         // Exclude classes whose subjects have been credited (approved) for this enrollment
-        $creditedSubjectIds = $this->creditedSubjects
+        $enrollmentCreditedSubjectIds = $this->creditedSubjects
             ->whereNotNull('approved_by')
             ->pluck('subject_id')
             ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
             ->all();
+
+        $studentCreditedSubjectIds = [];
+        if ($this->student_personal_info_id) {
+            $studentCreditedSubjectIds = CreditedSubject::where('student_personal_info_id', $this->student_personal_info_id)
+                ->whereNotNull('approved_by')
+                ->pluck('subject_id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        $creditedSubjectIds = array_unique(array_merge($enrollmentCreditedSubjectIds, $studentCreditedSubjectIds));
 
         if (!empty($creditedSubjectIds) || $currentStrandId) {
             $classes = $classes->reject(function ($class) use ($creditedSubjectIds, $currentStrandId) {

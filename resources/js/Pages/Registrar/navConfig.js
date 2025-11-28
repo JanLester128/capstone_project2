@@ -47,8 +47,8 @@ export const registrarNav = [
         icon: 'strands'
       },
       { 
-        href: '/registrar/subjects', 
-        label: 'Subjects',
+        href: '/registrar/curriculums', 
+        label: 'Curriculums',
         icon: 'subjects'
       },
       { 
@@ -100,7 +100,7 @@ export const registrarNavFlat = [
   { href: '/registrar/re-enroll-students', label: 'Re-Enroll Students' },
   { href: '/registrar/school-years', label: 'School Years' },
   { href: '/registrar/strands', label: 'Strands & Sections' },
-  { href: '/registrar/subjects', label: 'Subjects' },
+  { href: '/registrar/curriculums', label: 'Curriculums' },
   { href: '/registrar/classes', label: 'Classes' },
   { href: '/registrar/faculty', label: 'Faculty' },
   { href: '/registrar/reports', label: 'Reports' },

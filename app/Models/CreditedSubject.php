@@ -5,15 +5,28 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Services\CreditedSubjectGradeService;
 
 class CreditedSubject extends Model
 {
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::saved(function (CreditedSubject $credit) {
+            app(CreditedSubjectGradeService::class)->syncGrade($credit);
+        });
+
+        static::deleted(function (CreditedSubject $credit) {
+            app(CreditedSubjectGradeService::class)->deleteGrade($credit);
+        });
+    }
+
     protected $fillable = [
         'student_personal_info_id',
         'enrollment_id',
         'subject_id',
+        'curriculum_id',
         'previous_school',
         'quarter1',
         'quarter2',
@@ -53,6 +66,11 @@ class CreditedSubject extends Model
     public function subject(): BelongsTo
     {
         return $this->belongsTo(Subject::class, 'subject_id', 'Id');
+    }
+
+    public function curriculum(): BelongsTo
+    {
+        return $this->belongsTo(Curriculum::class, 'curriculum_id');
     }
 
     /**

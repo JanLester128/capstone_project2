@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Section;
 use App\Models\ClassModel;
+use App\Models\ClassDetail;
 use App\Models\StudentPersonalInfo;
 use App\Models\StudentStrandPreference;
 use App\Models\Strand;
@@ -13,6 +14,9 @@ use App\Models\Semester;
 use App\Models\Enrollment;
 use App\Models\Grade;
 use App\Models\Subject;
+use App\Models\Curriculum;
+use App\Models\AcademicRecord;
+use App\Models\CreditedSubject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -67,7 +71,7 @@ class StudentController extends Controller
                         ->orderByDesc('submitted_at')
                         ->first();
                 }
-                
+
                 // Priority 2: Fall back to any enrollment for the school year (if no active semester)
                 if (!$existingEnrollment && !$activeSemester && $activeSchoolYear) {
                     $existingEnrollment = Enrollment::where('student_personal_info_id', $studentInfo->id)
@@ -108,6 +112,48 @@ class StudentController extends Controller
                         }
                         return $row;
                     })->values()->all();
+
+                    // Append credited grades for the active term so they appear in the schedule list (with grade info)
+                    $semesterCode = $this->mapSemesterToCode($existingEnrollment->semester?->semester_type);
+                    $creditedGrades = Grade::with('subject')
+                        ->where('student_personal_info_id', $existingEnrollment->student_personal_info_id)
+                        ->where('status', Grade::STATUS_APPROVED)
+                        ->where('is_credited', true)
+                        ->where('school_year_id', $existingEnrollment->school_year_id)
+                        ->when($semesterCode, function ($query) use ($semesterCode) {
+                            $query->where('semester', $semesterCode);
+                        })
+                        ->get();
+
+                    if ($creditedGrades->isNotEmpty()) {
+                        $creditedScheduleEntries = $creditedGrades->map(function (Grade $grade) {
+                            $subjectName = $grade->subject_name_snapshot
+                                ?? $grade->subject?->Subject_name
+                                ?? 'Credited Subject';
+                            $subjectCode = $grade->subject_code_snapshot
+                                ?? $grade->subject?->Subject_code;
+
+                            return [
+                                'id' => 'credit-grade-' . $grade->id,
+                                'subject' => $subjectName,
+                                'subject_code' => $subjectCode,
+                                'section' => $grade->section_name_snapshot ?? 'Credited Subject',
+                                'faculty' => 'Credited Grade',
+                                'day' => 'Credited Subject',
+                                'time' => null,
+                                'start_time' => null,
+                                'end_time' => null,
+                                'is_credited' => true,
+                                'quarter1' => $grade->first_quarter,
+                                'quarter2' => $grade->second_quarter,
+                                'final_grade' => $grade->semester_grade,
+                                'remarks' => $grade->remarks,
+                                'previous_school' => $grade->notes === 'Credited Subject' ? 'Credited' : null,
+                            ];
+                        })->all();
+
+                        $schedule = array_merge($schedule, $creditedScheduleEntries);
+                    }
 
                     $enrollmentStatus['isEnrolled'] = $existingEnrollment->status === Enrollment::STATUS_ENROLLED;
                     $enrollmentStatus['latestEnrollment'] = [
@@ -201,574 +247,684 @@ class StudentController extends Controller
         ]);
     }
 
-    /**
-     * Display the student's classes.
-     */
-    public function classes()
+    public function profile()
     {
         $user = Auth::user();
 
         $student = User::with(['studentPersonalInfo'])->find($user->id);
         $enrollmentStatus = $this->getEnrollmentStatus($student);
 
-        $studentInfo = $student?->studentPersonalInfo;
-        $enrollments = collect();
-
-        if ($studentInfo) {
-            $enrollments = Enrollment::with([
-                'schoolYear',
-                'semester',
-                'assignedSection.strand',
-                'assignedSection.adviser',
-                'assignedStrand',
-                'creditedSubjects.subject',
-            ])
-            ->where('student_personal_info_id', $studentInfo->id)
-            ->where('status', Enrollment::STATUS_ENROLLED)
-            ->orderByDesc('processed_at')
-            ->orderByDesc('submitted_at')
-            ->get()
-            ->map(function (Enrollment $enrollment) {
-                $schedule = $enrollment->toScheduleEntries();
-                $section = $enrollment->assignedSection;
-                $strand = $section?->strand ?? $enrollment->assignedStrand;
-                $adviser = $section?->adviser;
-
-                // Attach grades for the same term (match by subject code)
-                $semesterCode = $this->mapSemesterToCode($enrollment->semester?->semester_type);
-                $gradesForTerm = Grade::with('subject')
-                    ->where('student_personal_info_id', $enrollment->student_personal_info_id)
-                    ->where('school_year_id', $enrollment->school_year_id)
-                    ->where('semester', $semesterCode)
-                    ->where('status', Grade::STATUS_APPROVED)
-                    ->get()
-                    ->mapWithKeys(function (Grade $grade) {
-                        $code = $grade->subject_code_snapshot ?? $grade->subject?->Subject_code;
-                        return [$code => [
-                            'first_quarter' => $grade->first_quarter,
-                            'second_quarter' => $grade->second_quarter,
-                            'third_quarter' => $grade->third_quarter,
-                            'fourth_quarter' => $grade->fourth_quarter,
-                            'original_failed_grade' => $grade->original_failed_grade,
-                            'summer_grade' => $grade->summer_grade,
-                            'final_grade' => $grade->semester_grade,
-                            'remarks' => $grade->remarks,
-                            'notes' => $grade->notes,
-                        ]];
-                    });
-
-                // Build credited subjects map by subject_code (approved credits only)
-                $creditedSubjectsMap = $enrollment->creditedSubjects
-                    ->whereNotNull('approved_by')
-                    ->mapWithKeys(function ($credit) use ($enrollment) {
-                        $subject = $credit->subject;
-                        $code = $subject?->Subject_code ?? null;
-                        if (!$code) {
-                            return [];
-                        }
-                        
-                        $semesterLabel = $enrollment->semester?->semester_type;
-                        $semesterCode = $this->mapSemesterToCode($semesterLabel); // '1st' or '2nd'
-
-                        // Map credited quarters into grade components based on semester
-                        $first = null;
-                        $second = null;
-                        $third = null;
-                        $fourth = null;
-
-                        if ($semesterCode === '1st') {
-                            $first = $credit->quarter1;
-                            $second = $credit->quarter2;
-                        } elseif ($semesterCode === '2nd') {
-                            $third = $credit->quarter1;
-                            $fourth = $credit->quarter2;
-                        }
-
-                        return [$code => [
-                            'first_quarter' => $first,
-                            'second_quarter' => $second,
-                            'third_quarter' => $third,
-                            'fourth_quarter' => $fourth,
-                            'final_grade' => $credit->credited_grade,
-                            'remarks' => $credit->remarks ? ('CREDITED - ' . $credit->remarks) : 'CREDITED',
-                            'is_credited' => true,
-                        ]];
-                    });
-
-                // Merge grade info and credited subjects into schedule rows
-                $schedule = collect($schedule)->map(function ($row) use ($gradesForTerm, $creditedSubjectsMap) {
-                    $code = $row['subject_code'] ?? null;
-                    
-                    // First, try to merge regular grades
-                    $g = $code ? ($gradesForTerm[$code] ?? null) : null;
-                    if ($g) {
-                        $row = array_merge($row, $g);
-                    }
-                    
-                    // Then, check if this subject is credited and merge credited data
-                    $credited = $code ? ($creditedSubjectsMap[$code] ?? null) : null;
-                    if ($credited) {
-                        // Merge credited grades (they take precedence if no regular grades)
-                        if (!$g || !$row['first_quarter']) {
-                            $row['first_quarter'] = $credited['first_quarter'];
-                        }
-                        if (!$g || !$row['second_quarter']) {
-                            $row['second_quarter'] = $credited['second_quarter'];
-                        }
-                        if (!$g || !$row['third_quarter']) {
-                            $row['third_quarter'] = $credited['third_quarter'];
-                        }
-                        if (!$g || !$row['fourth_quarter']) {
-                            $row['fourth_quarter'] = $credited['fourth_quarter'];
-                        }
-                        if (!$g || !$row['final_grade']) {
-                            $row['final_grade'] = $credited['final_grade'];
-                        }
-                        // Always mark as credited and use credited remarks
-                        $row['is_credited'] = true;
-                        $row['remarks'] = $credited['remarks'];
-                    }
-                    
-                    return $row;
-                })->values()->all();
-
-                return [
-                    'id' => $enrollment->id,
-                    'status' => $enrollment->status,
-                    'status_text' => $enrollment->status_text,
-                    'school_year' => $enrollment->schoolYear?->formatted,
-                    'semester' => $enrollment->semester?->semester_type,
-                    'strand' => [
-                        'name' => $strand?->Strand_name,
-                        'code' => $strand?->Strand_code,
-                    ],
-                    'section' => $section?->section_name,
-                    'adviser' => $adviser ? trim(($adviser->FirstName ?? '') . ' ' . ($adviser->LastName ?? '')) : null,
-                    'processed_at' => optional($enrollment->processed_at)->toDateTimeString(),
-                    'submitted_at' => optional($enrollment->submitted_at)->toDateTimeString(),
-                    'schedule' => $schedule,
-                ];
-            })
-            ->values();
-        }
-
-        return Inertia::render('Students/Classes', [
-            'enrollments' => $enrollments,
-            'enrollmentStatus' => $enrollmentStatus,
+        return Inertia::render('Students/Profile', [
+            'student' => $student,
         ]);
     }
 
     /**
-     * Display the student's schedule.
+     * Show the student's current class schedule.
      */
     public function schedule()
     {
+        /** @var User $user */
         $user = Auth::user();
-        $student = User::with(['studentPersonalInfo'])->find($user->id);
+
+        $student = User::with('studentPersonalInfo')->findOrFail($user->id);
         $enrollmentStatus = $this->getEnrollmentStatus($student);
-
-        $studentInfo = $student?->studentPersonalInfo;
-        $activeSchoolYear = $enrollmentStatus['schoolYear'] ?? null;
-
-        $currentEnrollment = null;
-        $schedule = [];
-
-        if ($studentInfo) {
-            $enrollmentQuery = Enrollment::with([
-                'schoolYear',
-                'semester',
-                'assignedSection.strand',
-                'assignedSection.adviser',
-                'assignedStrand',
-                'creditedSubjects.subject',
-            ])
-            ->where('student_personal_info_id', $studentInfo->id)
-            ->where('status', Enrollment::STATUS_ENROLLED)
-            ->orderByDesc('processed_at')
-            ->orderByDesc('submitted_at');
-
-            if ($activeSchoolYear) {
-                // Get active semester if available
-                $activeSemester = $activeSchoolYear->semesters()->where('is_active', true)->first();
-                
-                $enrollmentsForYear = (clone $enrollmentQuery)
-                    ->where('school_year_id', $activeSchoolYear->id)
-                    ->get();
-
-                // Priority 1: Try to find enrollment for active semester (STRICT - only show if enrolled for current semester)
-                if ($activeSemester) {
-                    $currentEnrollment = $enrollmentsForYear->firstWhere('semester_id', $activeSemester->id);
-                } else {
-                    // Priority 2: No active semester defined, fall back to any enrolled enrollment in this school year
-                    $currentEnrollment = $enrollmentsForYear->firstWhere('status', 'enrolled')
-                        ?? $enrollmentsForYear->first();
-                }
-            } else {
-                // Priority 3: No active school year, fall back to latest overall enrollment
-                $currentEnrollment = $enrollmentQuery->first();
-            }
-
-            if ($currentEnrollment) {
-                $schedule = $currentEnrollment->toScheduleEntries();
-                
-                // Mark credited subjects in schedule (approved credits only)
-                $creditedSubjectCodes = $currentEnrollment->creditedSubjects
-                    ->whereNotNull('approved_by')
-                    ->map(function ($credit) {
-                        return $credit->subject?->Subject_code;
-                    })
-                    ->filter()
-                    ->unique()
-                    ->values()
-                    ->all();
-                
-                // Get class IDs from schedule entries
-                $classIds = collect($schedule)->pluck('id')->filter()->unique()->all();
-                
-                // Get classmates for each class (excluding current student)
-                $classmatesByClass = [];
-                if (!empty($classIds) && $studentInfo && $currentEnrollment) {
-                    // Get all class details for these classes in the same school year and semester
-                    $allClassDetails = \App\Models\ClassDetail::whereIn('class_id', $classIds)
-                        ->whereHas('enrollment', function ($q) use ($currentEnrollment) {
-                            $q->where('school_year_id', $currentEnrollment->school_year_id)
-                              ->where('semester_id', $currentEnrollment->semester_id)
-                              ->where('status', Enrollment::STATUS_ENROLLED);
-                        })
-                        ->with(['enrollment.studentPersonalInfo'])
-                        ->get();
-                    
-                    // Group by class_id
-                    $classDetailsByClass = $allClassDetails->groupBy('class_id');
-                    
-                    // Process each class
-                    foreach ($classIds as $classId) {
-                        $classDetails = $classDetailsByClass->get($classId, collect());
-                        
-                        $classmates = $classDetails
-                            ->map(function ($detail) use ($studentInfo) {
-                                $enrollment = $detail->enrollment;
-                                $classmateInfo = $enrollment?->studentPersonalInfo;
-                                
-                                // Skip current student
-                                if ($classmateInfo && $classmateInfo->id === $studentInfo->id) {
-                                    return null;
-                                }
-                                
-                                if (!$classmateInfo) {
-                                    return null;
-                                }
-                                
-                                return [
-                                    'id' => $classmateInfo->id,
-                                    'name' => $classmateInfo->full_name ?? trim(($classmateInfo->first_name ?? '') . ' ' . ($classmateInfo->last_name ?? '')),
-                                    'lrn' => $classmateInfo->lrn,
-                                ];
-                            })
-                            ->filter()
-                            ->unique('id')
-                            ->values()
-                            ->all();
-                        
-                        $classmatesByClass[$classId] = $classmates;
-                    }
-                }
-                
-                // Add is_credited flag and classmates to schedule entries
-                $schedule = collect($schedule)->map(function ($row) use ($creditedSubjectCodes, $classmatesByClass) {
-                    $code = $row['subject_code'] ?? null;
-                    if ($code && in_array($code, $creditedSubjectCodes)) {
-                        $row['is_credited'] = true;
-                    }
-                    
-                    // Add classmates for this class
-                    $classId = $row['id'] ?? null;
-                    if ($classId && isset($classmatesByClass[$classId])) {
-                        $row['classmates'] = $classmatesByClass[$classId];
-                        $row['classmates_count'] = count($classmatesByClass[$classId]);
-                    } else {
-                        $row['classmates'] = [];
-                        $row['classmates_count'] = 0;
-                    }
-                    
-                    return $row;
-                })->values()->all();
-            }
-        }
-
-        $currentEnrollmentSummary = null;
-
-        if ($currentEnrollment) {
-            $section = $currentEnrollment->assignedSection;
-            $strand = $section?->strand ?? $currentEnrollment->assignedStrand;
-            $adviser = $section?->adviser;
-
-            $currentEnrollmentSummary = [
-                'id' => $currentEnrollment->id,
-                'status' => $currentEnrollment->status,
-                'status_text' => $currentEnrollment->status_text,
-                'school_year' => $currentEnrollment->schoolYear?->formatted,
-                'semester' => $currentEnrollment->semester?->semester_type,
-                'strand' => $strand?->Strand_name,
-                'strand_code' => $strand?->Strand_code,
-                'section' => $section?->section_name,
-                'adviser' => $adviser ? trim(($adviser->FirstName ?? '') . ' ' . ($adviser->LastName ?? '')) : null,
-                'processed_at' => optional($currentEnrollment->processed_at)->toDateTimeString(),
-            ];
-        }
+        $currentEnrollment = $enrollmentStatus['latestEnrollment'] ?? null;
+        $schedule = $currentEnrollment['schedule'] ?? [];
 
         return Inertia::render('Students/Schedule', [
             'schedule' => $schedule,
-            'currentEnrollment' => $currentEnrollmentSummary,
+            'currentEnrollment' => $currentEnrollment,
             'enrollmentStatus' => $enrollmentStatus,
         ]);
     }
 
     /**
-     * Display the student's grades.
+     * Show student's historical classes with grades.
      */
-    public function grades()
+    public function classes()
     {
+        /** @var User $user */
         $user = Auth::user();
-        $student = User::with(['studentPersonalInfo', 'assignedStrand'])->find($user->id);
+
+        $student = User::with('studentPersonalInfo')->findOrFail($user->id);
         $enrollmentStatus = $this->getEnrollmentStatus($student);
+        $studentInfo = $student->studentPersonalInfo;
 
-        // Get active school year and semester (same as schedule page)
-        $activeSchoolYear = SchoolYear::where('is_active', true)->first();
-        $activeSemester = $activeSchoolYear ? 
-            Semester::where('school_year_id', $activeSchoolYear->id)
-                   ->where('is_active', true)
-                   ->first() : null;
-
-        $studentInfo = $student?->studentPersonalInfo;
-        $grades = collect();
-        $semesterPerformance = null;
+        $classRecords = collect();
 
         if ($studentInfo) {
-            // Get all approved grades (not filtered by active semester)
-            // This allows viewing previous semesters while defaulting to active semester
             $grades = Grade::with([
-                'subject',
-                'classModel.faculty',
-                'classModel.semester',
-                'schoolYear',
-            ])
+                    'subject',
+                    'faculty',
+                    'schoolYear',
+                    'classModel.section.strand',
+                ])
                 ->where('student_personal_info_id', $studentInfo->id)
                 ->where('status', Grade::STATUS_APPROVED)
-                ->orderBy('school_year_id', 'desc')
-                ->orderByRaw("FIELD(semester, '1st', '2nd', 'Summer')")
-                ->orderBy('approved_at', 'desc')
-                ->get()
-                ->map(function (Grade $grade) {
-                    $class = $grade->classModel;
-                    $faculty = $class?->faculty;
-                    $isSummer = ($grade->semester === 'Summer');
+                ->where(function ($query) {
+                    $query->where('is_credited', false)
+                        ->orWhereNull('is_credited');
+                })
+                ->orderBy('school_year_id')
+                ->orderBy('semester')
+                ->orderBy('subject_name_snapshot')
+                ->get();
 
-                    // For summer grades, use semester_grade directly (already calculated)
-                    // For regular semesters, calculate from quarters or use semester_grade
-                    if ($isSummer && $grade->semester_grade !== null) {
-                        $final = $grade->semester_grade;
-                    } else {
-                        $final = $grade->semester_grade ?? $this->averageGradeComponents([
-                            $grade->first_quarter,
-                            $grade->second_quarter,
-                            $grade->third_quarter,
-                            $grade->fourth_quarter,
-                        ]);
-                    }
+            $classRecords = $grades->groupBy(function ($grade) {
+                $schoolYearLabel = $grade->school_year_label
+                    ?? $grade->schoolYear?->formatted
+                    ?? 'School Year N/A';
+                $semesterLabel = $grade->semester_label
+                    ?? $this->formatSemesterLabel($grade->semester);
 
-                    $passed = $final !== null ? $final >= 75 : ($grade->remarks !== 'Failed');
+                return $schoolYearLabel . '|' . $semesterLabel;
+            })->map(function ($group) {
+                /** @var Grade $first */
+                $first = $group->first();
+                $section = $first->classModel?->section;
+
+                $schedule = $group->map(function (Grade $grade) {
+                    $subjectName = $grade->subject_name_snapshot ?? $grade->subject?->Subject_name;
+                    $subjectCode = $grade->subject_code_snapshot ?? $grade->subject?->Subject_code;
+                    $facultyName = $grade->is_credited
+                        ? 'Credited Grade'
+                        : ($grade->faculty_name_snapshot
+                            ?? trim((optional($grade->faculty)->FirstName ?? '') . ' ' . (optional($grade->faculty)->LastName ?? '')));
 
                     return [
                         'id' => $grade->id,
-                        'subject' => $grade->subject?->Subject_name ?? 'Subject',
-                        'subject_code' => $grade->subject?->Subject_code,
-                        'teacher' => $faculty ? trim(($faculty->FirstName ?? '') . ' ' . ($faculty->LastName ?? '')) : 'TBD',
-                        'semester' => $grade->semester ?? $class?->semester?->semester_type ?? 'Semester',
-                        'school_year' => $grade->schoolYear?->formatted ?? '',
+                        'subject' => $subjectName,
+                        'subject_code' => $subjectCode,
+                        'faculty' => $facultyName ?: null,
                         'first_quarter' => $grade->first_quarter,
                         'second_quarter' => $grade->second_quarter,
                         'third_quarter' => $grade->third_quarter,
                         'fourth_quarter' => $grade->fourth_quarter,
                         'original_failed_grade' => $grade->original_failed_grade,
                         'summer_grade' => $grade->summer_grade,
-                        'final_grade' => $final ? round($final, 2) : null,
-                        'remarks' => $grade->remarks ?? ($passed ? 'Passed' : 'Failed'),
-                        'status' => $passed ? 'Passed' : 'Failed',
-                        'needs_summer_class' => $grade->needs_summer_class ?? false,
-                        'is_prerequisite_failed' => $grade->is_prerequisite_failed ?? false,
-                        'failed_prerequisites' => $grade->failed_prerequisites,
+                        'final_grade' => $grade->semester_grade,
+                        'remarks' => $grade->remarks,
                         'notes' => $grade->notes,
+                        'is_credited' => (bool) $grade->is_credited,
                     ];
-                });
+                })->values();
 
-            // Calculate current semester performance dynamically from grades
-            $semesterPerformance = null;
-            if ($activeSchoolYear && $activeSemester) {
-                $semesterCode = $this->mapSemesterToCode($activeSemester->semester_type);
-                $currentGrades = Grade::where('student_personal_info_id', $studentInfo->id)
-                    ->where('school_year_id', $activeSchoolYear->id)
-                    ->where('semester', $semesterCode)
-                    ->where('status', Grade::STATUS_APPROVED)
-                    ->get();
-                
-                if ($currentGrades->isNotEmpty()) {
-                    $totalSubjects = $currentGrades->count();
-                    $passedSubjects = $currentGrades->where('remarks', 'Passed')->count();
-                    $failedSubjects = $currentGrades->where('remarks', 'Failed')->count();
-                    $semesterAverage = $currentGrades->avg('semester_grade');
-                    
-                    // Get current enrollment for strand info
-                    $currentEnrollment = Enrollment::where('student_personal_info_id', $studentInfo->id)
-                        ->where('school_year_id', $activeSchoolYear->id)
-                        ->where('status', Enrollment::STATUS_ENROLLED)
-                        ->with(['assignedStrand'])
-                        ->first();
-                    
-                    $strand = $currentEnrollment?->assignedStrand;
-                    $isStem = $strand && $strand->Strand_code === 'STEM';
-                    
-                    $requiresSummer = false;
-                    $requiresStrandChange = false;
-                    $recommendedStrand = null;
-                    
-                    // Check for failed prerequisite subjects (for STEM: < 85, for others: < 75)
-                    $failedPrerequisiteGrades = $currentGrades->filter(function ($grade) use ($isStem) {
-                        if ($isStem) {
-                            // STEM: Check if subject has prerequisites and grade < 85
-                            $subject = $grade->subject;
-                            if ($subject && !empty($subject->PREREQUISITES)) {
-                                return ($grade->semester_grade ?? 0) < 85 || $grade->remarks === 'Failed';
-                            }
-                        }
-                        return false;
-                    });
-                    
-                    // STEM STUDENT LOGIC
-                    if ($isStem) {
-                        // Check if any prerequisite subject was failed (< 85)
-                        $hasFailedPrerequisite = $failedPrerequisiteGrades->isNotEmpty();
-                        
-                        if ($hasFailedPrerequisite) {
-                            // Failed prerequisite → Must transfer strand
-                        $requiresStrandChange = true;
-                            $requiresSummer = false; // No summer class, must transfer
-                            // Recommend TVL or HUMSS as alternatives
-                        $recommendedStrand = Strand::whereIn('Strand_code', ['TVL', 'HUMSS'])
-                            ->where('Is_active', true)
-                            ->first();
-                        } else {
-                            // No failed prerequisites, but check for failed non-prerequisites
-                            $failedNonPrerequisite = $currentGrades->filter(function ($grade) {
-                                $subject = $grade->subject;
-                                $hasPrereq = $subject && !empty($subject->PREREQUISITES);
-                                $failed = ($grade->semester_grade ?? 0) < 75 || $grade->remarks === 'Failed';
-                                return !$hasPrereq && $failed;
-                            });
-                            
-                            if ($failedNonPrerequisite->isNotEmpty()) {
-                                // Failed non-prerequisite → Summer class only
-                                $requiresSummer = true;
-                                $requiresStrandChange = false;
-                            }
-                        }
-                    } else {
-                        // OTHER STRANDS (HUMSS, ABM, TVL) LOGIC
-                        // Any failed subject (< 75) → Summer class only
-                        if ($failedSubjects > 0) {
-                            $requiresSummer = true;
-                            $requiresStrandChange = false; // No strand transfer for other strands
-                        }
-                    }
-                    
-                    $status = 'Completed';
-                    if ($semesterAverage < 75 || $failedSubjects > 0) {
-                        $status = 'Failed';
-                    } elseif ($requiresSummer) {
-                        $status = 'Conditional';
-                    }
-                    
-                    $semesterPerformance = [
-                        'semester_average' => round($semesterAverage, 2),
-                        'total_subjects' => $totalSubjects,
-                        'passed_subjects' => $passedSubjects,
-                        'failed_subjects' => $failedSubjects,
-                        'status' => $status,
-                        'requires_summer' => $requiresSummer,
-                        'requires_strand_change' => $requiresStrandChange,
-                        'semester' => $activeSemester->semester_type,
-                        'school_year' => $activeSchoolYear->formatted,
-                        'current_strand' => $strand?->Strand_name,
-                        'recommended_strand' => $recommendedStrand?->Strand_name,
-                    ];
-                }
-            }
+                return [
+                    'id' => $first->school_year_id . '-' . ($first->semester ?? '1st'),
+                    'school_year' => $first->school_year_label
+                        ?? $first->schoolYear?->formatted
+                        ?? 'School Year N/A',
+                    'semester' => $first->semester_label
+                        ?? $this->formatSemesterLabel($first->semester),
+                    'grade_level' => $section?->grade_level
+                        ?? $first->subject?->year_level,
+                    'strand' => [
+                        'name' => $section?->strand?->Strand_name,
+                    ],
+                    'section' => $section?->section_name,
+                    'schedule' => $schedule,
+                ];
+            })->values();
         }
 
-        // Group grades by semester and school year
-        $groupedGrades = $grades->groupBy(function ($grade) {
-            return $grade['school_year'] . ' - ' . $grade['semester'];
-        })->map(function ($semesterGrades, $key) {
+        return Inertia::render('Students/Classes', [
+            'enrollments' => $classRecords,
+            'enrollmentStatus' => $enrollmentStatus,
+        ]);
+    }
+
+    private function formatSemesterLabel(?string $semester): string
+    {
+        if (!$semester) {
+            return '1st Semester';
+        }
+
+        $normalized = strtolower($semester);
+
+        if (str_contains($normalized, '2')) {
+            return '2nd Semester';
+        }
+
+        if (str_contains($normalized, 'summer')) {
+            return 'Summer';
+        }
+
+        return '1st Semester';
+    }
+
+    /**
+     * Show student's approved grades grouped by term.
+     */
+    public function grades()
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        $student = User::with('studentPersonalInfo')->findOrFail($user->id);
+        $enrollmentStatus = $this->getEnrollmentStatus($student);
+        $studentInfo = $student->studentPersonalInfo;
+
+        $activeSchoolYear = SchoolYear::where('is_active', true)->first();
+        $activeSemester = $activeSchoolYear
+            ? Semester::where('school_year_id', $activeSchoolYear->id)
+                ->where('is_active', true)
+                ->first()
+            : null;
+
+        $gradesQuery = Grade::with(['subject', 'faculty', 'schoolYear'])
+            ->where('student_personal_info_id', $studentInfo?->id)
+            ->where('status', Grade::STATUS_APPROVED)
+            ->where(function ($query) {
+                $query->where('is_credited', false)
+                    ->orWhereNull('is_credited');
+            })
+            ->orderBy('school_year_id')
+            ->orderBy('semester');
+
+        $gradeItems = $studentInfo
+            ? $gradesQuery->get()->map(function (Grade $grade) {
+                $subject = $grade->subject;
+                $faculty = $grade->faculty;
+                $schoolYearLabel = $grade->school_year_label
+                    ?? $grade->schoolYear?->formatted
+                    ?? 'School Year N/A';
+                $semesterCode = $grade->semester_label
+                    ?? $this->mapSemesterToCode($grade->semester)
+                    ?? '1st';
+                $semesterDisplay = $semesterCode === 'Summer'
+                    ? 'Summer'
+                    : ($semesterCode === '2nd' ? '2nd Semester' : '1st Semester');
+
+                $teacherName = $grade->is_credited
+                    ? 'Credited Grade'
+                    : ($grade->faculty_name_snapshot
+                        ?? trim(($faculty->FirstName ?? '') . ' ' . ($faculty->LastName ?? '')));
+
+                return [
+                    'id' => $grade->id,
+                    'subject' => $subject?->Subject_name ?? $grade->subject_name_snapshot ?? 'Subject',
+                    'subject_code' => $subject?->Subject_code ?? $grade->subject_code_snapshot,
+                    'teacher' => $teacherName ?: 'TBD',
+                    'first_quarter' => $grade->first_quarter,
+                    'second_quarter' => $grade->second_quarter,
+                    'third_quarter' => $grade->third_quarter,
+                    'fourth_quarter' => $grade->fourth_quarter,
+                    'original_failed_grade' => $grade->original_failed_grade,
+                    'summer_grade' => $grade->summer_grade,
+                    'final_grade' => $grade->semester_grade,
+                    'remarks' => $grade->remarks,
+                    'semester' => $semesterCode,
+                    'semester_display' => $semesterDisplay,
+                    'school_year' => $schoolYearLabel,
+                    'failed_prerequisites' => $grade->failed_prerequisites,
+                    'notes' => $grade->notes,
+                    'is_credited' => (bool) $grade->is_credited,
+                ];
+            })
+            : collect();
+
+        $groupedGrades = $gradeItems->groupBy(function ($item) {
+            return $item['school_year'] . ' - ' . $item['semester_display'];
+        })->map(function ($group, $label) {
             return [
-                'label' => $key,
-                'grades' => $semesterGrades->values(),
+                'label' => $label,
+                'grades' => $group->values(),
             ];
         })->values();
 
+        $studentInfoPayload = $studentInfo ? [
+            'lrn' => $studentInfo->lrn,
+            'name' => trim(($studentInfo->first_name ?? '') . ' ' . ($studentInfo->last_name ?? '')),
+        ] : null;
+
         return Inertia::render('Students/Grades', [
-            'grades' => $grades->values(),
+            'grades' => $gradeItems->values(),
             'groupedGrades' => $groupedGrades,
             'enrollmentStatus' => $enrollmentStatus,
-            'semesterPerformance' => $semesterPerformance,
-            'studentInfo' => $studentInfo ? [
-                'name' => $studentInfo->full_name,
-                'lrn' => $studentInfo->lrn,
-                'failed_subjects_count' => $studentInfo->failed_subjects_count,
-                'requires_strand_change' => $studentInfo->requires_strand_change,
-            ] : null,
-            'activeSchoolYear' => $activeSchoolYear ? [
-                'id' => $activeSchoolYear->id,
-                'formatted' => $activeSchoolYear->formatted,
-            ] : null,
-            'activeSemester' => $activeSemester ? [
-                'id' => $activeSemester->id,
-                'semester_type' => $activeSemester->semester_type,
-            ] : null,
+            'semesterPerformance' => null,
+            'studentInfo' => $studentInfoPayload,
+            'activeSchoolYear' => $activeSchoolYear
+                ? ['id' => $activeSchoolYear->id, 'formatted' => $activeSchoolYear->formatted]
+                : null,
+            'activeSemester' => $activeSemester
+                ? ['id' => $activeSemester->id, 'semester_type' => $activeSemester->semester_type]
+                : null,
         ]);
     }
 
     /**
-     * Display student profile.
+     * Show academic record (curriculum ladder) for the student.
      */
-    public function profile()
+    public function academicRecord()
     {
+        /** @var User $user */
         $user = Auth::user();
-        
-        $student = User::with([
-            'studentPersonalInfo',
-            'assignedStrand',
-            'studentPersonalInfo.enrollments.assignedStrand',
-            'studentPersonalInfo.enrollments.assignedSection.strand',
-        ])
-            ->find($user->id);
+        $student = User::with('studentPersonalInfo')->findOrFail($user->id);
+        $studentInfo = $student->studentPersonalInfo;
 
-        // Get active school year and semester
-        $activeSchoolYear = SchoolYear::where('is_active', true)->first();
-        $activeSemester = null;
-        
-        if ($activeSchoolYear) {
-            $activeSemester = $activeSchoolYear->semesters()->where('is_active', true)->first();
+        if (!$studentInfo) {
+            return redirect()->route('student.dashboard')
+                ->with('error', 'Student profile not found. Please contact the registrar.');
         }
 
-        // Get enrollment status (this already loads enrollment relationships)
         $enrollmentStatus = $this->getEnrollmentStatus($student);
 
-        return Inertia::render('Students/Profile', [
-            'student' => $student,
-            'activeSchoolYear' => $activeSchoolYear,
-            'activeSemester' => $activeSemester,
+        $activeEnrollment = Enrollment::with([
+                'curriculum',
+                'assignedStrand',
+                'assignedSection.strand',
+                'assignedSection.adviser',
+                'academicRecords',
+            ])
+            ->where('student_personal_info_id', $studentInfo->id)
+            ->whereIn('status', [
+                Enrollment::STATUS_ENROLLED,
+                Enrollment::STATUS_PRE_ENROLLED,
+                Enrollment::STATUS_RECOMMENDED,
+            ])
+            ->whereNotNull('curriculum_id')
+            ->latest('processed_at')
+            ->latest('submitted_at')
+            ->first();
+
+        if (!$activeEnrollment) {
+            return Inertia::render('Students/AcademicRecord', [
+                'enrollmentStatus' => $enrollmentStatus,
+            ]);
+        }
+
+        $curriculum = $activeEnrollment->curriculum;
+        $strandId = $activeEnrollment->assigned_strand_id
+            ?? $activeEnrollment->assignedSection?->strand_id
+            ?? null;
+
+        if (!$curriculum) {
+            return Inertia::render('Students/AcademicRecord', [
+                'enrollmentStatus' => $enrollmentStatus,
+                'record' => [],
+                'curriculum' => null,
+                'strand' => null,
+                'summary' => null,
+                'studentProfile' => $this->buildStudentProfile($studentInfo, $activeEnrollment),
+                'infoMessage' => 'Curriculum information is missing for this enrollment.',
+                'currentYearLevel' => $studentInfo->grade_level,
+                'currentSemesterKey' => $this->normalizeSemesterKey($activeEnrollment->semester?->semester_type),
+            ]);
+        }
+
+        if ($activeEnrollment->status !== Enrollment::STATUS_ENROLLED && $activeEnrollment->curriculum_id) {
+            $activeEnrollment->loadMissing('academicRecords');
+
+            if ($activeEnrollment->academicRecords->isEmpty()) {
+                $activeEnrollment->syncAcademicRecords();
+                $activeEnrollment->load('academicRecords');
+            }
+        }
+
+        $useAssignedClasses = $activeEnrollment->status === Enrollment::STATUS_ENROLLED;
+
+        $subjects = $useAssignedClasses
+            ? $this->buildSubjectsFromAssignedClasses($activeEnrollment, $curriculum, $strandId)
+            : $this->buildSubjectsFromAcademicRecords($activeEnrollment, $curriculum, $strandId);
+
+        $currentYearLevel = $activeEnrollment->assignedSection?->year_level
+            ?? $studentInfo->grade_level;
+        $currentSemesterKey = $this->normalizeSemesterKey($activeEnrollment->semester?->semester_type);
+
+        if ($subjects->isEmpty()) {
+            return Inertia::render('Students/AcademicRecord', [
+                'enrollmentStatus' => $enrollmentStatus,
+                'record' => [],
+                'curriculum' => $this->formatCurriculum($curriculum),
+                'strand' => $activeEnrollment->assignedStrand?->only(['id', 'Strand_name', 'Strand_code'])
+                    ?? $activeEnrollment->assignedSection?->strand?->only(['id', 'Strand_name', 'Strand_code']),
+                'summary' => null,
+                'studentProfile' => $this->buildStudentProfile($studentInfo, $activeEnrollment),
+                'infoMessage' => 'Curriculum subjects are not yet configured for this strand.',
+                'currentYearLevel' => $currentYearLevel,
+                'currentSemesterKey' => $currentSemesterKey,
+            ]);
+        }
+
+        $subjectIds = $subjects->pluck('Id');
+
+        $gradeMap = Grade::where('student_personal_info_id', $studentInfo->id)
+            ->whereIn('subject_id', $subjectIds)
+            ->where('status', Grade::STATUS_APPROVED)
+            ->get()
+            ->keyBy('subject_id');
+
+        $creditedMap = CreditedSubject::where('student_personal_info_id', $studentInfo->id)
+            ->whereIn('subject_id', $subjectIds)
+            ->whereNotNull('approved_by')
+            ->get()
+            ->keyBy('subject_id');
+
+        $record = $subjects->groupBy('year_level')->map(function ($yearGroup, $yearLevel) use ($gradeMap, $creditedMap, $currentYearLevel, $currentSemesterKey) {
+            $semesterGroups = $yearGroup->groupBy(function ($subject) {
+                return $this->normalizeSemesterKey($subject->Semester);
+            })->map(function ($semesterGroup, $semesterKey) use ($gradeMap, $creditedMap, $currentYearLevel, $currentSemesterKey, $yearLevel) {
+                $quarterRange = $this->quartersForSemester($semesterKey);
+                $quarterStatus = [];
+                foreach ($quarterRange as $quarterIndex) {
+                    $quarterStatus[$quarterIndex] = false;
+                }
+
+                $subjectsCollection = $semesterGroup->map(function ($subject) use (&$quarterStatus, $quarterRange, $gradeMap, $creditedMap, $currentYearLevel, $currentSemesterKey, $semesterKey, $yearLevel) {
+                    $grade = $gradeMap->get($subject->Id);
+                    $credited = $creditedMap->get($subject->Id);
+
+                    $status = 'pending';
+                    $finalScore = null;
+                    $remarks = null;
+                    $quarters = [];
+                    foreach ($quarterRange as $quarterIndex) {
+                        $quarters[$quarterIndex] = match ($quarterIndex) {
+                            1 => $grade?->first_quarter,
+                            2 => $grade?->second_quarter,
+                            3 => $grade?->third_quarter,
+                            4 => $grade?->fourth_quarter,
+                            default => null,
+                        };
+                    }
+
+                    if (($grade?->is_credited ?? false) && $credited) {
+                        $mappedCreditedQuarters = [
+                            $quarterRange[0] ?? null => $credited->quarter1,
+                            $quarterRange[1] ?? null => $credited->quarter2,
+                        ];
+
+                        foreach ($mappedCreditedQuarters as $quarterKey => $value) {
+                            if ($quarterKey === null) {
+                                continue;
+                            }
+
+                            if ($value !== null && (!array_key_exists($quarterKey, $quarters) || $quarters[$quarterKey] === null)) {
+                                $quarters[$quarterKey] = $value;
+                            }
+                        }
+                    } elseif (!$grade && $credited) {
+                        $mappedCreditedQuarters = [
+                            $quarterRange[0] ?? null => $credited->quarter1,
+                            $quarterRange[1] ?? null => $credited->quarter2,
+                        ];
+
+                        foreach ($mappedCreditedQuarters as $quarterKey => $value) {
+                            if ($quarterKey === null) {
+                                continue;
+                            }
+
+                            if ($value !== null) {
+                                $quarters[$quarterKey] = $value;
+                            }
+                        }
+                    }
+
+                    foreach ($quarters as $quarterIndex => $value) {
+                        if ($value !== null) {
+                            $quarterStatus[$quarterIndex] = true;
+                        }
+                    }
+
+                    if ($grade) {
+                        $status = 'completed';
+                        $finalScore = $grade->semester_grade ?? $grade->final_grade;
+                        $remarks = $grade->remarks;
+                    } elseif ($credited) {
+                        $status = 'credited';
+                        $finalScore = $credited->credited_grade;
+                        $remarks = $credited->remarks ?? 'Credited';
+                    } elseif ((int)$yearLevel === (int)$currentYearLevel && $semesterKey === $currentSemesterKey) {
+                        $status = 'current';
+                    }
+
+                    return [
+                        'id' => $subject->Id,
+                        'name' => $subject->Subject_name,
+                        'code' => $subject->Subject_code,
+                        'prerequisites' => $subject->PREREQUISITES,
+                        'corequisites' => $subject->{'CO-REQUISITES'},
+                        'status' => $status,
+                        'final_grade' => $finalScore,
+                        'remarks' => $remarks,
+                        'quarters' => $quarters,
+                    ];
+                });
+
+                $subjects = $subjectsCollection->values();
+                $finalGrades = $subjects->pluck('final_grade')->filter(function ($value) {
+                    return $value !== null;
+                });
+
+                return [
+                    'semester' => $semesterKey,
+                    'subjects' => $subjects,
+                    'quarter_status' => $quarterStatus,
+                    'general_average' => $finalGrades->isNotEmpty()
+                        ? round($finalGrades->avg(), 2)
+                        : null,
+                ];
+            })->sortKeys();
+
+            return [
+                'year_level' => $yearLevel,
+                'semesters' => $semesterGroups->values(),
+            ];
+        })->sortKeys()->values();
+
+        $summary = [
+            'totalSubjects' => $subjects->count(),
+            'completed' => $record->flatMap(function ($year) {
+                return $year['semesters']->flatMap(function ($sem) {
+                    return $sem['subjects']->where('status', 'completed');
+                });
+            })->count(),
+            'credited' => $record->flatMap(function ($year) {
+                return $year['semesters']->flatMap(function ($sem) {
+                    return $sem['subjects']->where('status', 'credited');
+                });
+            })->count(),
+        ];
+
+        return Inertia::render('Students/AcademicRecord', [
             'enrollmentStatus' => $enrollmentStatus,
+            'record' => $record,
+            'curriculum' => $this->formatCurriculum($curriculum),
+            'strand' => $activeEnrollment->assignedStrand?->only(['id', 'Strand_name', 'Strand_code'])
+                ?? $activeEnrollment->assignedSection?->strand?->only(['id', 'Strand_name', 'Strand_code']),
+            'summary' => $summary,
+            'studentProfile' => $this->buildStudentProfile($studentInfo, $activeEnrollment),
+            'infoMessage' => null,
+            'currentYearLevel' => $currentYearLevel,
+            'currentSemesterKey' => $currentSemesterKey,
         ]);
+    }
+
+    private function quartersForSemester(string $semesterKey): array
+    {
+        return match ($semesterKey) {
+            '2' => [3, 4],
+            default => [1, 2],
+        };
+    }
+
+    private function normalizeSemesterKey(?string $value): string
+    {
+        if (is_numeric($value)) {
+            return ((int)$value) === 2 ? '2' : '1';
+        }
+
+        $normalized = strtolower(trim($value ?? ''));
+
+        if (str_contains($normalized, 'summer')) {
+            return 'summer';
+        }
+
+        if (str_contains($normalized, '2nd') || str_contains($normalized, 'second')) {
+            return '2';
+        }
+
+        if (str_contains($normalized, '1st') || str_contains($normalized, 'first')) {
+            return '1';
+        }
+
+        return in_array($normalized, ['2', 'two'], true) ? '2' : '1';
+    }
+
+    private function buildStudentProfile(StudentPersonalInfo $studentInfo, ?Enrollment $enrollment = null): array
+    {
+        $section = $enrollment?->assignedSection;
+        $adviser = $section?->adviser;
+
+        return [
+            'last_name' => $studentInfo->last_name,
+            'first_name' => $studentInfo->first_name,
+            'middle_name' => $studentInfo->middle_name,
+            'extension_name' => $studentInfo->extension_name,
+            'lrn' => $studentInfo->lrn,
+            'birthdate' => $studentInfo->birthdate?->format('F d, Y'),
+            'sex' => $studentInfo->sex,
+            'grade_level' => $section?->year_level ?? $studentInfo->grade_level,
+            'strand' => $enrollment?->assignedStrand?->Strand_name
+                ?? $section?->strand?->Strand_name,
+            'strand_code' => $enrollment?->assignedStrand?->Strand_code
+                ?? $section?->strand?->Strand_code,
+            'section' => $section?->section_name,
+            'adviser' => $adviser?->full_name,
+            'school_year' => $enrollment?->schoolYear?->formatted,
+        ];
+    }
+
+    private function formatCurriculum(?Curriculum $curriculum): ?array
+    {
+        if (!$curriculum) {
+            return null;
+        }
+
+        return [
+            'id' => $curriculum->id,
+            'code' => $curriculum->curriculum_code,
+            'name' => $curriculum->name,
+            'track' => $curriculum->track,
+            'effective_sy' => $curriculum->effective_sy,
+            'is_active' => (bool) $curriculum->is_active,
+        ];
+    }
+
+    private function buildSubjectsFromCurriculum(Curriculum $curriculum, ?int $strandId = null): Collection
+    {
+        $subjectsQuery = Subject::with(['strand', 'curriculum'])
+            ->where('curriculum_id', $curriculum->id)
+            ->orderBy('year_level')
+            ->orderBy('Semester')
+            ->orderBy('Subject_name');
+
+        if ($strandId) {
+            $subjectsQuery->where(function ($query) use ($strandId) {
+                $query->where('strand_id', $strandId)
+                    ->orWhereNull('strand_id');
+            });
+        }
+
+        return $subjectsQuery->get();
+    }
+
+    private function buildSubjectsFromAssignedClasses(Enrollment $enrollment, Curriculum $curriculum, ?int $strandId = null): Collection
+    {
+        $enrollment->loadMissing([
+            'classDetails.class.subject',
+            'classDetails.class.section',
+            'classDetails.class.semester',
+            'classDetails.classRecord',
+            'assignedSection',
+            'semester',
+        ]);
+
+        $classDetails = $enrollment->classDetails;
+
+        $assignedSubjects = $classDetails->map(function (ClassDetail $detail) use ($enrollment) {
+            $class = $detail->class;
+            $subject = $class?->subject;
+
+            if (!$subject) {
+                return null;
+            }
+
+            $classRecord = $detail->classRecord;
+            $section = $class?->section;
+            $semesterType = $class?->semester?->semester_type
+                ?? $enrollment->semester?->semester_type
+                ?? $subject->Semester;
+
+            $yearLevel = $section?->year_level
+                ?? $enrollment->assignedSection?->year_level
+                ?? $subject->year_level;
+
+            return (object) [
+                'Id' => $subject->Id,
+                'Subject_name' => $classRecord?->subject_name ?? $subject->Subject_name,
+                'Subject_code' => $classRecord?->subject_code ?? $subject->Subject_code,
+                'PREREQUISITES' => $subject->PREREQUISITES,
+                'CO-REQUISITES' => $subject->{'CO-REQUISITES'} ?? $subject->getAttribute('CO-REQUISITES'),
+                'Semester' => $semesterType,
+                'year_level' => $yearLevel,
+            ];
+        })->filter()->unique(function ($subject) {
+            return $subject->Id ?? ($subject->Subject_code ?? spl_object_hash($subject));
+        })->values();
+
+        if ($assignedSubjects->isEmpty()) {
+            return $this->buildSubjectsFromAcademicRecords($enrollment, $curriculum, $strandId);
+        }
+
+        $fallbackSubjects = $this->buildSubjectsFromAcademicRecords($enrollment, $curriculum, $strandId);
+        $existingKeys = $assignedSubjects->map(function ($subject) {
+            return $subject->Id ?? $subject->Subject_code;
+        })->filter()->all();
+
+        $merged = $assignedSubjects->values();
+
+        $fallbackSubjects->each(function ($subject) use (&$merged, $existingKeys) {
+            $key = $subject->Id ?? $subject->Subject_code;
+            if ($key && in_array($key, $existingKeys, true)) {
+                return;
+            }
+
+            $merged->push($subject);
+        });
+
+        return $merged->sortBy([
+            ['year_level', 'asc'],
+            ['Semester', 'asc'],
+            ['Subject_name', 'asc'],
+        ])->values();
+    }
+
+    private function buildSubjectsFromAcademicRecords(Enrollment $enrollment, Curriculum $curriculum, ?int $strandId = null): Collection
+    {
+        $enrollment->loadMissing('academicRecords');
+
+        $stored = $enrollment->academicRecords
+            ->sortBy('sort_order')
+            ->map(function (AcademicRecord $record) {
+                return (object) [
+                    'Id' => $record->subject_id,
+                    'Subject_name' => $record->subject_name,
+                    'Subject_code' => $record->subject_code,
+                    'PREREQUISITES' => $record->prerequisites,
+                    'CO-REQUISITES' => $record->corequisites,
+                    'Semester' => $record->semester ?? $record->semester_label,
+                    'year_level' => $record->year_level,
+                ];
+            })
+            ->filter(fn ($subject) => !empty($subject->Subject_name));
+
+        if ($stored->isEmpty()) {
+            return $this->buildSubjectsFromCurriculum($curriculum, $strandId);
+        }
+
+        return $stored->values();
     }
 
     /**

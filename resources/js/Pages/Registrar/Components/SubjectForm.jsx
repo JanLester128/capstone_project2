@@ -1,546 +1,847 @@
-import { useState, useEffect } from 'react'
-import { router } from '@inertiajs/react'
+import { useState, useEffect } from 'react';
+import { router } from '@inertiajs/react';
 
-// Predefined subjects with their prerequisites and co-requisites
+const mapSemesterTypeToNumber = (semesterType = '') => {
+  if (!semesterType) return '';
+  const normalized = semesterType.toLowerCase();
+  if (normalized.includes('1st') || normalized === '1') return '1';
+  if (normalized.includes('2nd') || normalized === '2') return '2';
+  return '';
+};
+
+// Subject templates organized by strand, year level, and semester
 const subjectsByStrandAndYear = {
+  // STEM Strand
   'STEM': {
     11: {
       1: [
-        { name: 'Oral Communication', code: 'ORAL_COMM', prerequisites: null, corequisites: null },
-        { name: 'Komunikasyon at Pananaliksik sa Wika at Kulturang Pilipino', code: 'KOMUN_FIL', prerequisites: null, corequisites: null },
-        { name: 'General Mathematics', code: 'GEN_MATH', prerequisites: null, corequisites: null },
-        { name: 'Earth Science', code: 'EARTH_SCI', prerequisites: null, corequisites: null },
-        { name: '21st Century Literature from the Philippines and the World', code: '21ST_LIT', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_1', prerequisites: null, corequisites: null },
-        { name: 'Pre-calculus', code: 'PRE_CALC', prerequisites: null, corequisites: null },
-        { name: 'General Chemistry 1', code: 'GEN_CHEM_1', prerequisites: null, corequisites: null },
+        { code: 'STEM11-1', name: 'Pre-Calculus', prerequisites: '', corequisites: '' },
+        { code: 'STEM11-2', name: 'General Biology 1', prerequisites: '', corequisites: '' },
+        { code: 'STEM11-3', name: 'General Chemistry 1', prerequisites: '', corequisites: '' },
+        { code: 'STEM11-4', name: 'General Physics 1', prerequisites: '', corequisites: '' },
       ],
       2: [
-        { name: 'Reading and Writing', code: 'READ_WRITE', prerequisites: null, corequisites: null },
-        { name: 'Pagbasa at Pagsusuri ng Iba\'t ibang Teksto Tungo sa Pananaliksik', code: 'PAGBASA_FIL', prerequisites: null, corequisites: null },
-        { name: 'Statistics and Probability', code: 'STAT_PROB', prerequisites: null, corequisites: null },
-        { name: 'Disaster Readiness and Risk Reduction', code: 'DRRR', prerequisites: null, corequisites: null },
-        { name: 'Introduction to the Philosophy of the Human Person/Pambungad sa Pilosopiya ng Tao', code: 'INTRO_PHIL', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_2', prerequisites: null, corequisites: null },
-        { name: 'Practical Research 1', code: 'PRAC_RES_1', prerequisites: null, corequisites: null },
-        { name: 'Basic Calculus', code: 'BASIC_CALC', prerequisites: 'Pre-calculus', corequisites: null },
-        { name: 'General Chemistry 2', code: 'GEN_CHEM_2', prerequisites: 'General Chemistry 1', corequisites: null },
+        { code: 'STEM11-5', name: 'Basic Calculus', prerequisites: 'Pre-Calculus', corequisites: '' },
+        { code: 'STEM11-6', name: 'General Biology 2', prerequisites: 'General Biology 1', corequisites: '' },
+        { code: 'STEM11-7', name: 'General Chemistry 2', prerequisites: 'General Chemistry 1', corequisites: '' },
       ]
     },
     12: {
       1: [
-        { name: 'Personal Development/Pansariling Kaunlaran', code: 'PERS_DEV', prerequisites: null, corequisites: null },
-        { name: 'Understanding Culture, Society and Politics', code: 'UCSP', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_3', prerequisites: null, corequisites: null },
-        { name: 'Practical Research 2', code: 'PRAC_RES_2', prerequisites: 'Practical Research 1, Statistics and Probability', corequisites: null },
-        { name: 'English for Academic and Professional Purposes', code: 'EAPP', prerequisites: null, corequisites: null },
-        { name: 'General Biology 1', code: 'GEN_BIO_1', prerequisites: null, corequisites: null },
-        { name: 'General Physics 1', code: 'GEN_PHYS_1', prerequisites: 'Pre-calculus; calculus', corequisites: null },
+        { code: 'STEM12-1', name: 'Calculus 1', prerequisites: 'Basic Calculus', corequisites: '' },
+        { code: 'STEM12-2', name: 'General Physics 2', prerequisites: 'General Physics 1', corequisites: '' },
+        { code: 'STEM12-3', name: 'Research in Daily Life', prerequisites: '', corequisites: '' },
       ],
       2: [
-        { name: 'Media and Information Literacy', code: 'MIL', prerequisites: null, corequisites: null },
-        { name: 'Contemporary Philippine Arts from the regions', code: 'CPAR', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_4', prerequisites: null, corequisites: null },
-        { name: 'Inquiries, Investigations and Immersion', code: 'III', prerequisites: null, corequisites: null },
-        { name: 'Entrepreneurship', code: 'ENTREP', prerequisites: null, corequisites: null },
-        { name: 'Filipino sa Piling Larang', code: 'FIL_LARANG', prerequisites: null, corequisites: null },
-        { name: 'General Biology 2', code: 'GEN_BIO_2', prerequisites: 'General Biology 1', corequisites: null },
-        { name: 'General Physics 2', code: 'GEN_PHYS_2', prerequisites: 'General Physics 1', corequisites: null },
-        { name: 'Research/Capstone Project/Work Immersion', code: 'CAPSTONE', prerequisites: null, corequisites: null },
+        { code: 'STEM12-4', name: 'Calculus 2', prerequisites: 'Calculus 1', corequisites: '' },
+        { code: 'STEM12-5', name: 'Research Project', prerequisites: 'Research in Daily Life', corequisites: '' },
       ]
     }
   },
-  'TVL': {
-    11: {
-      1: [
-        { name: 'Oral Communication', code: 'ORAL_COMM_TVL', prerequisites: null, corequisites: null },
-        { name: 'Komunikasyon at Pananaliksik sa Wika at Kulturang Pilipino', code: 'KOMUN_FIL_TVL', prerequisites: null, corequisites: null },
-        { name: 'General Mathematics', code: 'GEN_MATH_TVL', prerequisites: null, corequisites: null },
-        { name: 'Earth and Life Science', code: 'EARTH_LIFE_SCI', prerequisites: null, corequisites: null },
-        { name: '21st Century Literature from the Philippines and the World', code: '21ST_LIT_TVL', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_TVL_1', prerequisites: null, corequisites: null },
-        { name: 'Technical Drafting', code: 'TECH_DRAFT', prerequisites: null, corequisites: null },
-        { name: 'Entrepreneurship', code: 'ENTREP_TVL', prerequisites: null, corequisites: null },
-      ],
-      2: [
-        { name: 'Reading and Writing', code: 'READ_WRITE_TVL', prerequisites: null, corequisites: null },
-        { name: 'Pagbasa at Pagsusuri ng Iba\'t ibang Teksto Tungo sa Pananaliksik', code: 'PAGBASA_FIL_TVL', prerequisites: null, corequisites: null },
-        { name: 'Statistics and Probability', code: 'STAT_PROB_TVL', prerequisites: null, corequisites: null },
-        { name: 'Physical Science', code: 'PHYS_SCI', prerequisites: null, corequisites: null },
-        { name: 'Introduction to the Philosophy of the Human Person', code: 'INTRO_PHIL_TVL', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_TVL_2', prerequisites: null, corequisites: null },
-        { name: 'Computer Programming', code: 'COMP_PROG', prerequisites: null, corequisites: null },
-        { name: 'Computer Systems Servicing', code: 'COMP_SYS_SERV', prerequisites: null, corequisites: null },
-      ]
-    },
-    12: {
-      1: [
-        { name: 'Personal Development', code: 'PERS_DEV_TVL', prerequisites: null, corequisites: null },
-        { name: 'Understanding Culture, Society and Politics', code: 'UCSP_TVL', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_TVL_3', prerequisites: null, corequisites: null },
-        { name: 'Practical Research 1', code: 'PRAC_RES_1_TVL', prerequisites: null, corequisites: null },
-        { name: 'English for Academic and Professional Purposes', code: 'EAPP_TVL', prerequisites: null, corequisites: null },
-        { name: 'Web Development', code: 'WEB_DEV', prerequisites: 'Computer Programming', corequisites: null },
-        { name: 'Mobile Application Development', code: 'MOBILE_DEV', prerequisites: 'Computer Programming', corequisites: null },
-      ],
-      2: [
-        { name: 'Media and Information Literacy', code: 'MIL_TVL', prerequisites: null, corequisites: null },
-        { name: 'Contemporary Philippine Arts from the regions', code: 'CPAR_TVL', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_TVL_4', prerequisites: null, corequisites: null },
-        { name: 'Work Immersion', code: 'WORK_IMMERSION', prerequisites: null, corequisites: null },
-        { name: 'Filipino sa Piling Larang', code: 'FIL_LARANG_TVL', prerequisites: null, corequisites: null },
-        { name: 'Capstone Project', code: 'CAPSTONE_TVL', prerequisites: null, corequisites: null },
-      ]
-    }
-  },
-  'HUMSS': {
-    11: {
-      1: [
-        { name: 'Oral Communication', code: 'ORAL_COMM_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Komunikasyon at Pananaliksik sa Wika at Kulturang Pilipino', code: 'KOMUN_FIL_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'General Mathematics', code: 'GEN_MATH_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Earth and Life Science', code: 'EARTH_LIFE_SCI_HUMSS', prerequisites: null, corequisites: null },
-        { name: '21st Century Literature from the Philippines and the World', code: '21ST_LIT_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_HUMSS_1', prerequisites: null, corequisites: null },
-        { name: 'Introduction to World Religions and Belief Systems', code: 'WORLD_REL', prerequisites: null, corequisites: null },
-        { name: 'Creative Writing', code: 'CREATIVE_WRITE', prerequisites: null, corequisites: null },
-      ],
-      2: [
-        { name: 'Reading and Writing', code: 'READ_WRITE_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Pagbasa at Pagsusuri ng Iba\'t ibang Teksto Tungo sa Pananaliksik', code: 'PAGBASA_FIL_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Statistics and Probability', code: 'STAT_PROB_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Physical Science', code: 'PHYS_SCI_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Introduction to the Philosophy of the Human Person', code: 'INTRO_PHIL_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_HUMSS_2', prerequisites: null, corequisites: null },
-        { name: 'Creative Nonfiction', code: 'CREATIVE_NONFIC', prerequisites: null, corequisites: null },
-        { name: 'Disciplines and Ideas in the Social Sciences', code: 'DISS', prerequisites: null, corequisites: null },
-      ]
-    },
-    12: {
-      1: [
-        { name: 'Personal Development', code: 'PERS_DEV_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Understanding Culture, Society and Politics', code: 'UCSP_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_HUMSS_3', prerequisites: null, corequisites: null },
-        { name: 'Practical Research 1', code: 'PRAC_RES_1_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'English for Academic and Professional Purposes', code: 'EAPP_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Philippine Politics and Governance', code: 'PPG', prerequisites: null, corequisites: null },
-        { name: 'Community Engagement, Solidarity and Citizenship', code: 'CESC', prerequisites: null, corequisites: null },
-      ],
-      2: [
-        { name: 'Media and Information Literacy', code: 'MIL_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Contemporary Philippine Arts from the regions', code: 'CPAR_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_HUMSS_4', prerequisites: null, corequisites: null },
-        { name: 'Practical Research 2', code: 'PRAC_RES_2_HUMSS', prerequisites: 'Practical Research 1', corequisites: null },
-        { name: 'Filipino sa Piling Larang', code: 'FIL_LARANG_HUMSS', prerequisites: null, corequisites: null },
-        { name: 'Trends, Networks and Critical Thinking in the 21st Century Culture', code: 'TRENDS_21ST', prerequisites: null, corequisites: null },
-        { name: 'Culminating Activity', code: 'CULMIN_ACT', prerequisites: null, corequisites: null },
-      ]
-    }
-  },
+  
+  // ABM Strand
   'ABM': {
     11: {
       1: [
-        { name: 'Oral Communication', code: 'ORAL_COMM_ABM', prerequisites: null, corequisites: null },
-        { name: 'Komunikasyon at Pananaliksik sa Wika at Kulturang Pilipino', code: 'KOMUN_FIL_ABM', prerequisites: null, corequisites: null },
-        { name: 'General Mathematics', code: 'GEN_MATH_ABM', prerequisites: null, corequisites: null },
-        { name: 'Earth and Life Science', code: 'EARTH_LIFE_SCI_ABM', prerequisites: null, corequisites: null },
-        { name: '21st Century Literature from the Philippines and the World', code: '21ST_LIT_ABM', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_ABM_1', prerequisites: null, corequisites: null },
-        { name: 'Fundamentals of Accountancy, Business and Management 1', code: 'FABM_1', prerequisites: null, corequisites: null },
-        { name: 'Business Ethics and Social Responsibility', code: 'BESR', prerequisites: null, corequisites: null },
+        { code: 'ABM11-1', name: 'Business Math', prerequisites: '', corequisites: '' },
+        { code: 'ABM11-2', name: 'Fundamentals of Accountancy, Business and Management 1', prerequisites: '', corequisites: '' },
       ],
       2: [
-        { name: 'Reading and Writing', code: 'READ_WRITE_ABM', prerequisites: null, corequisites: null },
-        { name: 'Pagbasa at Pagsusuri ng Iba\'t ibang Teksto Tungo sa Pananaliksik', code: 'PAGBASA_FIL_ABM', prerequisites: null, corequisites: null },
-        { name: 'Statistics and Probability', code: 'STAT_PROB_ABM', prerequisites: null, corequisites: null },
-        { name: 'Physical Science', code: 'PHYS_SCI_ABM', prerequisites: null, corequisites: null },
-        { name: 'Introduction to the Philosophy of the Human Person', code: 'INTRO_PHIL_ABM', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_ABM_2', prerequisites: null, corequisites: null },
-        { name: 'Organization and Management', code: 'ORG_MGMT', prerequisites: null, corequisites: null },
-        { name: 'Principles of Marketing', code: 'PRIN_MARKET', prerequisites: null, corequisites: null },
+        { code: 'ABM11-3', name: 'Fundamentals of Accountancy, Business and Management 2', 
+          prerequisites: 'Fundamentals of Accountancy, Business and Management 1', corequisites: '' },
+        { code: 'ABM11-4', name: 'Business Finance', prerequisites: 'Business Math', corequisites: '' },
       ]
     },
     12: {
       1: [
-        { name: 'Personal Development', code: 'PERS_DEV_ABM', prerequisites: null, corequisites: null },
-        { name: 'Understanding Culture, Society and Politics', code: 'UCSP_ABM', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_ABM_3', prerequisites: null, corequisites: null },
-        { name: 'Practical Research 2', code: 'PRAC_RES_2_ABM', prerequisites: 'Practical Research 1, Statistics and Probability', corequisites: null },
-        { name: 'English for Academic and Professional Purposes', code: 'EAPP_ABM', prerequisites: null, corequisites: null },
-        { name: 'Fundamentals of Accountancy, Business and Management 2', code: 'FABM_2', prerequisites: 'Fundamentals of Accountancy, Business and Management 1', corequisites: null },
-        { name: 'Business Finance', code: 'BUS_FINANCE', prerequisites: 'Fundamentals of Accountancy, Business and Management 1', corequisites: null },
-        { name: 'Applied Economics', code: 'APPLIED_ECON', prerequisites: null, corequisites: null },
+        { code: 'ABM12-1', name: 'Business Ethics and Social Responsibility', prerequisites: '', corequisites: '' },
+        { code: 'ABM12-2', name: 'Business Marketing', prerequisites: '', corequisites: '' },
       ],
       2: [
-        { name: 'Media and Information Literacy', code: 'MIL_ABM', prerequisites: null, corequisites: null },
-        { name: 'Contemporary Philippine Arts from the regions', code: 'CPAR_ABM', prerequisites: null, corequisites: null },
-        { name: 'Physical Education and Health', code: 'PE_HEALTH_ABM_4', prerequisites: null, corequisites: null },
-        { name: 'Entrepreneurship', code: 'ENTREP_ABM', prerequisites: null, corequisites: null },
-        { name: 'Filipino sa Piling Larang', code: 'FIL_LARANG_ABM', prerequisites: null, corequisites: null },
-        { name: 'Business Enterprise Simulation', code: 'BUS_ENT_SIM', prerequisites: null, corequisites: null },
-        { name: 'Work Immersion/Research/Career Advocacy/Culminating Activity', code: 'WORK_IMMERSION_ABM', prerequisites: null, corequisites: null },
+        { code: 'ABM12-3', name: 'Applied Economics', prerequisites: '', corequisites: '' },
+        { code: 'ABM12-4', name: 'Business Enterprise Simulation', 
+          prerequisites: 'Fundamentals of Accountancy, Business and Management 2', corequisites: '' },
+      ]
+    }
+  },
+  
+  // HUMSS Strand
+  'HUMSS': {
+    11: {
+      1: [
+        { code: 'HUMSS11-1', name: 'Introduction to World Religions and Belief Systems', prerequisites: '', corequisites: '' },
+        { code: 'HUMSS11-2', name: 'Creative Writing', prerequisites: '', corequisites: '' },
+      ],
+      2: [
+        { code: 'HUMSS11-3', name: 'Creative Nonfiction', prerequisites: 'Creative Writing', corequisites: '' },
+        { code: 'HUMSS11-4', name: 'Disciplines and Ideas in the Social Sciences', prerequisites: '', corequisites: '' },
+      ]
+    },
+    12: {
+      1: [
+        { code: 'HUMSS12-1', name: 'Trends, Networks, and Critical Thinking in the 21st Century', 
+          prerequisites: 'Disciplines and Ideas in the Social Sciences', corequisites: '' },
+        { code: 'HUMSS12-2', name: 'Philippine Politics and Governance', prerequisites: '', corequisites: '' },
+      ],
+      2: [
+        { code: 'HUMSS12-3', name: 'Community Engagement, Solidarity, and Citizenship', 
+          prerequisites: 'Philippine Politics and Governance', corequisites: '' },
+        { code: 'HUMSS12-4', name: 'Disaster Readiness and Risk Reduction', prerequisites: '', corequisites: '' },
+      ]
+    }
+  },
+  
+  // ICT Strand (TVL Track)
+  'ICT': {
+    11: {
+      1: [
+        { code: 'ICT11-1', name: 'Computer Systems Servicing NC II', prerequisites: '', corequisites: '' },
+        { code: 'ICT11-2', name: 'Programming (Java)', prerequisites: '', corequisites: '' },
+      ],
+      2: [
+        { code: 'ICT11-3', name: 'Web Development', prerequisites: '', corequisites: '' },
+        { code: 'ICT11-4', name: 'Animation', prerequisites: '', corequisites: '' },
+      ]
+    },
+    12: {
+      1: [
+        { code: 'ICT12-1', name: 'Mobile App Development', prerequisites: 'Programming (Java)', corequisites: '' },
+        { code: 'ICT12-2', name: '3D Animation', prerequisites: 'Animation', corequisites: '' },
+      ],
+      2: [
+        { code: 'ICT12-3', name: 'Work Immersion / Research / Career Advocacy / Culminating Activity', 
+          prerequisites: '', corequisites: 'All major subjects' },
+      ]
+    }
+  },
+  
+  // GAS (General Academic Strand)
+  'GAS': {
+    11: {
+      1: [
+        { code: 'GAS11-1', name: 'Oral Communication', prerequisites: '', corequisites: '' },
+        { code: 'GAS11-2', name: 'General Mathematics', prerequisites: '', corequisites: '' },
+        { code: 'GAS11-3', name: 'Earth and Life Science', prerequisites: '', corequisites: '' },
+      ],
+      2: [
+        { code: 'GAS11-4', name: 'Reading and Writing Skills', prerequisites: 'Oral Communication', corequisites: '' },
+        { code: 'GAS11-5', name: 'Statistics and Probability', prerequisites: 'General Mathematics', corequisites: '' },
+        { code: 'GAS11-6', name: 'Physical Science', prerequisites: 'Earth and Life Science', corequisites: '' },
+      ]
+    },
+    12: {
+      1: [
+        { code: 'GAS12-1', name: '21st Century Literature from the Philippines and the World', 
+          prerequisites: 'Reading and Writing Skills', corequisites: '' },
+        { code: 'GAS12-2', name: 'Introduction to the Philosophy of the Human Person', prerequisites: '', corequisites: '' },
+      ],
+      2: [
+        { code: 'GAS12-3', name: 'Contemporary Philippine Arts from the Regions', prerequisites: '', corequisites: '' },
+        { code: 'GAS12-4', name: 'Work Immersion / Research / Career Advocacy / Culminating Activity', 
+          prerequisites: '', corequisites: 'All major subjects' },
       ]
     }
   }
-}
+};
 
-export default function SubjectForm({ subject = null, strands = [], semesters = [], activeSemester = null, onClose }) {
-  const isEditing = !!subject
-  const [selectedStrand, setSelectedStrand] = useState(subject?.strand_id?.toString() || '')
-  const [selectedYear, setSelectedYear] = useState(subject?.year_level?.toString() || '')
-  // Removed selectedSemester - will use activeSemester automatically
-  const [availableSubjects, setAvailableSubjects] = useState([])
-  const [selectedSubject, setSelectedSubject] = useState(null)
+export default function SubjectForm({ 
+  subject = null, 
+  strands = [], 
+  semesters = [], 
+  activeSemester = null, 
+  curriculums = [], 
+  lockedCurriculumId = null,
+  defaultStrandId = null,
+  defaultYearLevel = null,
+  defaultSemesterType = null,
+  defaultSemesterId = null,
+  readOnlyStrandYear = false,
+  onClose,
+  onSuccess
+}) {
+  const isEditing = !!subject;
+  const [selectedStrand, setSelectedStrand] = useState(subject?.strand_id?.toString() || defaultStrandId?.toString() || '');
+  const [selectedYear, setSelectedYear] = useState(subject?.year_level?.toString() || defaultYearLevel?.toString() || '');
+  const [availableSubjects, setAvailableSubjects] = useState([]);
+  const [selectedSubject, setSelectedSubject] = useState(null);
   const [formData, setFormData] = useState({
     Subject_name: subject?.Subject_name || '',
     Subject_code: subject?.Subject_code || '',
     PREREQUISITES: subject?.PREREQUISITES || '',
     'CO-REQUISITES': subject?.['CO-REQUISITES'] || '',
-  })
-  const [errors, setErrors] = useState({})
-  const [processing, setProcessing] = useState(false)
+    curriculum_id: subject?.curriculum_id?.toString() || lockedCurriculumId?.toString() || '',
+    semester_id: subject?.semester_id?.toString() || defaultSemesterId?.toString() || '',
+    Semester: subject?.Semester?.toString() || mapSemesterTypeToNumber(defaultSemesterType)
+  });
+  const [errors, setErrors] = useState({});
+  const [processing, setProcessing] = useState(false);
+  const lockedCurriculum = curriculums.find(c => c.id?.toString() === (lockedCurriculumId?.toString() || ''));
+  const resolvedCurriculumId = formData.curriculum_id || lockedCurriculumId?.toString() || '';
+
+  useEffect(() => {
+    const derivedStrandId = curriculums.find(c => c.id?.toString() === resolvedCurriculumId)?.strand_id?.toString()
+      || defaultStrandId?.toString()
+      || '';
+
+    if (derivedStrandId && derivedStrandId !== selectedStrand) {
+      setSelectedStrand(derivedStrandId);
+    }
+  }, [resolvedCurriculumId, curriculums, defaultStrandId, selectedStrand]);
+
+  const currentStrand = strands.find((strand) => strand.id?.toString() === selectedStrand);
+  const isYearLocked = readOnlyStrandYear;
+  const isSemesterLocked = false;
+  const buildSubjectEntry = (overrides = {}) => ({
+    id: overrides.id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    Subject_name: '',
+    Subject_code: '',
+    PREREQUISITES: '',
+    corequisites: '',
+    ...overrides
+  });
+  const [subjectEntries, setSubjectEntries] = useState(() => {
+    if (isEditing && subject) {
+      return [buildSubjectEntry({
+        id: 'existing-subject-entry',
+        Subject_name: subject.Subject_name || '',
+        Subject_code: subject.Subject_code || '',
+        PREREQUISITES: subject.PREREQUISITES || '',
+        corequisites: subject['CO-REQUISITES'] || ''
+      })];
+    }
+    return [buildSubjectEntry()];
+  });
+  const [entryErrors, setEntryErrors] = useState({});
+  const csrfToken = typeof document !== 'undefined'
+    ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+    : null;
+
+  const addSubjectEntry = () => {
+    setSubjectEntries(prev => [...prev, buildSubjectEntry()]);
+    setEntryErrors({});
+  };
+
+  const removeSubjectEntry = (id) => {
+    setSubjectEntries(prev => prev.filter(entry => entry.id !== id));
+    setEntryErrors(prev => {
+      const { [id]: removed, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  const updateSubjectEntry = (id, field, value) => {
+    setSubjectEntries(prev => prev.map(entry =>
+      entry.id === id ? { ...entry, [field]: value } : entry
+    ));
+    setEntryErrors(prev => {
+      if (!prev[id]) return prev;
+      const updated = { ...prev };
+      updated[id] = { ...updated[id], [field]: undefined };
+      return updated;
+    });
+  };
+
+  const formatValidationErrors = (errorBag = {}) => {
+    const formatted = {};
+    Object.entries(errorBag).forEach(([key, value]) => {
+      formatted[key] = Array.isArray(value) ? value[0] : value;
+    });
+    return formatted;
+  };
+
+  const showSuccessToast = (message) => {
+    if (typeof window !== 'undefined' && window.Swal) {
+      window.Swal.fire({
+        title: message,
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false
+      });
+    }
+  };
+
+  const submitSingleSubject = async (entry, basePayload) => {
+    if (!csrfToken) {
+      throw new Error('Missing CSRF token. Please refresh and try again.');
+    }
+
+    const payload = {
+      ...basePayload,
+      Subject_name: entry.Subject_name,
+      Subject_code: entry.Subject_code,
+      PREREQUISITES: entry.PREREQUISITES || '',
+      'CO-REQUISITES': entry.corequisites || ''
+    };
+
+    const response = await fetch('/registrar/subjects', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': csrfToken
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      if (response.status === 422) {
+        const data = await response.json();
+        const entryKeys = ['Subject_name', 'Subject_code', 'PREREQUISITES', 'CO-REQUISITES'];
+        const hasEntrySpecificError = Object.keys(data.errors || {}).some(key => entryKeys.includes(key));
+        throw {
+          type: 'validation',
+          entryId: hasEntrySpecificError ? entry.id : null,
+          errors: data.errors || {}
+        };
+      }
+
+      throw new Error('Failed to save subject. Please try again.');
+    }
+  };
+
+  const reloadCurrentPage = () => new Promise((resolve) => {
+    router.reload({
+      preserveScroll: true,
+      onFinish: () => resolve()
+    });
+  });
   
-  // Get semester number from active semester
-  const activeSemesterNumber = activeSemester?.semester_type === '1st Semester' ? '1' : '2'
+  // Determine available semesters
+  const semesterOptions = semesters.length > 0
+    ? semesters
+    : (activeSemester ? [activeSemester] : []);
+
+  const getSemesterNumber = (semesterType) => {
+    if (!semesterType) return '';
+    if (semesterType.includes('1st')) return '1';
+    if (semesterType.includes('2nd')) return '2';
+    return '';
+  };
+
+  // Get semester number from selected semester or active semester fallback
+  const activeSemesterNumber = formData.Semester || getSemesterNumber(activeSemester?.semester_type);
+
+  useEffect(() => {
+    if (formData.semester_id || semesterOptions.length !== 1) return;
+    const defaultSemester = semesterOptions[0];
+    if (!defaultSemester) return;
+    setFormData(prev => ({
+      ...prev,
+      semester_id: defaultSemester.id?.toString() || '',
+      Semester: getSemesterNumber(defaultSemester.semester_type)
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semesterOptions]);
 
   // Update available subjects when strand, year, or active semester changes
   useEffect(() => {
     if (selectedStrand && selectedYear && activeSemesterNumber) {
-      const strandCode = strands.find(s => s.id.toString() === selectedStrand)?.Strand_code
-      const semesterNum = parseInt(activeSemesterNumber)
+      const strandCode = strands.find(s => s.id.toString() === selectedStrand)?.Strand_code;
+      const semesterNum = parseInt(activeSemesterNumber);
       
-      if (strandCode && subjectsByStrandAndYear[strandCode] && 
+      if (strandCode && 
+          subjectsByStrandAndYear[strandCode] && 
           subjectsByStrandAndYear[strandCode][parseInt(selectedYear)] &&
           subjectsByStrandAndYear[strandCode][parseInt(selectedYear)][semesterNum]) {
-        setAvailableSubjects(subjectsByStrandAndYear[strandCode][parseInt(selectedYear)][semesterNum])
+        setAvailableSubjects(subjectsByStrandAndYear[strandCode][parseInt(selectedYear)][semesterNum]);
       } else {
-        setAvailableSubjects([])
+        setAvailableSubjects([]);
       }
     } else {
-      setAvailableSubjects([])
+      setAvailableSubjects([]);
     }
-    setSelectedSubject(null)
-  }, [selectedStrand, selectedYear, activeSemesterNumber, strands])
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    
-    // Check if there are any strands available
-    if (!strands || strands.length === 0) {
-      setErrors({ strand: 'No active strands available. Please activate at least one strand first.' })
-      return
-    }
-    
-    if (isEditing) {
-      // Edit mode - use form data directly
-      if (!formData.Subject_name || !formData.Subject_code) {
-        setErrors({ Subject_name: 'Subject name and code are required' })
-        return
-      }
-    } else {
-      // Add mode - require subject selection
-      if (!selectedSubject) {
-        setErrors({ subject: 'Please select a subject' })
-        return
-      }
-    }
-
-    setProcessing(true)
-    setErrors({})
-
-    const submitData = isEditing ? {
-      Subject_name: formData.Subject_name,
-      Subject_code: formData.Subject_code,
-      Semester: activeSemesterNumber,
-      year_level: parseInt(selectedYear),
-      strand_id: parseInt(selectedStrand),
-      PREREQUISITES: formData.PREREQUISITES || null,
-      'CO-REQUISITES': formData['CO-REQUISITES'] || null,
-    } : {
-      Subject_name: selectedSubject.name,
-      Subject_code: selectedSubject.code,
-      // Removed Semester from form data - backend will use active semester automatically
-      year_level: parseInt(selectedYear),
-      strand_id: parseInt(selectedStrand),
-      PREREQUISITES: selectedSubject.prerequisites || null,
-      'CO-REQUISITES': selectedSubject.corequisites || null,
-    }
-
-    if (isEditing) {
-      router.put(`/registrar/subjects/${subject.Id}`, submitData, {
-        onSuccess: () => {
-          onClose()
-        },
-        onError: (errors) => {
-          setErrors(errors)
-          setProcessing(false)
-        },
-        onFinish: () => {
-          setProcessing(false)
-        }
-      })
-    } else {
-      router.post('/registrar/subjects', submitData, {
-        onSuccess: () => {
-          onClose()
-        },
-        onError: (errors) => {
-          setErrors(errors)
-          setProcessing(false)
-        },
-        onFinish: () => {
-          setProcessing(false)
-        }
-      })
-    }
-  }
+    setSelectedSubject(null);
+  }, [selectedStrand, selectedYear, activeSemesterNumber, strands]);
 
   const handleSubjectSelect = (e) => {
-    const subjectIndex = parseInt(e.target.value)
-    if (subjectIndex >= 0) {
-      setSelectedSubject(availableSubjects[subjectIndex])
-    } else {
-      setSelectedSubject(null)
+    const selectedIndex = e.target.value;
+    if (selectedIndex === '') {
+      setSelectedSubject(null);
+      setFormData(prev => ({
+        ...prev,
+        Subject_name: '',
+        Subject_code: ''
+      }));
+      return;
     }
-  }
+    
+    const subject = availableSubjects[selectedIndex];
+    setSelectedSubject(subject);
+    setFormData(prev => ({
+      ...prev,
+      Subject_name: subject.name,
+      Subject_code: subject.code,
+      PREREQUISITES: subject.prerequisites || '',
+      'CO-REQUISITES': subject.corequisites || ''
+    }));
+  };
+
+  const handleSemesterChange = (e) => {
+    const selectedId = e.target.value;
+    const semester = semesterOptions.find(s => s.id?.toString() === selectedId);
+    setFormData(prev => ({
+      ...prev,
+      semester_id: selectedId,
+      Semester: getSemesterNumber(semester?.semester_type)
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!selectedStrand) {
+      setErrors(prev => ({ ...prev, strand: 'The selected curriculum does not have an assigned strand.' }));
+      return;
+    }
+
+    if (!selectedYear) {
+      setErrors(prev => ({ ...prev, year_level: 'Please select a year level' }));
+      return;
+    }
+    
+    const numericCurriculumId = resolvedCurriculumId ? parseInt(resolvedCurriculumId) : null;
+
+    // Require curriculum selection when creating new subject
+    if (!isEditing && !numericCurriculumId) {
+      setErrors({ ...errors, curriculum_id: 'Please select a curriculum' });
+      return;
+    }
+
+    if (!formData.semester_id) {
+      setErrors({ ...errors, semester_id: 'Please select a semester' });
+      return;
+    }
+
+    if (isEditing) {
+      if (!numericCurriculumId) {
+        setErrors(prev => ({ ...prev, curriculum_id: 'Missing curriculum context. Please close and reopen the form.' }));
+        return;
+      }
+
+      if (!formData.Subject_name || !formData.Subject_code) {
+        setErrors({ 
+          ...errors,
+          Subject_name: !formData.Subject_name ? 'Subject name is required' : '',
+          Subject_code: !formData.Subject_code ? 'Subject code is required' : ''
+        });
+        return;
+      }
+
+      setProcessing(true);
+      setErrors({});
+
+      const submitData = {
+        Subject_name: formData.Subject_name,
+        Subject_code: formData.Subject_code,
+        Semester: formData.Semester,
+        year_level: parseInt(selectedYear),
+        strand_id: parseInt(selectedStrand),
+        semester_id: parseInt(formData.semester_id),
+        curriculum_id: numericCurriculumId,
+        PREREQUISITES: formData.PREREQUISITES,
+        'CO-REQUISITES': formData['CO-REQUISITES']
+      };
+
+      router.put(`/registrar/subjects/${subject.id}`, submitData, {
+        onSuccess: () => {
+          setProcessing(false);
+          if (onClose) onClose();
+          if (onSuccess) onSuccess();
+        },
+        onError: (err) => {
+          setErrors(err);
+          setProcessing(false);
+        }
+      });
+      return;
+    }
+
+    // multi-entry validation
+    const entryValidation = {};
+    let hasEntryErrors = false;
+    subjectEntries.forEach((entry) => {
+      const entryError = {};
+      if (!entry.Subject_name) {
+        entryError.Subject_name = 'Subject name is required';
+        hasEntryErrors = true;
+      }
+      if (!entry.Subject_code) {
+        entryError.Subject_code = 'Subject code is required';
+        hasEntryErrors = true;
+      }
+      if (Object.keys(entryError).length > 0) {
+        entryValidation[entry.id] = entryError;
+      }
+    });
+
+    if (hasEntryErrors) {
+      setEntryErrors(entryValidation);
+      return;
+    }
+
+    setProcessing(true);
+    setErrors({});
+    setEntryErrors({});
+
+    const basePayload = {
+      Semester: formData.Semester,
+      year_level: parseInt(selectedYear),
+      strand_id: parseInt(selectedStrand),
+      semester_id: parseInt(formData.semester_id),
+      curriculum_id: numericCurriculumId,
+    };
+
+    try {
+      for (const entry of subjectEntries) {
+        await submitSingleSubject(entry, basePayload);
+      }
+
+      showSuccessToast('Subjects added successfully');
+      setSubjectEntries([buildSubjectEntry()]);
+      await reloadCurrentPage();
+      if (onClose) onClose();
+      if (onSuccess) onSuccess();
+    } catch (error) {
+      if (error.type === 'validation') {
+        const formatted = formatValidationErrors(error.errors);
+        if (error.entryId) {
+          setEntryErrors(prev => ({
+            ...prev,
+            [error.entryId]: {
+              ...prev[error.entryId],
+              ...formatted
+            }
+          }));
+        } else {
+          setErrors(formatted);
+        }
+      } else {
+        setErrors({ form: error.message || 'Failed to save subjects.' });
+      }
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
-        
-        <div className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl sm:p-6">
-          <div className="absolute right-0 top-0 pr-4 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-            >
-              <span className="sr-only">Close</span>
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="sm:flex sm:items-start">
-            <div className="mt-3 text-center sm:ml-0 sm:mt-0 sm:text-left w-full">
-              <h3 className="text-base font-semibold leading-6 text-gray-900 mb-4">
-                {isEditing ? 'Edit Subject' : 'Add Subject to Curriculum'}
-              </h3>
-
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Step 1: Select Strand and Year (Semester is automatically set to active semester) */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="text-sm font-medium text-gray-900 mb-3">
-                    {isEditing ? 'Curriculum Details' : 'Step 1: Select Curriculum Details'}
-                    {activeSemester && (
-                      <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                        {activeSemester.semester_type}
-                      </span>
-                    )}
-                  </h4>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {/* Strand */}
-                    <div>
-                      <label htmlFor="strand" className="block text-sm font-medium leading-6 text-gray-900">
-                        Strand *
-                      </label>
-                      <select
-                        id="strand"
-                        value={selectedStrand}
-                        onChange={(e) => setSelectedStrand(e.target.value)}
-                        disabled={isEditing}
-                        className="mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      >
-                        <option value="">Select strand</option>
-                        {strands.map((strand) => (
-                          <option key={strand.id} value={strand.id}>
-                            {strand.Strand_code} - {strand.strand_name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Year Level */}
-                    <div>
-                      <label htmlFor="year" className="block text-sm font-medium leading-6 text-gray-900">
-                        Year Level *
-                      </label>
-                      <select
-                        id="year"
-                        value={selectedYear}
-                        onChange={(e) => setSelectedYear(e.target.value)}
-                        disabled={isEditing}
-                        className="mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      >
-                        <option value="">Select year</option>
-                        <option value="11">Grade 11</option>
-                        <option value="12">Grade 12</option>
-                      </select>
-                    </div>
-
-                  </div>
-                </div>
-
-                {/* Edit Mode: Direct Form Fields */}
-                {isEditing ? (
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">Subject Details</h4>
-                    <div className="space-y-4">
-                      <div>
-                        <label htmlFor="Subject_name" className="block text-sm font-medium leading-6 text-gray-900">
-                          Subject Name *
-                        </label>
-                        <input
-                          type="text"
-                          id="Subject_name"
-                          value={formData.Subject_name}
-                          onChange={(e) => setFormData({ ...formData, Subject_name: e.target.value })}
-                          className={`mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ${
-                            errors.Subject_name ? 'ring-red-300' : 'ring-gray-300'
-                          } focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6`}
-                        />
-                        {errors.Subject_name && (
-                          <p className="mt-1 text-sm text-red-600">{errors.Subject_name}</p>
-                        )}
-                      </div>
-                      <div>
-                        <label htmlFor="Subject_code" className="block text-sm font-medium leading-6 text-gray-900">
-                          Subject Code *
-                        </label>
-                        <input
-                          type="text"
-                          id="Subject_code"
-                          value={formData.Subject_code}
-                          onChange={(e) => setFormData({ ...formData, Subject_code: e.target.value })}
-                          className={`mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ${
-                            errors.Subject_code ? 'ring-red-300' : 'ring-gray-300'
-                          } focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6`}
-                        />
-                        {errors.Subject_code && (
-                          <p className="mt-1 text-sm text-red-600">{errors.Subject_code}</p>
-                        )}
-                      </div>
-                      <div>
-                        <label htmlFor="PREREQUISITES" className="block text-sm font-medium leading-6 text-gray-900">
-                          Prerequisites
-                        </label>
-                        <textarea
-                          id="PREREQUISITES"
-                          value={formData.PREREQUISITES}
-                          onChange={(e) => setFormData({ ...formData, PREREQUISITES: e.target.value })}
-                          rows={2}
-                          className="mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="CO-REQUISITES" className="block text-sm font-medium leading-6 text-gray-900">
-                          Co-requisites
-                        </label>
-                        <textarea
-                          id="CO-REQUISITES"
-                          value={formData['CO-REQUISITES']}
-                          onChange={(e) => setFormData({ ...formData, 'CO-REQUISITES': e.target.value })}
-                          rows={2}
-                          className="mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {/* Step 2: Select Subject */}
-                    {availableSubjects.length > 0 && (
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <h4 className="text-sm font-medium text-gray-900 mb-3">Step 2: Select Subject</h4>
-                        <div>
-                          <label htmlFor="subject" className="block text-sm font-medium leading-6 text-gray-900">
-                            Available Subjects *
-                          </label>
-                          <select
-                            id="subject"
-                            onChange={handleSubjectSelect}
-                            className={`mt-1 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ${
-                              errors.subject ? 'ring-red-300' : 'ring-gray-300'
-                            } focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6`}
-                          >
-                            <option value="">Select a subject</option>
-                            {availableSubjects.map((subject, index) => (
-                              <option key={index} value={index}>
-                                {subject.name} ({subject.code})
-                              </option>
-                            ))}
-                          </select>
-                          {errors.subject && (
-                            <p className="mt-1 text-sm text-red-600">{errors.subject}</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Step 3: Subject Details Preview */}
-                    {selectedSubject && (
-                      <div className="bg-green-50 p-4 rounded-lg">
-                        <h4 className="text-sm font-medium text-gray-900 mb-3">Step 3: Subject Details</h4>
-                        <div className="space-y-3">
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">Subject Name:</span>
-                            <span className="ml-2 text-sm text-gray-900">{selectedSubject.name}</span>
-                          </div>
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">Subject Code:</span>
-                            <span className="ml-2 text-sm text-gray-900 font-mono">{selectedSubject.code}</span>
-                          </div>
-                          {selectedSubject.prerequisites && (
-                            <div>
-                              <span className="text-sm font-medium text-gray-700">Prerequisites:</span>
-                              <div className="mt-1 p-2 bg-yellow-100 rounded text-sm text-yellow-800">
-                                {selectedSubject.prerequisites}
-                              </div>
-                            </div>
-                          )}
-                          {selectedSubject.corequisites && (
-                            <div>
-                              <span className="text-sm font-medium text-gray-700">Co-requisites:</span>
-                              <div className="mt-1 p-2 bg-blue-100 rounded text-sm text-blue-800">
-                                {selectedSubject.corequisites}
-                              </div>
-                            </div>
-                          )}
-                          {!selectedSubject.prerequisites && !selectedSubject.corequisites && (
-                            <div className="text-sm text-gray-500 italic">
-                              No prerequisites or co-requisites required
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </>
+    <div className="bg-white p-4 rounded-2xl shadow-xl w-full max-w-4xl mx-auto">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-sm font-medium text-gray-900">
+          {isEditing ? 'Edit Subject' : 'Add New Subject'}
+        </h3>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Step 1: Year Level */}
+          <div className="space-y-4">
+            <div className="border-b border-gray-200 pb-2 flex items-center justify-between">
+              <h4 className="text-sm font-medium text-gray-900">Step 1: Year Level</h4>
+              <span className="text-[11px] text-gray-500">Strand auto-selected from the curriculum.</span>
+            </div>
+            <div className="space-y-4">
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-sm text-indigo-900">
+                <p className="font-semibold">Assigned Strand</p>
+                <p>
+                  {currentStrand?.Strand_name || 'No strand assigned to this curriculum.'}
+                </p>
+                {errors.strand && (
+                  <p className="mt-1 text-xs text-red-600">{errors.strand}</p>
                 )}
+              </div>
 
-                {/* Form Actions */}
-                <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+              {/* Year Level */}
+              <div>
+                <label htmlFor="year" className="block text-xs font-medium text-gray-700 mb-0.5">
+                  Year Level <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="year"
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  disabled={isYearLocked}
+                  className={`w-full rounded-md border px-2 py-1.5 text-sm ${
+                    errors.year_level ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  } ${isYearLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                >
+                  <option value="">Select year level</option>
+                  <option value="11">Grade 11</option>
+                  <option value="12">Grade 12</option>
+                </select>
+                {errors.year_level && (
+                  <p className="mt-0.5 text-xs text-red-600">{errors.year_level}</p>
+                )}
+              </div>
+            </div>
+          </div> {/* End of Step 1 */}
+          
+          {/* Step 2: Subject Details */}
+          <div className="block">
+            <div className="bg-blue-50/80 border border-blue-100 p-4 rounded-xl h-full max-h-[70vh] overflow-y-auto pr-1">
+              <h4 className="text-sm font-medium text-gray-900 mb-3 border-b border-blue-100 pb-2">
+                {isEditing ? 'Subject Details' : 'Step 2: Subject Details'}
+              </h4>
+
+              {/* Curriculum Selector */}
+              {!isEditing && (
+                <div className="mb-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                    Curriculum <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.curriculum_id || lockedCurriculumId?.toString() || ''}
+                    onChange={(e) => setFormData({ ...formData, curriculum_id: e.target.value })}
+                    className={`w-full rounded-md border px-2 py-1.5 text-sm ${
+                      errors.curriculum_id ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    }`}
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={processing || (!isEditing && !selectedSubject) || (isEditing && (!formData.Subject_name || !formData.Subject_code))}
-                    className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {processing ? (isEditing ? 'Updating Subject...' : 'Adding Subject...') : (isEditing ? 'Update Subject' : 'Add Subject to Curriculum')}
-                  </button>
+                    <option value="">Select Curriculum</option>
+                    {curriculums
+                      .filter((curriculum) => curriculum.is_active || curriculum.id?.toString() === lockedCurriculumId?.toString())
+                      .map((curriculum) => (
+                        <option key={curriculum.id} value={curriculum.id}>
+                          {curriculum.name} ({curriculum.curriculum_code})
+                        </option>
+                      ))}
+                  </select>
+                  {lockedCurriculumId && (
+                    <p className="mt-1 text-[11px] text-gray-500">Pre-selected based on the context you opened the form from, but you can change it if needed.</p>
+                  )}
+                  {errors.curriculum_id && (
+                    <p className="mt-1 text-xs text-red-600">{errors.curriculum_id}</p>
+                  )}
                 </div>
-              </form>
+              )}
+
+              {/* Semester Selector */}
+              <div className="mb-2">
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                  Semester <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.semester_id}
+                  onChange={handleSemesterChange}
+                  className={`w-full rounded-md border px-2 py-1.5 text-sm ${
+                    errors.semester_id ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  } ${isSemesterLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                  disabled={isSemesterLocked}
+                >
+                  <option value="">Select Semester</option>
+                  {semesterOptions.map((semester) => (
+                    <option key={semester.id} value={semester.id}>
+                      {semester.semester_type || `Semester ${getSemesterNumber(semester.semester_type)}`}
+                      {semester.is_active ? ' (Active)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {errors.semester_id && (
+                  <p className="mt-1 text-xs text-red-600">{errors.semester_id}</p>
+                )}
+              </div>
+
+              {isEditing ? (
+                <>
+                  <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                      Subject Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.Subject_name}
+                      onChange={(e) => setFormData({ ...formData, Subject_name: e.target.value })}
+                      className={`w-full rounded-md border px-2 py-1.5 text-sm ${
+                        errors.Subject_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter subject name"
+                      required
+                    />
+                    {errors.Subject_name && (
+                      <p className="mt-1 text-xs text-red-600">{errors.Subject_name}</p>
+                    )}
+                  </div>
+
+                  <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                      Subject Code <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.Subject_code}
+                      onChange={(e) => setFormData({ ...formData, Subject_code: e.target.value })}
+                      className={`w-full rounded-md border px-2 py-1.5 text-sm ${
+                        errors.Subject_code ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter subject code"
+                      required
+                    />
+                  </div>
+
+                  <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                      Prerequisites
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.PREREQUISITES}
+                      onChange={(e) => setFormData({ ...formData, PREREQUISITES: e.target.value })}
+                      className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                      placeholder="Enter prerequisites (comma separated)"
+                    />
+                  </div>
+
+                  <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                      Co-requisites
+                    </label>
+                    <input
+                      type="text"
+                      value={formData['CO-REQUISITES']}
+                      onChange={(e) => setFormData({ ...formData, 'CO-REQUISITES': e.target.value })}
+                      className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                      placeholder="Enter co-requisites (comma separated)"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Subject Entries</p>
+                      <p className="text-[11px] text-gray-500">Use the + button to add multiple subjects. Each one will be saved sequentially.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addSubjectEntry}
+                      className="inline-flex items-center rounded-full border border-indigo-500 text-indigo-600 px-3 py-1 text-xs font-semibold hover:bg-indigo-50"
+                      disabled={processing}
+                    >
+                      <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Subject
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {subjectEntries.map((entry, index) => (
+                      <div key={entry.id} className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                        <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+                          <div className="text-sm font-semibold text-gray-900">Subject #{index + 1}</div>
+                          {subjectEntries.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeSubjectEntry(entry.id)}
+                              className="inline-flex items-center text-xs font-semibold text-red-600 hover:text-red-800"
+                              disabled={processing}
+                            >
+                              <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 6L6 18M6 6l12 12" />
+                              </svg>
+                              Remove
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="p-3 space-y-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                                Subject Name <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={entry.Subject_name}
+                                onChange={(e) => updateSubjectEntry(entry.id, 'Subject_name', e.target.value)}
+                                className={`w-full rounded-md border px-2 py-1.5 text-sm ${
+                                  entryErrors[entry.id]?.Subject_name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                                }`}
+                                placeholder="Enter subject name"
+                                disabled={processing}
+                              />
+                              {entryErrors[entry.id]?.Subject_name && (
+                                <p className="mt-1 text-xs text-red-600">{entryErrors[entry.id]?.Subject_name}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                                Subject Code <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={entry.Subject_code}
+                                onChange={(e) => updateSubjectEntry(entry.id, 'Subject_code', e.target.value)}
+                                className={`w-full rounded-md border px-2 py-1.5 text-sm ${
+                                  entryErrors[entry.id]?.Subject_code ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                                }`}
+                                placeholder="Enter subject code"
+                                disabled={processing}
+                              />
+                              {entryErrors[entry.id]?.Subject_code && (
+                                <p className="mt-1 text-xs text-red-600">{entryErrors[entry.id]?.Subject_code}</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                                Prerequisites
+                              </label>
+                              <input
+                                type="text"
+                                value={entry.PREREQUISITES}
+                                onChange={(e) => updateSubjectEntry(entry.id, 'PREREQUISITES', e.target.value)}
+                                className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                                placeholder="Enter prerequisites (comma separated)"
+                                disabled={processing}
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                                Co-requisites
+                              </label>
+                              <input
+                                type="text"
+                                value={entry.corequisites}
+                                onChange={(e) => updateSubjectEntry(entry.id, 'corequisites', e.target.value)}
+                                className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                                placeholder="Enter co-requisites (comma separated)"
+                                disabled={processing}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
-      </div>
+
+        <div className="flex justify-end space-x-2 pt-4 mt-4 border-t border-gray-200">
+          <button
+            type="submit"
+            disabled={processing}
+            className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {processing ? 'Saving...' : isEditing ? 'Update' : 'Add'}
+          </button>
+        </div>
+      </form>
     </div>
-  )
+  );
 }

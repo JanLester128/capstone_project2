@@ -156,8 +156,8 @@
 
         .details-grid {
             display: grid;
-            grid-template-columns: repeat(2, minmax(200px, 1fr));
-            gap: 12px 32px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px 28px;
             font-size: 13px;
         }
 
@@ -168,6 +168,28 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
             font-size: 11px;
+        }
+
+        .details-grid .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .field-select,
+        .field-input {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 13px;
+            background: #fff;
+        }
+
+        .field-helper {
+            margin: 2px 0 0;
+            font-size: 12px;
+            color: #6b7280;
         }
 
         table {
@@ -415,27 +437,27 @@
 
             <div class="info-block">
                 <div class="info-heading">Student Information</div>
-                <div class="details-grid">
-                    <div>
+                <div class="details-grid" style="display:flex;flex-wrap:wrap;gap:18px 28px;">
+                    <div class="field" style="flex:1 1 260px;">
                         <span>Name</span>
                         {{ $student['name'] ?? '________________________' }}
                     </div>
-                    <div>
+                    <div class="field" style="flex:1 1 160px;">
                         <span>Date Enrolled</span>
                         {{ $dateEnrolled ?? 'Pending' }}
                     </div>
-                    <div>
+                    <div class="field" style="flex:1 1 180px;">
                         <span>LRN</span>
                         {{ $student['lrn'] ?? '____________' }}
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:6px;">
+                    <div class="field" style="flex:1 1 160px;">
                         <span>Year Level</span>
                         @if($showEnrollmentForm ?? false)
                             <select
                                 id="gradeLevelSelect"
                                 name="grade_level"
                                 form="assignment-form"
-                                style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:8px 10px;font-size:13px;"
+                                class="field-select"
                                 required
                             >
                                 <option value="" disabled {{ $selectedGradeLevel ? '' : 'selected' }}>Select year level...</option>
@@ -446,14 +468,14 @@
                             {{ $student['grade_level'] ? 'Grade ' . $student['grade_level'] : '____________' }}
                         @endif
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:6px;">
+                    <div class="field" style="flex:1 1 220px;">
                         <span>Strand</span>
                         @if($showEnrollmentForm ?? false)
                             <select
                                 id="strandSelect"
                                 name="assigned_strand_id"
                                 form="assignment-form"
-                                style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:8px 10px;font-size:13px;"
+                                class="field-select"
                                 required
                             >
                                 <option value="" disabled {{ $selectedStrandId ? '' : 'selected' }}>Select a strand...</option>
@@ -467,14 +489,34 @@
                             {{ $student['strand_code'] ? ($student['strand_code'] . ' - ') : '' }}{{ $student['strand'] ?? '____________' }}
                         @endif
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:6px;">
+                    @if($showEnrollmentForm ?? false)
+                        <div class="field">
+                            <span>Curriculum</span>
+                            <select
+                                id="curriculumSelect"
+                                name="curriculum_id"
+                                form="assignment-form"
+                                class="field-select"
+                                required
+                            >
+                                <option value="" disabled {{ $selectedCurriculumId ? '' : 'selected' }}>Select a curriculum...</option>
+                                @foreach($curriculums as $curriculum)
+                                    <option value="{{ $curriculum->id }}" data-strand="{{ $curriculum->strand_id }}" {{ (int)$selectedCurriculumId === (int)$curriculum->id ? 'selected' : '' }}>
+                                        {{ $curriculum->name }} ({{ $curriculum->curriculum_code }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            <p id="curriculumHelper" class="field-helper">Curriculums filtered by the selected strand.</p>
+                        </div>
+                    @endif
+                    <div class="field">
                         <span>Section</span>
                         @if($showEnrollmentForm ?? false)
                             <select
                                 id="sectionSelect"
                                 name="assigned_section_id"
                                 form="assignment-form"
-                                style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:8px 10px;font-size:13px;"
+                                class="field-select"
                                 required
                             >
                                 <option value="" disabled {{ $selectedSectionId ? '' : 'selected' }}>Select a section...</option>
@@ -489,7 +531,7 @@
                                     </option>
                                 @endforeach
                             </select>
-                            <p id="sectionHelper" style="margin:4px 0 0;font-size:12px;color:#6b7280;">Select a strand to filter available sections.</p>
+                            <p id="sectionHelper" class="field-helper">Select a strand to filter available sections.</p>
                         @else
                             {{ $student['section'] ?? '____________' }}
                         @endif
@@ -646,9 +688,11 @@
             document.addEventListener('DOMContentLoaded', function () {
                 const strandSelect = document.getElementById('strandSelect');
                 const sectionSelect = document.getElementById('sectionSelect');
+                const curriculumSelect = document.getElementById('curriculumSelect');
                 const gradeLevelSelect = document.getElementById('gradeLevelSelect');
                 const headerGradeLevelSelect = document.getElementById('headerGradeLevelSelect');
                 const helper = document.getElementById('sectionHelper');
+                const curriculumHelper = document.getElementById('curriculumHelper');
                 const headerSectionDisplay = document.getElementById('headerSectionDisplay');
                 const headerStrandDisplay = document.getElementById('headerStrandDisplay');
                 const adviserDisplay = document.getElementById('adviserDisplay');
@@ -661,6 +705,7 @@
                 const config = corWrapper ? JSON.parse(corWrapper.getAttribute('data-cor-config') || '{}') : {};
 
                 const allSectionOptions = Array.from(sectionSelect.options);
+                const allCurriculumOptions = curriculumSelect ? Array.from(curriculumSelect.options) : [];
 
                 if (gradeLevelSelect && headerGradeLevelSelect) {
                     const syncGradeLevel = (target, source) => {
@@ -689,6 +734,44 @@
                     }
                     const currentSection = sectionSelect.options[sectionSelect.selectedIndex];
                     headerSectionDisplay.textContent = currentSection && currentSection.value ? currentSection.textContent : '________';
+                };
+
+                const filterCurriculums = () => {
+                    if (!curriculumSelect) return;
+                    const selectedStrand = strandSelect.value;
+                    curriculumSelect.innerHTML = '';
+
+                    const placeholder = document.createElement('option');
+                    placeholder.value = '';
+                    placeholder.disabled = true;
+                    placeholder.textContent = 'Select a curriculum...';
+                    placeholder.selected = !curriculumSelect.dataset.selected;
+                    curriculumSelect.appendChild(placeholder);
+
+                    let hasVisible = false;
+
+                    allCurriculumOptions.forEach((option) => {
+                        if (!option.value) {
+                            return;
+                        }
+                        const strandMatch = !option.dataset.strand || option.dataset.strand === selectedStrand;
+                        if (strandMatch) {
+                            const newOption = option.cloneNode(true);
+                            if (curriculumSelect.dataset.selected && curriculumSelect.dataset.selected === option.value) {
+                                newOption.selected = true;
+                                placeholder.selected = false;
+                            }
+                            curriculumSelect.appendChild(newOption);
+                            hasVisible = true;
+                        }
+                    });
+
+                    curriculumSelect.disabled = !hasVisible;
+                    if (curriculumHelper) {
+                        curriculumHelper.textContent = hasVisible
+                            ? 'Pick the curriculum aligned with the selected strand.'
+                            : 'No curriculums available for the selected strand.';
+                    }
                 };
 
                 const filterSections = () => {
@@ -789,9 +872,14 @@
                 sectionSelect.dataset.selected = config.selectedSectionId ? String(config.selectedSectionId) : '';
 
                 strandSelect.addEventListener('change', () => {
-                    sectionSelect.dataset.selected = '';
+                    if (curriculumSelect) {
+                        curriculumSelect.dataset.selected = curriculumSelect.value;
+                    }
+                    sectionSelect.dataset.selected = sectionSelect.value;
                     filterSections();
+                    filterCurriculums();
                     setHeaderSectionFromCurrent();
+                    updateHeaderStrand();
                 });
 
                 setHeaderSectionFromCurrent();
