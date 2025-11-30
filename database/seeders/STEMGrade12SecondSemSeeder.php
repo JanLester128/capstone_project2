@@ -95,7 +95,8 @@ class STEMGrade12SecondSemSeeder extends Seeder
                 'Subject_code' => 'CAPSTONE',
                 'Semester' => '2',
                 'year_level' => 12,
-                'strand_id' => $stem->id,                'PREREQUISITES' => null,
+                'strand_id' => $stem->id,                
+                'PREREQUISITES' => null,
                 'CO-REQUISITES' => null,
             ],
         ];

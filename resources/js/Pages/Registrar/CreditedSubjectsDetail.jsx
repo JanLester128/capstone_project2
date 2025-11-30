@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Head, useForm, Link } from '@inertiajs/react';
 import RegistrarLayout from './Layout';
+import SubjectSearchInput from '@/Components/SubjectSearchInput';
 
 export default function CreditedSubjectsDetail({ enrollment = null, subjects = [] }) {
 	const [showAddForm, setShowAddForm] = useState(false);
@@ -180,21 +181,13 @@ export default function CreditedSubjectsDetail({ enrollment = null, subjects = [
 						{showAddForm && (
 							<form onSubmit={createCredit} className="p-4 border-b border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50">
 								<div>
-									<label className="block text-xs font-medium text-gray-700 mb-1">Subject</label>
-									<select
+									<SubjectSearchInput
+										subjects={subjects}
 										value={data.subject_id}
-										onChange={(e) => { setData('subject_id', e.target.value); setSelectedSubjectId(e.target.value) }}
-										className="w-full border rounded px-3 py-2 text-sm"
-										required
-									>
-										<option value="">Select subject</option>
-										{subjects.map((s) => (
-											<option key={s.Id} value={s.Id}>
-												{s.Subject_name} ({s.Subject_code})
-											</option>
-										))}
-									</select>
-									{errors.subject_id && <p className="text-xs text-red-600 mt-1">{errors.subject_id}</p>}
+										onChange={(value) => { setData('subject_id', value); setSelectedSubjectId(value); }}
+										label="Subject"
+										error={errors.subject_id}
+									/>
 								</div>
 								<div>
 									<label className="block text-xs font-medium text-gray-700 mb-1">
