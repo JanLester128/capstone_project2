@@ -115,7 +115,7 @@ class StudentController extends Controller
 
                     // Append credited grades for the active term so they appear in the schedule list (with grade info)
                     $semesterCode = $this->mapSemesterToCode($existingEnrollment->semester?->semester_type);
-                    $creditedGrades = Grade::with('subject')
+                    $creditedGrades = Grade::with(['subject', 'subject.semester'])
                         ->where('student_personal_info_id', $existingEnrollment->student_personal_info_id)
                         ->where('status', Grade::STATUS_APPROVED)
                         ->where('is_credited', true)
@@ -126,7 +126,31 @@ class StudentController extends Controller
                         ->get();
 
                     if ($creditedGrades->isNotEmpty()) {
-                        $creditedScheduleEntries = $creditedGrades->map(function (Grade $grade) {
+                        $creditedScheduleEntries = $creditedGrades
+                            ->filter(function (Grade $grade) use ($semesterCode) {
+                                return $this->determineSubjectSemesterCode($grade) === $semesterCode;
+                            })
+                            ->map(function (Grade $grade) {
+                                $subjectSemesterCode = $this->determineSubjectSemesterCode($grade);
+
+                                [$quarter1Label, $quarter2Label] = match ($subjectSemesterCode) {
+                                    '2nd' => ['Q3', 'Q4'],
+                                    'Summer' => ['Summer', null],
+                                    default => ['Q1', 'Q2'],
+                                };
+
+                                [$quarter1Value, $quarter2Value] = match ($subjectSemesterCode) {
+                                    '2nd' => [
+                                        $grade->third_quarter ?? $grade->first_quarter,
+                                        $grade->fourth_quarter ?? $grade->second_quarter,
+                                    ],
+                                    'Summer' => [$grade->summer_grade, null],
+                                    default => [
+                                        $grade->first_quarter ?? $grade->third_quarter,
+                                        $grade->second_quarter ?? $grade->fourth_quarter,
+                                    ],
+                                };
+
                             $subjectName = $grade->subject_name_snapshot
                                 ?? $grade->subject?->Subject_name
                                 ?? 'Credited Subject';
@@ -144,8 +168,11 @@ class StudentController extends Controller
                                 'start_time' => null,
                                 'end_time' => null,
                                 'is_credited' => true,
-                                'quarter1' => $grade->first_quarter,
-                                'quarter2' => $grade->second_quarter,
+                                'semester_code' => $subjectSemesterCode,
+                                'quarter1_label' => $quarter1Label,
+                                'quarter2_label' => $quarter2Label,
+                                'quarter1' => $quarter1Value,
+                                'quarter2' => $quarter2Value,
                                 'final_grade' => $grade->semester_grade,
                                 'remarks' => $grade->remarks,
                                 'previous_school' => $grade->notes === 'Credited Subject' ? 'Credited' : null,
@@ -1632,6 +1659,19 @@ class StudentController extends Controller
             ])
             ->values()
             ->all();
+    }
+
+    private function determineSubjectSemesterCode(Grade $grade): string
+    {
+        $subjectSemesterLabel = $grade->subject?->semester?->semester_type
+            ?? $grade->subject?->Semester
+            ?? $grade->semester_label;
+
+        if ($subjectSemesterLabel) {
+            return $this->mapSemesterToCode($subjectSemesterLabel);
+        }
+
+        return $this->mapSemesterToCode($grade->semester);
     }
 
     /**

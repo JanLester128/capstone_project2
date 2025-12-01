@@ -127,8 +127,14 @@ export default function Schedule({ schedule = [], currentEnrollment = null, enro
                               </div>
                               {item.is_credited && (
                                 <div className="mt-1 text-xs text-gray-600 space-x-3">
-                                  <span>Q1: {formatGradeValue(item.quarter1)}</span>
-                                  <span>Q2: {formatGradeValue(item.quarter2)}</span>
+                                  <span>
+                                    {(item.quarter1_label || 'Q1')}: {formatGradeValue(item.quarter1)}
+                                  </span>
+                                  {item.quarter2_label && (
+                                    <span>
+                                      {item.quarter2_label}: {formatGradeValue(item.quarter2)}
+                                    </span>
+                                  )}
                                   <span className="font-semibold text-indigo-700">Final: {formatGradeValue(item.final_grade)}</span>
                                   {item.remarks && (
                                     <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
